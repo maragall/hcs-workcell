@@ -242,11 +242,10 @@
     "settle_s": 1.0,
     "ext_axis": {
       "index": 1,
-      "zero_reading": null,
+      "zero_reading": 89.808,
       "direction": 1,
       "speed": 0.02,
-      "tolerance_deg": 0.5,
-      "_todo": "zero_reading = axis value when the stage is parallel to x (set by run.py polar-zero)"
+      "tolerance_deg": 0.5
     },
     "do": {
       "rotate_90": "POLAR_ROT",
