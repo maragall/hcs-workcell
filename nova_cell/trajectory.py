@@ -60,9 +60,15 @@ def _trim_static(tr: Trace, eps_deg: float = 0.3) -> Trace:
     return Trace(tr.name, tr.joints[a:b], tr.poses[a:b], tr.t[a:b])
 
 
-def _resample(arr: np.ndarray, n: int) -> np.ndarray:
+def _arc(arr: np.ndarray) -> np.ndarray:
     seg = np.linalg.norm(np.diff(arr, axis=0), axis=1)
-    s = np.r_[0, np.cumsum(seg)]
+    return np.r_[0, np.cumsum(seg)]
+
+
+def _resample(arr: np.ndarray, n: int, s: np.ndarray = None) -> np.ndarray:
+    """Resample `arr` at n points evenly spaced along the arc length `s` (defaults to arr's own arc length).
+    Passing the joints' arc length for the poses keeps joint and pose samples aligned in time."""
+    s = _arc(arr) if s is None else s
     if s[-1] == 0:
         return np.repeat(arr[:1], n, axis=0)
     target = np.linspace(0, s[-1], n)
@@ -86,9 +92,10 @@ def normalise(traces: List[Trace], n_samples: int = 200, max_points: int = 15, m
     Returns {"joints": [...], "poses": [...], "spread_deg": per-sample max deviation between demos}.
     """
     trimmed = [_trim_static(t) for t in traces]
-    J = np.stack([_resample(np.asarray(t.joints)[:, :4], n_samples) for t in trimmed])
-    E = np.stack([_resample(np.asarray(t.joints)[:, 4:], n_samples) for t in trimmed]).mean(axis=0)
-    P = np.stack([_resample(np.asarray(t.poses), n_samples) for t in trimmed])
+    arcs = [_arc(np.asarray(t.joints)[:, :4]) for t in trimmed]
+    J = np.stack([_resample(np.asarray(t.joints)[:, :4], n_samples, a) for t, a in zip(trimmed, arcs)])
+    E = np.stack([_resample(np.asarray(t.joints)[:, 4:], n_samples, a) for t, a in zip(trimmed, arcs)]).mean(axis=0)
+    P = np.stack([_resample(np.asarray(t.poses), n_samples, a) for t, a in zip(trimmed, arcs)])
     spread = float(np.abs(J - J.mean(axis=0)).max()) if len(traces) > 1 else 0.0
     j_mean = _smooth(J.mean(axis=0))
     p_mean = _smooth(P.mean(axis=0))

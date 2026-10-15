@@ -126,7 +126,7 @@ class Cycle:
             ext = self.robot.joints()[4:]
             t0 = time.time()
             try:
-                self.robot.move_abs_joints(list(j[:4]) + list(ext))     # external axes are never driven here
+                self.robot.move_abs_joints_stepped(list(j[:4]) + list(ext))     # external axes are never driven here
             except MotionRefused as e:
                 self._fault(label, "motion_refused", str(e))
                 raise StopSafe(f"{label}: {e}")

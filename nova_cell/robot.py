@@ -47,6 +47,7 @@ class Robot(Protocol):
     def move_linear(self, pose: List[float]) -> None: ...
     def move_joint(self, pose: List[float]) -> None: ...
     def move_abs_joints(self, joints: List[float]) -> None: ...
+    def move_abs_joints_stepped(self, joints: List[float], max_step: float = 3.0) -> None: ...
     def jaw_to(self, value: float) -> None: ...
     def ext_axis(self, index: int) -> float: ...
     def ext_axis_to(self, index: int, value: float) -> None: ...
@@ -118,10 +119,29 @@ class VendorRobot:
         if not self._r.MoveJointAsync(*[float(v) for v in p], self._speed):
             raise MotionRefused(f"joint move refused to {p}")
 
-    def move_abs_joints(self, j):
-        arr = self._Array[self._Double]([float(v) for v in j])
-        if not self._r.MoveAbsJointAsync(arr, self._speed):
-            raise MotionRefused(f"abs joint move refused to {j}")
+    def move_abs_joints(self, j, tol: float = 0.3, timeout: float = 120.0):
+        """The SDK's own completion check is unreliable (returns False on moves that complete), so completion is
+        verified here by reading the joints. Sub-stepped by the caller so each call stays inside the SDK window."""
+        target = [float(v) for v in j[:4]]
+        arr = self._Array[self._Double](target + [float(v) for v in self.joints()[4:]])
+        ok = self._r.MoveAbsJointAsync(arr, self._speed)
+        t0 = time.time()
+        while time.time() - t0 < timeout:
+            now = self.joints()[:4]
+            if max(abs(a - b) for a, b in zip(now, target)) <= tol and not self.state().moving:
+                return
+            time.sleep(0.1)
+            if not ok and time.time() - t0 > 3.0 and not self.state().moving:
+                break
+        now = self.joints()[:4]
+        raise MotionRefused(f"abs joint move did not reach {[round(v, 2) for v in target]}; at {[round(v, 2) for v in now]}")
+
+    def move_abs_joints_stepped(self, j, max_step: float = 3.0):
+        start = self.joints()[:4]
+        target = [float(v) for v in j[:4]]
+        n = max(1, int(max(abs(t - s) for s, t in zip(start, target)) / max_step + 0.999))
+        for k in range(1, n + 1):
+            self.move_abs_joints([s + (t - s) * k / n for s, t in zip(start, target)])
 
     def jaw_to(self, value: float):
         self.ext_axis_to(self.grip_axis, value)
@@ -219,6 +239,9 @@ class SimRobot:
 
     def move_joint(self, p):
         self._motion(p, "J")
+
+    def move_abs_joints_stepped(self, j, max_step: float = 3.0):
+        self.move_abs_joints(j)
 
     def move_abs_joints(self, j):
         if not self._enabled:

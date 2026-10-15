@@ -282,11 +282,8 @@ def cmd_replay(args):
         safety.check_target(p, f"{args.name} waypoint {i}")
         if args.step and input(f"  waypoint {i}/{len(pts)} -> {[round(v, 1) for v in p[:3]]}  Enter to go, q to quit: ").strip().lower() == "q":
             break
-        ext = robot.joints()[4:]
         t0 = time.time()
-        robot.move_abs_joints(list(j[:4]) + list(ext))
-        while robot.state().moving and time.time() - t0 < 120:
-            time.sleep(0.1)
+        robot.move_abs_joints_stepped(list(j[:4]))
         after = robot.pose()
         dev = max(abs(after[k] - p[k]) for k in range(3))
         print(f"  {i:2d}/{len(pts)} pose {[round(v, 1) for v in after[:3]]} dev {dev:.1f} mm  {time.time() - t0:.1f}s")
@@ -294,6 +291,88 @@ def cmd_replay(args):
             print(f"  stopped: deviation {dev:.1f} mm exceeds {args.max_dev}")
             break
     robot.disconnect()
+
+
+def _settle(robot, target, label, max_dev, timeout=120):
+    t0 = time.time()
+    while robot.state().moving and time.time() - t0 < timeout:
+        time.sleep(0.1)
+    after = robot.pose()
+    dev = max(abs(after[k] - target[k]) for k in range(3))
+    print(f"  {label}: at {[round(v, 1) for v in after[:3]]} yaw {after[5]:.1f}  dev {dev:.1f} mm  {time.time() - t0:.1f}s")
+    if dev > max_dev:
+        raise SystemExit(f"STOP: {label} ended {dev:.1f} mm from target (limit {max_dev}); possible contact")
+    return after
+
+
+def _confirm(text):
+    if input(f"  >>> {text}  [y = go / anything else = stop here]: ").strip().lower() != "y":
+        raise SystemExit("stopped by operator; arm holds position")
+
+
+def cmd_place_test(args):
+    """Supervised first placement, one stage per call so the operator checks between stages:
+    stage 1 route (stage -> in front of hotel), 2 pre-approach, 3 slide in, 4 lower into the slot."""
+    from nova_cell.cycle import Cycle
+    from nova_cell.safety import Safety
+    layout = load_layout()
+    tele = Telemetry(os.path.join(RUNS, "teach"))
+    robot, st = connect_robot_readonly(layout, tele.log)
+    if st.drag:
+        robot._r.EnableDragModeAsync(False)
+        time.sleep(1.5)
+        print("drag off")
+    if not robot.enable():
+        sys.exit("robot could not be enabled")
+    safety = Safety(layout, "supervised")
+    geom = Cycle.__new__(Cycle)
+    geom.L = layout
+    slot_pose = Cycle.hotel_slot_pose(geom, args.slot)
+    h = layout["fixtures"]["hotel"]
+    ax, mm, lift = h["approach"]["axis"], h["approach"]["mm"], h["lift_mm"]
+    approach = [slot_pose[0] + ax[0] * mm, slot_pose[1] + ax[1] * mm, slot_pose[2] + lift] + list(slot_pose[3:])
+    carry = [slot_pose[0], slot_pose[1], slot_pose[2] + lift] + list(slot_pose[3:])
+    wp = layout["trajectories"]["polar_to_hotel"]
+    pts = list(zip(wp["joints"], wp["poses"]))
+    for i, (j, pp) in enumerate(pts, 1):
+        safety.check_target(pp, f"route waypoint {i}")
+    for lbl, pp in (("pre-approach", approach), ("carry", carry), ("seat", slot_pose)):
+        safety.check_target(pp, lbl, allow_floor_regions=("hotel",))
+
+    def expect_near(pose, tol, what):
+        here = robot.pose()
+        gap = max(abs(here[i] - pose[i]) for i in range(3))
+        print(f"arm {[round(v, 1) for v in here[:3]]} yaw {here[5]:.1f} jaw {robot.jaw():.2f}; {what} gap {gap:.1f} mm")
+        if gap > tol:
+            robot.disconnect()
+            sys.exit(f"arm is {gap:.0f} mm from the {what}; not running this stage")
+
+    robot.set_speed(args.speed)
+    try:
+        if args.stage == 1:
+            expect_near(pts[0][1], args.start_tolerance, "route start")
+            for i, (j, pp) in enumerate(pts, 1):
+                robot.move_abs_joints_stepped(list(j[:4]))
+                _settle(robot, pp, f"waypoint {i}/{len(pts)}", args.max_dev)
+            print(f"stage 1 done. Next: stage 2 = joint move to pre-approach {[round(v, 1) for v in approach[:3]]} "
+                  f"with the claw turning to yaw {approach[5]:.1f}")
+        elif args.stage == 2:
+            expect_near(pts[-1][1], 20.0, "route end")
+            robot.move_joint(approach)
+            _settle(robot, approach, "pre-approach", 2.0)
+            print("stage 2 done. Check the alignment with the slot by eye. Next: stage 3 = slide in +x at carry height")
+        elif args.stage == 3:
+            expect_near(approach, 5.0, "pre-approach")
+            robot.move_linear(carry)
+            _settle(robot, carry, "slide in", 2.0)
+            print(f"stage 3 done. Next: stage 4 = lower {lift:.0f} mm into the slot")
+        elif args.stage == 4:
+            expect_near(carry, 5.0, "carry point")
+            robot.move_linear(slot_pose)
+            _settle(robot, slot_pose, "seat", 2.0)
+            print(f"plate in {args.slot}; fingers still closed at jaw {robot.jaw():.2f}. Arm holds.")
+    finally:
+        robot.disconnect()
 
 
 def cmd_measure_grip(args):
@@ -475,6 +554,10 @@ def main():
     p.add_argument("--speed", type=float, default=0.01); p.add_argument("--step", action="store_true")
     p.add_argument("--start-tolerance", type=float, default=15.0); p.add_argument("--max-dev", type=float, default=5.0)
     p.set_defaults(fn=cmd_replay)
+    p = sub.add_parser("place-test"); p.add_argument("slot", default="A1", nargs="?")
+    p.add_argument("--stage", type=int, choices=(1, 2, 3, 4), required=True)
+    p.add_argument("--speed", type=float, default=0.01); p.add_argument("--max-dev", type=float, default=5.0)
+    p.add_argument("--start-tolerance", type=float, default=40.0); p.set_defaults(fn=cmd_place_test)
     p = sub.add_parser("measure-grip"); p.add_argument("grip", choices=("short_edges", "long_edges"))
     p.add_argument("--step", type=float, default=0.25); p.add_argument("--pause", type=float, default=0.3)
     p.add_argument("--backoff", type=float, default=0.1); p.set_defaults(fn=cmd_measure_grip)
