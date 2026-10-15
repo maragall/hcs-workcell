@@ -1,6 +1,7 @@
 # STATUS 2026-10-15 02:00 (previous entries below)
 
 ## Tonight
+- 02:25 FIRST FULL CYCLE through the real cycle code: microscope -> stage -> rotate -> hotel A1 -> back -> microscope. 331 s. Two safe stops on the way, both correct: a 1.5 mm demo-pose mismatch (tolerance now 6 mm on waypoints, joints strict) and a real collision stop when the hotel pick slid in at plate height (pick now mirrors the place). Matrix run A3..C9 started 02:27 with gates and vision correction off.
 - Taught: microscope seat+hover, rotating-stage seat (0 and -90) + hover, A1 corrected +2 mm x.
 - Rotating stage = robot external axis 2; zero reference 89.808; driven and verified by readback.
 - Jaw scale resolved: value = gap; long-edge 2.84/open 6.0, short-edge 24.0/open 26.
