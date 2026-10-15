@@ -111,13 +111,27 @@ class VendorRobot:
     def jaw(self):
         return float(list(self._r.GetCurExtJointAsync())[self.grip_axis])
 
+    def _verify_pose(self, p, ok: bool, kind: str, tol: float = 1.0, timeout: float = 60.0):
+        """The SDK's completion flag also compares the gripper axis to 0.02 units, so it reports False whenever a
+        plate is held. Completion is verified here from the pose instead."""
+        t0 = time.time()
+        while time.time() - t0 < timeout:
+            now = self.pose()
+            if max(abs(now[i] - float(p[i])) for i in range(3)) <= tol and not self.state().moving:
+                return
+            time.sleep(0.1)
+            if not ok and time.time() - t0 > 2.0 and not self.state().moving:
+                break
+        now = self.pose()
+        raise MotionRefused(f"{kind} move did not reach {[round(float(v), 1) for v in p[:3]]}; at {[round(v, 1) for v in now[:3]]}")
+
     def move_linear(self, p):
-        if not self._r.MoveLinearAsync(*[float(v) for v in p], self._speed):
-            raise MotionRefused(f"linear move refused to {p}")
+        ok = self._r.MoveLinearAsync(*[float(v) for v in p], self._speed)
+        self._verify_pose(p, ok, "linear")
 
     def move_joint(self, p):
-        if not self._r.MoveJointAsync(*[float(v) for v in p], self._speed):
-            raise MotionRefused(f"joint move refused to {p}")
+        ok = self._r.MoveJointAsync(*[float(v) for v in p], self._speed)
+        self._verify_pose(p, ok, "joint")
 
     def move_abs_joints(self, j, tol: float = 0.3, timeout: float = 120.0):
         """The SDK's own completion check is unreliable (returns False on moves that complete), so completion is
