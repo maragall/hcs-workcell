@@ -47,7 +47,7 @@ class Robot(Protocol):
     def move_linear(self, pose: List[float]) -> None: ...
     def move_joint(self, pose: List[float]) -> None: ...
     def move_abs_joints(self, joints: List[float]) -> None: ...
-    def move_abs_joints_stepped(self, joints: List[float], max_step: float = 3.0) -> None: ...
+    def move_abs_joints_stepped(self, joints: List[float], max_step: float = 8.0) -> None: ...
     def jaw_to(self, value: float) -> None: ...
     def ext_axis(self, index: int) -> float: ...
     def ext_axis_to(self, index: int, value: float) -> None: ...
@@ -136,7 +136,7 @@ class VendorRobot:
         now = self.joints()[:4]
         raise MotionRefused(f"abs joint move did not reach {[round(v, 2) for v in target]}; at {[round(v, 2) for v in now]}")
 
-    def move_abs_joints_stepped(self, j, max_step: float = 3.0):
+    def move_abs_joints_stepped(self, j, max_step: float = 8.0):
         start = self.joints()[:4]
         target = [float(v) for v in j[:4]]
         n = max(1, int(max(abs(t - s) for s, t in zip(start, target)) / max_step + 0.999))
@@ -240,7 +240,7 @@ class SimRobot:
     def move_joint(self, p):
         self._motion(p, "J")
 
-    def move_abs_joints_stepped(self, j, max_step: float = 3.0):
+    def move_abs_joints_stepped(self, j, max_step: float = 8.0):
         self.move_abs_joints(j)
 
     def move_abs_joints(self, j):

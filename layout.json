@@ -45,9 +45,9 @@
   },
   "speeds": {
     "supervised": {
-      "travel": 0.05,
-      "approach": 0.02,
-      "contact": 0.01,
+      "travel": 0.2,
+      "approach": 0.1,
+      "contact": 0.05,
       "jaw_step": 0.5,
       "jaw_pause": 0.15
     },
