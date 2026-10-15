@@ -406,8 +406,8 @@ class Cycle:
         self._health()
         self._move("J", approach, f"{step} approach", prof.approach)
         self._jaw_open("long_edges")
-        self._move("L", align, f"{step} align", prof.approach)
-        self._move("L", p, f"{step} slide in", prof.contact)
+        self._move("L", carry, f"{step} slide in", prof.contact)       # same path as the place, reversed
+        self._move("L", p, f"{step} lower onto plate", prof.contact)
         jaw = self._jaw_close("long_edges")
         err = self.checks.grasp_ok(jaw, "long_edges")
         if err:
@@ -489,6 +489,8 @@ class Cycle:
         s = self.store.s
         if resume and not s.step_done and s.plate_at == "gripper" and s.step.startswith("place:"):
             return                                   # a carry was interrupted on a route; continue that step
+        if resume and not s.step_done and s.grip == "none" and s.step.startswith("pick:"):
+            return                                   # a pick was interrupted before the grasp; the step restarts
         if not s.step_done:
             raise StopSafe(f"last step '{s.step}' did not finish; plate_at={s.plate_at} grip={s.grip}. "
                            "Inspect the cell, fix state.json, or rerun with --resume if the arm is still on its route.")
@@ -509,7 +511,14 @@ class Cycle:
         for _ in range(cycles):
             self.corr.new_cycle()
             t0 = time.time()
-            if resume and not s.step_done and s.plate_at == "gripper":
+            if resume and not s.step_done and s.grip == "none" and s.step.startswith("pick:"):
+                self.tele.cycle = s.cycle
+                self.tele.log("run", "resume", f"restarting step {s.step} (gripper empty)")
+                out, back = self._steps(slot)
+                table = out if any(n == s.step for n, _ in out) else back
+                self._run_steps(table, from_step=s.step)
+                resume = False
+            elif resume and not s.step_done and s.plate_at == "gripper":
                 self.resuming = True
                 self.tele.cycle = s.cycle
                 self.tele.log("run", "resume", f"continuing step {s.step} with grip {s.grip}")
