@@ -187,10 +187,23 @@
           -0.0076
         ]
       },
-      "hover_mm": 25,
+      "hover_mm": 34.4,
       "clear_mm": 60,
       "aruco_reference": "stage-wide",
-      "aruco_marker_id": 1
+      "aruco_marker_id": 1,
+      "hover": {
+        "pose": [
+          317.354,
+          304.309,
+          104.133,
+          0.0,
+          -0.0,
+          -92.0578
+        ],
+        "taught_at": "2026-10-15 00:48:45",
+        "jaw_at_teach": -0.026
+      },
+      "display_name": "rotating-stage"
     },
     "hotel": {
       "approach": {
