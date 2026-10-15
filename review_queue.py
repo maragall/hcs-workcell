@@ -15,6 +15,14 @@ QUEUE = [
         "snippet": "self._r.MoveSingleExtJointAsync(self.grip_axis + 1, float(value))",
     },
     {
+        "id": "Q0b", "priority": "P0", "file": "lua/data_cell.lua", "what": "grip widths and polar = E2",
+        "decision": "Lua module assumes: polar stage is robot axis E2 (POLAR_IS_E2=1); short-edge closed width "
+                    "GUESSED at 25.9 (E1 units); long-edge closed 2.92 from layout; jaw moves via MoveExtJ on a "
+                    "GetCJoints snapshot; every pick/place job must start at home JH; gripper drop-detection stays "
+                    "on while carrying. All RZ values left 0 to be taught on the pendant.",
+        "numbers": "GRIP_DET_DIS 2 mm below stall; speed tiers 5/2/1 and 3/2/1 percent (SetSpeedScale is integer)",
+    },
+    {
         "id": "Q1", "priority": "P0", "file": "nova_cell/safety.py", "what": "z floors and workspace box",
         "decision": "Every commanded target is checked against the global box and the z floor of the region it "
                     "falls in. Linear moves are sampled every 5 mm along the segment. A fixture may go below its own "

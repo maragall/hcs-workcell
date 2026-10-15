@@ -46,6 +46,7 @@ class Brcapi:
         self._lock = threading.Lock()
         self._pushes: Dict[int, list] = {}
         self._last_tx = 0.0
+        self.last_detail: Optional[int] = None
 
     # --------------------------------------------------------------- transport
     def connect(self):
@@ -206,9 +207,11 @@ class Brcapi:
         self._log("ctrl", "job", str(sysvars))
         t0 = time.time()
         while time.time() - t0 < timeout_s:
-            m = self.wait_push(rid, 2.0, lambda m: isinstance(m.get("reply"), dict) and "value" in m["reply"])
+            m = self.wait_push(rid, 2.0, lambda m: isinstance(m.get("reply"), dict) and m["reply"].get("index") == 1)
             if m:
                 code = int(m["reply"]["value"])
+                d = self.wait_push(rid, 1.0, lambda m: isinstance(m.get("reply"), dict) and m["reply"].get("index") == 2)
+                self.last_detail = int(d["reply"]["value"]) if d else None
                 self._log("ctrl", "job done", f"code {code} in {time.time() - t0:.1f}s")
                 return code
             st = self.call("getProgState")["value"]
