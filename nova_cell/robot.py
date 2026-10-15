@@ -126,8 +126,21 @@ class VendorRobot:
         raise MotionRefused(f"{kind} move did not reach {[round(float(v), 1) for v in p[:3]]}; at {[round(v, 1) for v in now[:3]]}")
 
     def move_linear(self, p):
+        before = self.pose()
         ok = self._r.MoveLinearAsync(*[float(v) for v in p], self._speed)
-        self._verify_pose(p, ok, "linear")
+        try:
+            self._verify_pose(p, ok, "linear")
+        except MotionRefused:
+            now = self.pose()
+            moved = max(abs(now[i] - before[i]) for i in range(3))
+            span = max(abs(float(p[i]) - before[i]) for i in range(3))
+            if moved < 0.5 and span <= 30.0:
+                # the controller silently ignored a short linear move (seen at the microscope hover); same target, joint interpolation
+                self._log("robot", "move_linear", f"no motion on a {span:.1f} mm linear move; using joint interpolation")
+                ok = self._r.MoveJointAsync(*[float(v) for v in p], self._speed)
+                self._verify_pose(p, ok, "joint-fallback")
+            else:
+                raise
 
     def move_joint(self, p):
         ok = self._r.MoveJointAsync(*[float(v) for v in p], self._speed)
