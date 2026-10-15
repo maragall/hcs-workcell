@@ -106,11 +106,19 @@ def normalise(traces: List[Trace], n_samples: int = 200, max_points: int = 15, m
             idx.append(i)
     if idx[-1] != n_samples - 1:
         idx.append(n_samples - 1)
-    while len(idx) > max_points:
-        gaps = np.diff(idx)
-        k = int(np.argmin(gaps[:-1] + gaps[1:])) + 1
-        idx.pop(k)
-
+    # thin to the point budget, but never let a joint step exceed the limit: grow the budget if needed
+    budget = max_points
+    while True:
+        cand = list(idx)
+        while len(cand) > budget:
+            gaps = np.diff(cand)
+            k = int(np.argmin(gaps[:-1] + gaps[1:])) + 1
+            cand.pop(k)
+        steps = [float(np.abs(j_mean[cand[i + 1]] - j_mean[cand[i]]).max()) for i in range(len(cand) - 1)]
+        if not steps or max(steps) <= max_joint_step or budget >= len(idx):
+            idx = cand
+            break
+        budget += 5
     joints = [list(map(float, j_mean[i])) + list(map(float, E[i])) for i in idx]   # ext axes recorded, never replayed
     poses = [list(map(float, p_mean[i])) for i in idx]
     steps = [float(np.abs(np.asarray(joints[i + 1][:4]) - np.asarray(joints[i][:4])).max()) for i in range(len(idx) - 1)]
