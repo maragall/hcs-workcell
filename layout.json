@@ -81,7 +81,7 @@
           450
         ]
       },
-      "z_floor": 264.0,
+      "z_floor": 266.3,
       "_note": "microscope at x 123 y 400; polar stage sits at x 317 y 305, same y band but 200 mm away in x and 200 mm lower, so the zone is bounded in x",
       "no_swing": true,
       "max_lateral_mm": 2.0,
@@ -119,14 +119,14 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        123.364,
-        399.924,
-        266.254,
+        124.072,
+        399.983,
+        268.276,
         0.0,
         -0.0,
-        90.8371
+        90.1438
       ],
-      "hover_mm": 66.7,
+      "hover_mm": 64.7,
       "approach": {
         "axis": [
           0,
@@ -138,12 +138,12 @@
       "grip": "short_edges",
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
-      "taught_at": "2026-10-14 23:27:47",
-      "jaw_at_teach": 24.107,
+      "taught_at": "2026-10-15 01:54:07",
+      "jaw_at_teach": 24.101,
       "vendor_teach": {
         "name": "microscope-short",
         "pick_method": "long",
-        "id": "dd068617-edec-4209-82b9-9905fd1607a1",
+        "id": "d95f5143-7d8b-43f1-82f8-2b3a1d2b0e09",
         "workspace": "autoteach"
       },
       "hover": {
