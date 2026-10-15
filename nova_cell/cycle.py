@@ -11,6 +11,7 @@ Motion is never retried; every motion is observed to completion and compared wit
 from __future__ import annotations
 
 import math
+import os
 import shutil
 import time
 from typing import List, Optional
@@ -504,12 +505,15 @@ class Cycle:
             if far > self.lim["max_restart_offset_mm"]:
                 raise StopSafe(f"arm is {far:.0f} mm from where the last run left it; jog it back before restarting")
 
-    def run(self, slot: str, cycles: int, resume: bool = False):
+    def run(self, slot: str, cycles: int, resume: bool = False, stop_file: Optional[str] = None):
         s = self.store.s
         self.hotel_slot_pose(slot)
         self._check_resumable(slot, resume)
         self._health(force=True)
         for _ in range(cycles):
+            if stop_file and os.path.exists(stop_file):
+                self.tele.log("run", "stop_file", f"{stop_file} present; ending between cycles")
+                break
             self.corr.new_cycle()
             t0 = time.time()
             if resume and not s.step_done and s.grip == "none" and s.step.startswith("pick:"):

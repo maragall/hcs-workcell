@@ -677,6 +677,9 @@ def cmd_run(args):
     try:
         cyc = Cycle(layout, robot, vision, tele, store, args.mode, run_dir, REFS)
         cyc.commission = {"no_gates": bool(args.no_gates), "no_vision_correction": bool(args.no_vision_correction)}
+        if args.drift_warn_only:
+            cyc.drift.stop_z = float("inf")
+            tele.log("run", "drift", "warn-only: drift never stops the run")
         if commission:
             tele.log("run", "COMMISSIONING", f"gates off={args.no_gates} vision correction off={args.no_vision_correction}")
     except Exception as e:
@@ -684,7 +687,7 @@ def cmd_run(args):
         robot.disconnect()
         sys.exit(f"setup failed: {e}")
     try:
-        cyc.run(args.slot, args.cycles, resume=args.resume)
+        cyc.run(args.slot, args.cycles, resume=args.resume, stop_file=args.stop_file)
         tele.log("run", "finished", state=store.s.plate_at)
         return 0
     except (StopSafe, SafetyViolation) as e:
@@ -748,6 +751,8 @@ def main():
     p.add_argument("--set-state", choices=("microscope", "hotel"), help="declare where the plate is before starting")
     p.add_argument("--resume", action="store_true", help="continue an interrupted carry from the nearest route waypoint")
     p.add_argument("--speeds", help="override travel,approach,contact fractions for this run, e.g. 0.30,0.15,0.05")
+    p.add_argument("--drift-warn-only", action="store_true", help="drift statistics log warnings but never stop the run")
+    p.add_argument("--stop-file", default=os.path.join(HERE, "runs", "STOP"), help="create this file to end the loop between cycles")
     p.add_argument("--record-fps", type=float, default=2.0)
     p.set_defaults(fn=cmd_run)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
