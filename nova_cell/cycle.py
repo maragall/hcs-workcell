@@ -49,6 +49,7 @@ class Cycle:
         self.front_cam = layout["vision"]["front_camera"]
         self.led = layout["vision"]["led"]
         self._last_health = 0.0
+        self.commission = {"no_gates": False, "no_vision_correction": False}
 
     # --------------------------------------------------------------- recording
     def _fault(self, step: str, kind: str, detail: str):
@@ -198,7 +199,9 @@ class Cycle:
 
     def _vision_correction(self, fixture: dict, label: str) -> List[float]:
         ref = fixture.get("aruco_reference")
-        if not ref:
+        if not ref or self.commission["no_vision_correction"]:
+            if ref:
+                self.tele.log("vision", f"{label} offset", "COMMISSIONING: vision correction disabled")
             return [0.0] * 6
         try:
             off = self.vision.pose_offset(self.down_cam, ref, self.L["vision"]["workspace"],
@@ -217,6 +220,11 @@ class Cycle:
         return [off.d[0], off.d[1], 0.0, 0.0, 0.0, 0.0]
 
     def _gate_lower(self, gate: str, state: str, label: str):
+        if self.commission["no_gates"]:
+            img = self._frame(self.down_cam)
+            self.tele.image(f"{label}_lower_nogate", img)
+            self.tele.log("vision", f"{label} lower_check", "COMMISSIONING: gate disabled, image recorded only", gate=gate)
+            return
         led = self.led
         attempts = self.L["vision"]["lower_check"]["retries"] + 1
         for attempt in range(attempts):
@@ -236,6 +244,8 @@ class Cycle:
     def _check_plate_in_gripper(self, step: str, grip: str):
         img = self._frame(self.front_cam)
         self.tele.image(f"{step}_lifted", img)
+        if self.commission["no_gates"]:
+            return
         if img is None:
             if self.supervised:
                 return
@@ -317,7 +327,7 @@ class Cycle:
             raise StopSafe(f"{step}: no frame for the seated check")
         v = self.lower.verdict(gate, "plate_present", img)
         self.tele.log("vision", f"{step} seated_check", v.reason, score=round(v.best, 3), safe=v.safe, gate=gate)
-        if not v.safe and v.n_refs >= self.lower.min_refs:
+        if not v.safe and v.n_refs >= self.lower.min_refs and not self.commission["no_gates"]:
             self._fault(step, "not_seated", v.reason)
             if not self.corr.operator_or_stop(step, "plate does not look seated after release",
                                               "Plate is seated correctly?"):

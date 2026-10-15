@@ -468,6 +468,66 @@ def cmd_hotel_cycle_test(args):
         robot.disconnect()
 
 
+def cmd_scope_place_test(args):
+    """Supervised: from the rotating-stage hover with the plate held on its SHORT edges, replay route B in reverse
+    to the microscope hover, lower onto the holder, release, lift. Leaves the cell in the cycle's start state."""
+    from nova_cell.safety import Safety
+    layout = load_layout()
+    tele = Telemetry(os.path.join(RUNS, "teach"))
+    robot, st = connect_robot_readonly(layout, tele.log)
+    if st.drag:
+        robot._r.EnableDragModeAsync(False)
+        time.sleep(1.5)
+    if not robot.enable():
+        sys.exit("robot could not be enabled")
+    safety = Safety(layout, "supervised")
+    g = layout["gripper"]
+    m = layout["fixtures"]["microscope"]
+    seat, hover = m["pose"], m["hover"]["pose"]
+    wp = layout["trajectories"]["microscope_to_polar"]
+    pts = list(zip(wp["joints"], wp["poses"]))[::-1]
+
+    def say(label):
+        p = robot.pose()
+        print(f"  {label:22s} {[round(v, 1) for v in p[:3]]} yaw {p[5]:.1f} jaw {robot.jaw():.2f}", flush=True)
+
+    jaw = robot.jaw()
+    if abs(jaw - g["closed"]["short_edges"]) > g["tolerance"]:
+        robot.disconnect()
+        sys.exit(f"jaw {jaw:.2f}: plate not held on its short edges ({g['closed']['short_edges']})")
+    here = robot.pose()
+    gap = max(abs(here[i] - pts[0][1][i]) for i in range(3))
+    print(f"route B end gap {gap:.1f} mm")
+    try:
+        robot.set_speed(args.speed)
+        if gap > 3.0:
+            robot.move_joint(pts[0][1])
+            say("to route end")
+        for i, (j, pp) in enumerate(pts, 1):
+            robot.move_abs_joints_stepped(list(j[:4]))
+            if i % 5 == 0 or i == len(pts):
+                say(f"route wp {len(pts) - i + 1}")
+        here = robot.pose()
+        gap = max(abs(here[i] - hover[i]) for i in range(3))
+        if gap > 3.0:
+            safety.check_target(hover, "microscope hover")
+            robot.set_speed(args.speed / 3)
+            robot.move_joint(hover)
+        say("microscope hover")
+        safety.check_segment(robot.pose(), seat, "lower to seat", allow_floor_regions=("microscope",))
+        robot.set_speed(args.speed / 4)
+        robot.move_linear(seat)
+        say("seat")
+        robot.jaw_to(g["open"]["short_edges"])
+        time.sleep(0.5)
+        say("released")
+        robot.move_linear(hover)
+        say("hover (empty)")
+        print("done: plate on the microscope holder, arm at the hover. Start the cycle with --set-state microscope.")
+    finally:
+        robot.disconnect()
+
+
 def cmd_measure_grip(args):
     """Close in steps on a plate held between the fingers until the jaw stops following; store the width."""
     layout = load_layout()
@@ -573,15 +633,25 @@ def preflight(layout: dict, ref_dir: str) -> list:
 
 def cmd_run(args):
     layout = load_layout()
+    commission = args.no_gates or args.no_vision_correction
+    if commission and args.mode != "supervised":
+        sys.exit("commissioning flags are only allowed in supervised mode")
     if not args.sim:
         problems = preflight(layout, REFS)
+        if args.no_gates:
+            problems = [p for p in problems if not p.startswith("reference images")]
         if problems:
             sys.exit("preflight failed:" + chr(10) + "  " + (chr(10) + "  ").join(problems))
-    if args.mode == "supervised" and not sys.stdin.isatty():
-        sys.exit("supervised mode needs an interactive terminal")
+    if args.mode == "supervised" and not sys.stdin.isatty() and not args.allow_no_tty:
+        sys.exit("supervised mode needs an interactive terminal (or --allow-no-tty: operator questions default to stop)")
     run_dir = os.path.join(RUNS, time.strftime("%Y%m%d_%H%M%S") + ("_sim" if args.sim else ""))
     tele = Telemetry(run_dir)
     store = StateStore(os.path.join(HERE, "state.json" if not args.sim else "state_sim.json"))
+    if args.set_state:
+        store.s.plate_at = "microscope" if args.set_state == "microscope" else f"hotel:{args.slot}"
+        store.s.grip, store.s.step_done, store.s.last_safe_pose = "none", True, None
+        store.s.polar_angle = 0 if args.set_state == "microscope" else 90
+        store.save()
     vision = VisionClient(layout["vision"]["host"], layout["vision"]["port"], log=tele.log)
     robot = make_robot(layout, args, tele.log)
     robot.connect()
@@ -594,7 +664,7 @@ def cmd_run(args):
              state=store.s.plate_at, jaw=round(robot.jaw(), 2))
     if args.mode == "unsupervised" and layout["polar"]["driver"] == "manual":
         sys.exit("unsupervised mode needs a real polar stage driver (layout.polar.driver)")
-    if not args.sim and input("Arm clear, plate where state.json says, hands away. Start? type YES: ") != "YES":
+    if not args.sim and not args.yes and input("Arm clear, plate where state.json says, hands away. Start? type YES: ") != "YES":
         sys.exit("not started")
     rec = None
     if args.record:
@@ -603,6 +673,9 @@ def cmd_run(args):
         rec.start()
     try:
         cyc = Cycle(layout, robot, vision, tele, store, args.mode, run_dir, REFS)
+        cyc.commission = {"no_gates": bool(args.no_gates), "no_vision_correction": bool(args.no_vision_correction)}
+        if commission:
+            tele.log("run", "COMMISSIONING", f"gates off={args.no_gates} vision correction off={args.no_vision_correction}")
     except Exception as e:
         tele.log("stop", "setup", repr(e))
         robot.disconnect()
@@ -653,6 +726,8 @@ def main():
     p.add_argument("--start-tolerance", type=float, default=40.0); p.set_defaults(fn=cmd_place_test)
     p = sub.add_parser("hotel-cycle-test"); p.add_argument("slot", default="A1", nargs="?")
     p.add_argument("--speed", type=float, default=0.30); p.set_defaults(fn=cmd_hotel_cycle_test)
+    p = sub.add_parser("scope-place-test"); p.add_argument("--speed", type=float, default=0.30)
+    p.set_defaults(fn=cmd_scope_place_test)
     p = sub.add_parser("measure-grip"); p.add_argument("grip", choices=("short_edges", "long_edges"))
     p.add_argument("--step", type=float, default=0.25); p.add_argument("--pause", type=float, default=0.3)
     p.add_argument("--backoff", type=float, default=0.1); p.set_defaults(fn=cmd_measure_grip)
@@ -664,6 +739,10 @@ def main():
     p.add_argument("--cycles", type=int, default=1)
     p.add_argument("--sim", action="store_true")
     p.add_argument("--record", action="store_true", help="record both cameras and the screen for the whole run")
+    p.add_argument("--no-gates", action="store_true", help="COMMISSIONING, supervised only: skip the image gates")
+    p.add_argument("--no-vision-correction", action="store_true", help="COMMISSIONING, supervised only: taught poses only")
+    p.add_argument("--allow-no-tty", action="store_true"); p.add_argument("--yes", action="store_true")
+    p.add_argument("--set-state", choices=("microscope", "hotel"), help="declare where the plate is before starting")
     p.add_argument("--record-fps", type=float, default=2.0)
     p.set_defaults(fn=cmd_run)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
