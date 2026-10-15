@@ -478,6 +478,7 @@ class Cycle:
                 else:
                     continue
             fn()
+            self.resuming = False          # only the first route after a resume may start mid-way
 
     def outbound(self, slot: str, from_step: Optional[str] = None):
         self._run_steps(self._steps(slot)[0], from_step)

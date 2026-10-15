@@ -644,6 +644,9 @@ def cmd_run(args):
             sys.exit("preflight failed:" + chr(10) + "  " + (chr(10) + "  ").join(problems))
     if args.mode == "supervised" and not sys.stdin.isatty() and not args.allow_no_tty:
         sys.exit("supervised mode needs an interactive terminal (or --allow-no-tty: operator questions default to stop)")
+    if args.speeds:
+        tr, ap_, ct = (float(x) for x in args.speeds.split(","))
+        layout["speeds"][args.mode].update({"travel": tr, "approach": ap_, "contact": ct})
     run_dir = os.path.join(RUNS, time.strftime("%Y%m%d_%H%M%S") + ("_sim" if args.sim else ""))
     tele = Telemetry(run_dir)
     store = StateStore(os.path.join(HERE, "state.json" if not args.sim else "state_sim.json"))
@@ -744,6 +747,7 @@ def main():
     p.add_argument("--allow-no-tty", action="store_true"); p.add_argument("--yes", action="store_true")
     p.add_argument("--set-state", choices=("microscope", "hotel"), help="declare where the plate is before starting")
     p.add_argument("--resume", action="store_true", help="continue an interrupted carry from the nearest route waypoint")
+    p.add_argument("--speeds", help="override travel,approach,contact fractions for this run, e.g. 0.30,0.15,0.05")
     p.add_argument("--record-fps", type=float, default=2.0)
     p.set_defaults(fn=cmd_run)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
