@@ -681,7 +681,7 @@ def cmd_run(args):
         robot.disconnect()
         sys.exit(f"setup failed: {e}")
     try:
-        cyc.run(args.slot, args.cycles)
+        cyc.run(args.slot, args.cycles, resume=args.resume)
         tele.log("run", "finished", state=store.s.plate_at)
         return 0
     except (StopSafe, SafetyViolation) as e:
@@ -743,6 +743,7 @@ def main():
     p.add_argument("--no-vision-correction", action="store_true", help="COMMISSIONING, supervised only: taught poses only")
     p.add_argument("--allow-no-tty", action="store_true"); p.add_argument("--yes", action="store_true")
     p.add_argument("--set-state", choices=("microscope", "hotel"), help="declare where the plate is before starting")
+    p.add_argument("--resume", action="store_true", help="continue an interrupted carry from the nearest route waypoint")
     p.add_argument("--record-fps", type=float, default=2.0)
     p.set_defaults(fn=cmd_run)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")

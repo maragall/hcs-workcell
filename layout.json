@@ -1332,6 +1332,7 @@
     "min_disk_free_gb": 5.0,
     "operator_timeout_s": 600,
     "step_timeout_s": 120,
-    "health_check_every_s": 30
+    "health_check_every_s": 30,
+    "max_waypoint_pose_dev_mm": 6.0
   }
 }

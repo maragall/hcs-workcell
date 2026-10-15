@@ -50,6 +50,7 @@ class Cycle:
         self.led = layout["vision"]["led"]
         self._last_health = 0.0
         self.commission = {"no_gates": False, "no_vision_correction": False}
+        self.resuming = False
 
     # --------------------------------------------------------------- recording
     def _fault(self, step: str, kind: str, detail: str):
@@ -120,8 +121,18 @@ class Cycle:
         pts = list(zip(wp["joints"], wp["poses"]))
         if reverse:
             pts.reverse()
+        start = 0
+        if self.resuming:
+            here = self.robot.joints()[:4]
+            dists = [max(abs(a - b) for a, b in zip(here, j[:4])) for j, _ in pts]
+            start = int(min(range(len(pts)), key=lambda k: dists[k]))
+            if dists[start] > self.lim["max_waypoint_joint_step_deg"]:
+                raise StopSafe(f"{name}: arm is {dists[start]:.1f} deg from the nearest waypoint; not on the route")
+            self.tele.log("move", name, f"resuming at waypoint {start + 1}/{len(pts)}")
+            self.resuming = False
         self.robot.set_speed(self.safety.profile.travel)
-        for i, (j, p) in enumerate(pts, 1):
+        tol = self.lim.get("max_waypoint_pose_dev_mm", 6.0)
+        for i, (j, p) in enumerate(pts[start:], start + 1):
             label = f"{name}[{i}/{len(pts)}]"
             self.safety.check_target(p, label)
             ext = self.robot.joints()[4:]
@@ -131,7 +142,13 @@ class Cycle:
             except MotionRefused as e:
                 self._fault(label, "motion_refused", str(e))
                 raise StopSafe(f"{label}: {e}")
-            dev = self._settle(label, p)
+            self._wait_still(label)
+            after = self.robot.pose()
+            dev = max(abs(after[k] - p[k]) for k in range(3))
+            if dev > tol:
+                self._fault(label, "pose_deviation", f"{dev:.2f} mm")
+                raise StopSafe(f"{label}: arm {dev:.1f} mm from the demo pose (limit {tol}); joints reached target, check the route")
+            self.store.s.last_safe_pose = after
             self.tele.log("move", label, "AJ", dt=round(time.time() - t0, 2), dev=round(dev, 2))
 
     def _jaw(self, value: float, label: str):
@@ -431,31 +448,50 @@ class Cycle:
         self.store.s.plate_id = codes[0] if codes else ""
 
     # --------------------------------------------------------------- the loop
-    def outbound(self, slot: str):
+    def _steps(self, slot: str):
         F = self.L["fixtures"]
         P0, P90 = F["polar"]["pose_at_0"]["pose"], F["polar"]["pose_at_90"]["pose"]
-        self._pick("microscope", F["microscope"]["pose"], F["microscope"], "short_edges", None)
-        self._place("polar", P0, F["polar"], "polar", "microscope_to_polar", gate="polar@0")
-        self._polar_rotate(90, P0)
-        self._pick("polar", P90, F["polar"], "long_edges", None, gate="polar@90")
-        self._scan_plate()
-        self._hotel_place(slot)
+        out = [
+            ("pick:microscope", lambda: self._pick("microscope", F["microscope"]["pose"], F["microscope"], "short_edges", None)),
+            ("place:polar", lambda: self._place("polar", P0, F["polar"], "polar", "microscope_to_polar", gate="polar@0")),
+            ("polar:90", lambda: self._polar_rotate(90, P0)),
+            ("pick:polar", lambda: self._pick("polar", P90, F["polar"], "long_edges", None, gate="polar@90")),
+            ("scan", self._scan_plate),
+            (f"place:hotel:{slot}", lambda: self._hotel_place(slot)),
+        ]
+        back = [
+            (f"pick:hotel:{slot}", lambda: self._hotel_pick(slot)),
+            ("place:polar", lambda: self._place("polar", P90, F["polar"], "polar", None, gate="polar@90")),
+            ("polar:0", lambda: self._polar_rotate(0, P90)),
+            ("pick:polar", lambda: self._pick("polar", P0, F["polar"], "short_edges", None, gate="polar@0")),
+            ("place:microscope", lambda: self._place("microscope", F["microscope"]["pose"], F["microscope"], "microscope",
+                                                     "microscope_to_polar", reverse=True)),
+        ]
+        return out, back
 
-    def inbound(self, slot: str):
-        F = self.L["fixtures"]
-        P0, P90 = F["polar"]["pose_at_0"]["pose"], F["polar"]["pose_at_90"]["pose"]
-        self._hotel_pick(slot)
-        self._place("polar", P90, F["polar"], "polar", None, gate="polar@90")
-        self._polar_rotate(0, P90)
-        self._pick("polar", P0, F["polar"], "short_edges", None, gate="polar@0")
-        self._place("microscope", F["microscope"]["pose"], F["microscope"], "microscope", "microscope_to_polar",
-                    reverse=True)
+    def _run_steps(self, steps, from_step: Optional[str] = None):
+        started = from_step is None
+        for name, fn in steps:
+            if not started:
+                if name == from_step:
+                    started = True
+                else:
+                    continue
+            fn()
 
-    def _check_resumable(self, slot: str):
+    def outbound(self, slot: str, from_step: Optional[str] = None):
+        self._run_steps(self._steps(slot)[0], from_step)
+
+    def inbound(self, slot: str, from_step: Optional[str] = None):
+        self._run_steps(self._steps(slot)[1], from_step)
+
+    def _check_resumable(self, slot: str, resume: bool = False):
         s = self.store.s
+        if resume and not s.step_done and s.plate_at == "gripper" and s.step.startswith("place:"):
+            return                                   # a carry was interrupted on a route; continue that step
         if not s.step_done:
             raise StopSafe(f"last step '{s.step}' did not finish; plate_at={s.plate_at} grip={s.grip}. "
-                           "Inspect the cell, fix state.json, then rerun.")
+                           "Inspect the cell, fix state.json, or rerun with --resume if the arm is still on its route.")
         if s.plate_at not in ("microscope", f"hotel:{slot}"):
             raise StopSafe(f"plate_at={s.plate_at}: no automatic resume from here; move the plate by hand "
                            "and edit state.json")
@@ -465,19 +501,33 @@ class Cycle:
             if far > self.lim["max_restart_offset_mm"]:
                 raise StopSafe(f"arm is {far:.0f} mm from where the last run left it; jog it back before restarting")
 
-    def run(self, slot: str, cycles: int):
+    def run(self, slot: str, cycles: int, resume: bool = False):
         s = self.store.s
         self.hotel_slot_pose(slot)
-        self._check_resumable(slot)
+        self._check_resumable(slot, resume)
         self._health(force=True)
         for _ in range(cycles):
             self.corr.new_cycle()
-            s.cycle += 1
-            self.tele.cycle = s.cycle
-            self.store.save()
             t0 = time.time()
-            if s.plate_at == "microscope":
-                self.outbound(slot)
+            if resume and not s.step_done and s.plate_at == "gripper":
+                self.resuming = True
+                self.tele.cycle = s.cycle
+                self.tele.log("run", "resume", f"continuing step {s.step} with grip {s.grip}")
+                if s.grip == "short_edges" and s.step == "place:polar":
+                    self.outbound(slot, from_step="place:polar")
+                elif s.step.startswith("place:hotel"):
+                    self.outbound(slot, from_step=s.step)
+                elif s.step in ("place:polar", "place:microscope") and s.grip == "long_edges":
+                    self.inbound(slot, from_step=s.step)
+                elif s.step == "place:microscope":
+                    self.inbound(slot, from_step="place:microscope")
+                resume = False
+            else:
+                s.cycle += 1
+                self.tele.cycle = s.cycle
+                self.store.save()
+                if s.plate_at == "microscope":
+                    self.outbound(slot)
             if s.plate_at == f"hotel:{slot}":
                 self.inbound(slot)
             self.drift.save()
