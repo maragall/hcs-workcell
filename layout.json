@@ -76,7 +76,11 @@
         ]
       },
       "z_floor": 265.0,
-      "_note": "y threshold = taught seat y - 150 (operator rule); floor provisional = seat z - 2"
+      "_note": "y threshold = taught seat y - 150 (operator rule); floor provisional = seat z - 2",
+      "no_swing": true,
+      "max_lateral_mm": 2.0,
+      "max_yaw_change_deg": 0.5,
+      "_rule": "inside the zone only vertical linear moves with fixed yaw; elbow swings happen below y 152 or on the taught route"
     },
     "polar": {
       "box": {

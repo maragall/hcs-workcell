@@ -62,4 +62,26 @@ class Safety:
             t = k / n
             p = [a[i] + t * (b[i] - a[i]) for i in range(3)]
             self.check_target(p + list(b[3:]), f"{label} (segment {k}/{n})", allow_floor_regions)
+        self.check_no_swing(a, b, label)
+
+    def check_joint_move(self, a: List[float], b: List[float], label: str):
+        """Joint moves swing the elbow; they are not allowed to start or end inside a no-swing region."""
+        for p, where in ((a, "from"), (b, "to")):
+            r = self.region_of(p)
+            if self.regions.get(r, {}).get("no_swing"):
+                raise SafetyViolation(f"{label}: joint move {where} inside the {r} zone; only vertical linear "
+                                      "moves with fixed yaw are allowed there")
+
+    def check_no_swing(self, a: List[float], b: List[float], label: str):
+        """Inside a no-swing region a linear move may only be vertical and may not change yaw."""
+        for p in (a, b):
+            r = self.region_of(p)
+            if not self.regions.get(r, {}).get("no_swing"):
+                continue
+            lateral = max(abs(b[0] - a[0]), abs(b[1] - a[1]))
+            if lateral > self.regions[r].get("max_lateral_mm", 2.0):
+                raise SafetyViolation(f"{label}: {lateral:.1f} mm lateral move inside the {r} zone")
+            if len(a) > 5 and len(b) > 5 and abs(b[5] - a[5]) > self.regions[r].get("max_yaw_change_deg", 0.5):
+                raise SafetyViolation(f"{label}: yaw change {abs(b[5] - a[5]):.1f} inside the {r} zone")
+            return
 

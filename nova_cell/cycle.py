@@ -84,6 +84,7 @@ class Cycle:
             self.safety.check_segment(here, target, label, allow_floor)
         else:
             self.safety.check_target(target, label, allow_floor)
+            self.safety.check_joint_move(here, target, label)
         self.robot.set_speed(speed)
         t0 = time.time()
         try:
@@ -98,6 +99,18 @@ class Cycle:
         self.tele.log("move", label, kind, target=[round(v, 2) for v in target],
                       actual=[round(v, 2) for v in self.robot.pose()], dt=round(dt, 2), speed=speed, dev=round(dev, 2))
         self._observe(f"dt:{label}", dt)
+
+    def _arrive(self, hover: List[float], label: str, speed: float):
+        """Reach a fixture hover. In a no-swing zone the trajectory must already end there: no joint move."""
+        here = self.robot.pose()
+        lateral = max(abs(here[0] - hover[0]), abs(here[1] - hover[1]))
+        if lateral <= 2.0:
+            self._move("L", hover, label, speed)        # vertical: allowed anywhere
+            return
+        if self.safety.regions.get(self.safety.region_of(hover), {}).get("no_swing"):
+            raise SafetyViolation(f"{label}: trajectory must end at the hover inside a no-swing zone "
+                                  f"(arm is {max(abs(here[i] - hover[i]) for i in range(3)):.0f} mm away)")
+        self._move("J", hover, label, speed)
 
     def _waypoints(self, name: str, reverse: bool = False):
         wp = self.L["trajectories"].get(name)
@@ -248,7 +261,7 @@ class Cycle:
         if trajectory_in:
             self._waypoints(trajectory_in)
         hover = _add(pose, [0, 0, fixture["hover_mm"]])
-        self._move("J", hover, f"{step} hover", prof.approach)
+        self._arrive(hover, f"{step} hover", prof.approach)
         self._jaw_open()
         target = _add(pose, self._vision_correction(fixture, step))
         hover = _add(target, [0, 0, fixture["hover_mm"]])
@@ -286,7 +299,7 @@ class Cycle:
         if trajectory_in:
             self._waypoints(trajectory_in, reverse)
         hover = _add(pose, [0, 0, fixture["hover_mm"]])
-        self._move("J", hover, f"{step} hover", prof.approach)
+        self._arrive(hover, f"{step} hover", prof.approach)
         target = _add(pose, self._vision_correction(fixture, step))
         hover = _add(target, [0, 0, fixture["hover_mm"]])
         self._move("L", hover, f"{step} hover(corrected)", prof.approach)

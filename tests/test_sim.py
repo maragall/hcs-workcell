@@ -83,11 +83,16 @@ def layout():
     with open(os.path.join(os.path.dirname(HERE), "layout.json"), "r", encoding="utf-8") as f:
         L = json.load(f)
     L["fixtures"]["microscope"]["pose"] = [120.0, 40.0, 110.0, 0, 0, 0.5]
-    L["regions"]["microscope"] = {"box": {"x": [100, 140], "y": [20, 60]}, "z_floor": 108}
+    L["fixtures"]["microscope"]["hover_mm"] = 25
+    L["regions"]["microscope"] = {"box": {"x": [100, 140], "y": [20, 60]}, "z_floor": 108, "no_swing": True,
+                                  "max_lateral_mm": 2.0, "max_yaw_change_deg": 0.5}
     L["fixtures"]["polar"]["pose_at_0"]["pose"] = [125.4, 117.4, 67.9, 0, 0, 1.5632]
-    wp = {"joints": [[10, 0, 0, 0, 0, 0, 0, 0], [20, 0, 0, 0, 0, 0, 0, 0]],
-          "poses": [[150, 80, 150, 0, 0, 0], [180, 60, 150, 0, 0, 0]], "spread_deg": 0, "max_step_deg": 10, "demos": 1}
-    L["trajectories"] = {"microscope_to_polar": wp, "polar_to_hotel": wp}
+    scope_hover = [120.0, 40.0, 135.0, 0, 0, 0.5]
+    wp_mp = {"joints": [[10, 0, 0, 0, 0, 0, 0, 0], [20, 0, 0, 0, 0, 0, 0, 0]],
+             "poses": [scope_hover, [180, 60, 150, 0, 0, 0]], "spread_deg": 0, "max_step_deg": 10, "demos": 1}
+    wp_ph = {"joints": [[30, 0, 0, 0, 0, 0, 0, 0], [40, 0, 0, 0, 0, 0, 0, 0]],
+             "poses": [[150, 80, 150, 0, 0, 0], [180, 60, 150, 0, 0, 0]], "spread_deg": 0, "max_step_deg": 10, "demos": 1}
+    L["trajectories"] = {"microscope_to_polar": wp_mp, "polar_to_hotel": wp_ph}
     L["polar"]["driver"] = "do"
     L["polar"]["di"] = {"at_0": "P0", "at_90": "P90"}
     L["limits"]["health_check_every_s"] = 0
@@ -107,7 +112,8 @@ class Rig:
                 lc.add_reference(gate, state, jpeg(SAFE))
         self.tele = Telemetry(os.path.join(self.tmp, "run"))
         self.store = StateStore(os.path.join(self.tmp, "state.json"))
-        self.robot = SimRobot(self.L["fixtures"]["microscope"]["pose"], faults or SimFaults(), self.tele.log, jaw=10.0)
+        start = list(self.L["fixtures"]["microscope"]["pose"]); start[2] += self.L["fixtures"]["microscope"]["hover_mm"]
+        self.robot = SimRobot(start, faults or SimFaults(), self.tele.log, jaw=10.0)
         self.robot.dis = {"P0": 1, "P90": 1}
         for wp in self.L["trajectories"].values():
             for j, pose in zip(wp["joints"], wp["poses"]):
@@ -262,6 +268,19 @@ def test_drag_on_mid_run_stops():
             r.robot.faults.drag_on = True
     r.vis.on_status = flip
     r.expect_stop("drag mode")
+    r.close()
+
+
+def test_joint_move_inside_microscope_zone_refused():
+    r = Rig()
+    r.robot.set_pose_for_test([160.0, 40.0, 140.0, 0, 0, 0.5])      # outside the zone, 40 mm from the hover
+    r.L["trajectories"]["microscope_to_polar"]["poses"][0] = [160.0, 40.0, 140.0, 0, 0, 0.5]
+    r.robot.joint_pose_map[(10.0, 0.0, 0.0, 0.0)] = [160.0, 40.0, 140.0, 0, 0, 0.5]
+    r.store.s.plate_at = "hotel:A1"
+    r.store.s.hotel["A1"] = ""
+    r.store.s.last_safe_pose = None
+    r.store.save()
+    r.expect_stop("no-swing zone")
     r.close()
 
 
