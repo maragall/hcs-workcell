@@ -87,7 +87,7 @@ class PreChecks:
 
     def __init__(self, layout: dict):
         self.layout = layout
-        self.jaw_plate = layout["gripper"]["closed_on_plate"]
+        self.closed = layout["gripper"]["closed"]
         self.jaw_tol = layout["gripper"]["tolerance"]
         self.jaw_open = layout["gripper"]["open"]
 
@@ -101,12 +101,14 @@ class PreChecks:
             p.append("robot not enabled")
         return p
 
-    def grasp_ok(self, jaw: float) -> Optional[str]:
-        if abs(jaw - self.jaw_plate) <= self.jaw_tol:
+    def grasp_ok(self, jaw: float, grip: str) -> Optional[str]:
+        want = self.closed[grip]
+        if abs(jaw - want) <= self.jaw_tol:
             return None
-        if jaw < self.jaw_plate - self.jaw_tol:
+        if jaw < want - self.jaw_tol:
             return f"jaw closed to {jaw:.2f}: nothing or too little between the fingers (plate missed / wrong edge)"
         return f"jaw stopped at {jaw:.2f}: obstruction or plate not seated"
 
-    def before_release(self, jaw: float) -> List[str]:
-        return [] if abs(jaw - self.jaw_plate) <= self.jaw_tol else [f"not holding a plate ({jaw:.2f})"]
+    def before_release(self, jaw: float, grip: str) -> List[str]:
+        want = self.closed[grip]
+        return [] if abs(jaw - want) <= self.jaw_tol else [f"not holding a plate on {grip} ({jaw:.2f})"]

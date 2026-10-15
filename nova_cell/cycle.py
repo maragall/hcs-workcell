@@ -137,20 +137,21 @@ class Cycle:
             raise StopSafe(f"jaw did not open ({jaw:.2f})")
         return jaw
 
-    def _jaw_close(self) -> float:
+    def _jaw_close(self, grip: str) -> float:
         prof = self.safety.profile
+        closed = self.g["closed"][grip]
         v = self.robot.jaw()
         curve = []
-        while v > self.g["closed_on_plate"] + 1e-6:
-            v = max(self.g["closed_on_plate"], v - prof.jaw_step)
+        while v > closed + 1e-6:
+            v = max(closed, v - prof.jaw_step)
             self._jaw(v, "jaw close")
             time.sleep(prof.jaw_pause)
             curve.append(round(self.robot.jaw(), 3))
         self._wait_still("jaw close")
         time.sleep(0.5)
         jaw = self.robot.jaw()
-        self.tele.log("jaw", "close", jaw=round(jaw, 2), curve=curve)
-        self._observe("jaw:closed", jaw)
+        self.tele.log("jaw", "close", jaw=round(jaw, 2), curve=curve, grip=grip)
+        self._observe(f"jaw:closed:{grip}", jaw)
         return jaw
 
     def _health(self, force: bool = False):
@@ -259,8 +260,8 @@ class Cycle:
             if problems:
                 raise StopSafe(f"{step}: " + "; ".join(problems))
             self._move("L", target, f"{step} lower", prof.contact, allow_floor=(fixture_name,))
-            jaw = self._jaw_close()
-            err = self.checks.grasp_ok(jaw)
+            jaw = self._jaw_close(grip)
+            err = self.checks.grasp_ok(jaw, grip)
             if not err:
                 break
             self._fault(step, "grasp", err)
@@ -289,7 +290,7 @@ class Cycle:
         target = _add(pose, self._vision_correction(fixture, step))
         hover = _add(target, [0, 0, fixture["hover_mm"]])
         self._move("L", hover, f"{step} hover(corrected)", prof.approach)
-        problems = self.checks.before_release(self.robot.jaw())
+        problems = self.checks.before_release(self.robot.jaw(), self.store.s.grip)
         if problems:
             raise StopSafe(f"{step}: " + "; ".join(problems))
         self._gate_lower(gate, "empty", step)
@@ -346,8 +347,8 @@ class Cycle:
         self.tele.log("vision", f"{step} slot_view", "object seen" if ready else "slot looks empty", ready=ready)
         if ready and not self.corr.operator_or_stop(step, f"{slot} may be occupied", "Slot is actually empty?"):
             raise StopSafe(f"{slot} occupied")
-        if self.checks.before_release(self.robot.jaw()):
-            raise StopSafe(f"{step}: not holding a plate")
+        if self.checks.before_release(self.robot.jaw(), "long_edges"):
+            raise StopSafe(f"{step}: not holding a plate on its long edges")
         self._move("L", carry, f"{step} slide in", prof.contact)
         self._move("L", p, f"{step} lower", prof.contact)
         self._jaw_open()
@@ -366,8 +367,8 @@ class Cycle:
         self._jaw_open()
         self._move("L", align, f"{step} align", prof.approach)
         self._move("L", p, f"{step} slide in", prof.contact)
-        jaw = self._jaw_close()
-        err = self.checks.grasp_ok(jaw)
+        jaw = self._jaw_close("long_edges")
+        err = self.checks.grasp_ok(jaw, "long_edges")
         if err:
             self._fault(step, "grasp", err)
             raise StopSafe(f"{step}: {err}")

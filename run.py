@@ -131,6 +131,42 @@ def cmd_normalise(args):
         print(f"  {i:2d} joints {[round(v, 1) for v in j[:4]]}  pose {[round(v, 1) for v in p[:3]]}")
 
 
+def cmd_measure_grip(args):
+    """Close in steps on a plate held between the fingers until the jaw stops following; store the width."""
+    layout = load_layout()
+    tele = Telemetry(os.path.join(RUNS, "teach"))
+    robot, st = connect_robot_readonly(layout, tele.log)
+    if st.drag:
+        sys.exit("drag mode is on; gripper commands are refused in drag mode")
+    g = layout["gripper"]
+    v = robot.jaw()
+    print(f"start {v:.2f}, stepping {args.step} every {args.pause}s; lag > {g['stall_lag']} means contact")
+    contact = None
+    while v > 0.2:
+        v = round(v - args.step, 3)
+        robot.jaw_to(v)
+        time.sleep(args.pause)
+        read = robot.jaw()
+        print(f"  cmd {v:5.2f}  read {read:5.2f}  lag {read - v:+.2f}")
+        if read - v > g["stall_lag"]:
+            contact = read
+            break
+    if contact is None:
+        robot.jaw_to(g["open"])
+        robot.disconnect()
+        sys.exit("jaw closed fully without meeting a plate; nothing measured, jaw reopened")
+    width = round(contact - args.backoff, 2)
+    robot.jaw_to(width)
+    time.sleep(0.5)
+    final = robot.jaw()
+    robot.disconnect()
+    layout["gripper"]["closed"][args.grip] = width
+    if all(layout["gripper"]["closed"].values()):
+        layout["gripper"].pop("_todo", None)
+    save_layout(layout)
+    print(f"{args.grip}: contact at {contact:.2f}, stored closed width {width:.2f}, jaw now {final:.2f}")
+
+
 def cmd_record_ref(args):
     layout = load_layout()
     v = VisionClient(layout["vision"]["host"], layout["vision"]["port"])
@@ -168,6 +204,9 @@ def preflight(layout: dict, ref_dir: str) -> list:
                        ("polar.pose_at_90", F["polar"]["pose_at_90"].get("pose"))):
         if not pose:
             problems.append(f"pose not taught: {name}")
+    for grip, w in layout["gripper"]["closed"].items():
+        if not w:
+            problems.append(f"grip width not measured: {grip}")
     for name, t in layout["trajectories"].items():
         if not t:
             problems.append(f"trajectory not taught: {name}")
@@ -247,6 +286,9 @@ def main():
     p = sub.add_parser("trace"); p.add_argument("name"); p.add_argument("--max-seconds", type=float, default=900)
     p.set_defaults(fn=cmd_trace)
     p = sub.add_parser("normalise"); p.add_argument("name"); p.set_defaults(fn=cmd_normalise)
+    p = sub.add_parser("measure-grip"); p.add_argument("grip", choices=("short_edges", "long_edges"))
+    p.add_argument("--step", type=float, default=0.25); p.add_argument("--pause", type=float, default=0.3)
+    p.add_argument("--backoff", type=float, default=0.1); p.set_defaults(fn=cmd_measure_grip)
     p = sub.add_parser("record-ref"); p.add_argument("fixture"); p.add_argument("state"); p.set_defaults(fn=cmd_record_ref)
     p = sub.add_parser("check-lower"); p.add_argument("fixture"); p.add_argument("state"); p.set_defaults(fn=cmd_check_lower)
     p = sub.add_parser("run")

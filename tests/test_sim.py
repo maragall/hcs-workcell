@@ -92,6 +92,7 @@ def layout():
     L["polar"]["di"] = {"at_0": "P0", "at_90": "P90"}
     L["limits"]["health_check_every_s"] = 0
     L["limits"]["min_disk_free_gb"] = 0
+    L["gripper"]["closed"] = {"short_edges": 2.92, "long_edges": 2.92}
     return L
 
 
@@ -298,7 +299,7 @@ def test_resume_refuses_moved_arm():
 def test_drift_warning_is_logged():
     r = Rig()
     for _ in range(10):
-        r.cyc.drift.observe("jaw:closed", 2.92)
+        r.cyc.drift.observe("jaw:closed:short_edges", 2.92)
     orig = r.robot.jaw_to
 
     def jaw_to(v):

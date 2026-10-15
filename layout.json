@@ -1,53 +1,224 @@
 {
   "_units": "robot base frame, mm, radians; rz = gripper yaw",
-  "robot": {"ip": "192.168.1.220", "port": 52525, "grip_axis": 0},
+  "robot": {
+    "ip": "192.168.1.220",
+    "port": 52525,
+    "grip_axis": 0
+  },
   "vision": {
-    "host": "192.168.3.100", "port": 9000,
-    "down_camera": "auto_teach_camera", "front_camera": "scan_camera",
+    "host": "192.168.3.100",
+    "port": 9000,
+    "down_camera": "auto_teach_camera",
+    "front_camera": "scan_camera",
     "workspace": "autoteach",
     "max_correction_mm": 25.0,
     "led": 0,
-    "lower_check": {"min_refs": 3, "margin": 0.08, "floor": 0.55, "retries": 3}
+    "lower_check": {
+      "min_refs": 3,
+      "margin": 0.08,
+      "floor": 0.55,
+      "retries": 3
+    }
   },
-  "gripper": {"open": 10.0, "closed_on_plate": 2.92, "tolerance": 0.35},
+  "gripper": {
+    "open": 10.0,
+    "closed": {
+      "short_edges": null,
+      "long_edges": null
+    },
+    "tolerance": 0.35,
+    "stall_lag": 0.3,
+    "_todo": "closed widths measured on the real plastic plate: run.py measure-grip <grip>"
+  },
   "speeds": {
-    "supervised":   {"travel": 0.05, "approach": 0.02, "contact": 0.01, "jaw_step": 0.5, "jaw_pause": 0.15},
-    "unsupervised": {"travel": 0.03, "approach": 0.015, "contact": 0.01, "jaw_step": 0.5, "jaw_pause": 0.15}
+    "supervised": {
+      "travel": 0.05,
+      "approach": 0.02,
+      "contact": 0.01,
+      "jaw_step": 0.5,
+      "jaw_pause": 0.15
+    },
+    "unsupervised": {
+      "travel": 0.03,
+      "approach": 0.015,
+      "contact": 0.01,
+      "jaw_step": 0.5,
+      "jaw_pause": 0.15
+    }
   },
-  "workspace_box": {"x": [90, 330], "y": [-170, 170], "z": [45, 430]},
+  "workspace_box": {
+    "x": [
+      90,
+      330
+    ],
+    "y": [
+      -170,
+      170
+    ],
+    "z": [
+      45,
+      430
+    ]
+  },
   "regions": {
-    "microscope": {"box": {"x": [0, 0], "y": [0, 0]}, "z_floor": 0, "_todo": "set from the taught microscope pose; floor = pick z - 2"},
-    "polar":      {"box": {"x": [100, 150], "y": [90, 145]}, "z_floor": 60},
-    "hotel":      {"box": {"x": [255, 330], "y": [-170, 170]}, "z_floor": 55}
+    "microscope": {
+      "box": {
+        "x": [
+          0,
+          0
+        ],
+        "y": [
+          0,
+          0
+        ]
+      },
+      "z_floor": 0,
+      "_todo": "set from the taught microscope pose; floor = pick z - 2"
+    },
+    "polar": {
+      "box": {
+        "x": [
+          100,
+          150
+        ],
+        "y": [
+          90,
+          145
+        ]
+      },
+      "z_floor": 60
+    },
+    "hotel": {
+      "box": {
+        "x": [
+          255,
+          330
+        ],
+        "y": [
+          -170,
+          170
+        ]
+      },
+      "z_floor": 55
+    }
   },
   "fixtures": {
     "microscope": {
       "_todo": "teach: plate gripped on its SHORT edges at the microscope stage",
-      "pose": null, "hover_mm": 25, "approach": {"axis": [0, 0, 1], "mm": 0},
-      "grip": "short_edges", "aruco_reference": "microscope_ref", "aruco_marker_id": 1
+      "pose": null,
+      "hover_mm": 25,
+      "approach": {
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "mm": 0
+      },
+      "grip": "short_edges",
+      "aruco_reference": "microscope_ref",
+      "aruco_marker_id": 1
     },
     "polar": {
-      "pose_at_0":  {"_todo": "teach: plate gripped on SHORT edges, polar stage at 0 deg", "pose": null},
-      "pose_at_90": {"_todo": "teach: plate gripped on LONG edges, polar stage at 90 deg", "pose": [125.421, 117.434, 67.859, 0, 0, -0.0076]},
-      "hover_mm": 25, "clear_mm": 60,
-      "aruco_reference": "stage-wide", "aruco_marker_id": 1
+      "pose_at_0": {
+        "_todo": "teach: plate gripped on SHORT edges, polar stage at 0 deg",
+        "pose": null
+      },
+      "pose_at_90": {
+        "_todo": "teach: plate gripped on LONG edges, polar stage at 90 deg",
+        "pose": [
+          125.421,
+          117.434,
+          67.859,
+          0,
+          0,
+          -0.0076
+        ]
+      },
+      "hover_mm": 25,
+      "clear_mm": 60,
+      "aruco_reference": "stage-wide",
+      "aruco_marker_id": 1
     },
     "hotel": {
-      "approach": {"axis": [-1, 0, 0], "mm": 145}, "lift_mm": 25, "max_lift_mm": 30,
-      "columns": ["A", "B", "C"], "odd_rows": [1, 3, 5, 7, 9],
-      "taught": {
-        "A1": [290.983, 137.469, 73.942, 0, 0, -1.0282],
-        "A9": [292.979, 137.469, 373.974, 0, 0, -1.0294],
-        "B1": [293.987, 0.651, 72.126, 0, 0, -1.0275],
-        "C1": [292.980, -129.531, 71.951, 0, 0, -1.0267]
+      "approach": {
+        "axis": [
+          -1,
+          0,
+          0
+        ],
+        "mm": 145
       },
-      "row_vector_from": ["A1", "A9", 8]
+      "lift_mm": 25,
+      "max_lift_mm": 30,
+      "columns": [
+        "A",
+        "B",
+        "C"
+      ],
+      "odd_rows": [
+        1,
+        3,
+        5,
+        7,
+        9
+      ],
+      "taught": {
+        "A1": [
+          290.983,
+          137.469,
+          73.942,
+          0,
+          0,
+          -1.0282
+        ],
+        "A9": [
+          292.979,
+          137.469,
+          373.974,
+          0,
+          0,
+          -1.0294
+        ],
+        "B1": [
+          293.987,
+          0.651,
+          72.126,
+          0,
+          0,
+          -1.0275
+        ],
+        "C1": [
+          292.98,
+          -129.531,
+          71.951,
+          0,
+          0,
+          -1.0267
+        ]
+      },
+      "row_vector_from": [
+        "A1",
+        "A9",
+        8
+      ]
     }
   },
   "polar": {
-    "driver": "manual", "settle_s": 3.0, "assumed_angle": 0,
-    "do": {"rotate_90": "POLAR_ROT", "home": "POLAR_HOME", "pulse_s": 0.5},
-    "tcp": {"host": "192.168.1.50", "port": 5000, "fmt": "ROT {deg}\n", "ok": "OK"},
+    "driver": "manual",
+    "settle_s": 3.0,
+    "assumed_angle": 0,
+    "do": {
+      "rotate_90": "POLAR_ROT",
+      "home": "POLAR_HOME",
+      "pulse_s": 0.5
+    },
+    "tcp": {
+      "host": "192.168.1.50",
+      "port": 5000,
+      "fmt": "ROT {deg}\n",
+      "ok": "OK"
+    },
     "di": null
   },
   "trajectories": {
