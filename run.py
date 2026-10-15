@@ -253,6 +253,49 @@ def cmd_move_z(args):
     robot.disconnect()
 
 
+def cmd_replay(args):
+    """Replay a normalised trajectory waypoint by waypoint at travel speed, drag off, confirming each step."""
+    from nova_cell.safety import Safety
+    layout = load_layout()
+    wp = layout["trajectories"].get(args.name)
+    if not wp:
+        sys.exit(f"trajectory {args.name} not normalised yet")
+    tele = Telemetry(os.path.join(RUNS, "teach"))
+    robot, st = connect_robot_readonly(layout, tele.log)
+    if st.drag:
+        sys.exit("drag mode is on; turn it off first")
+    if not st.enabled and not robot.enable():
+        sys.exit("robot could not be enabled")
+    safety = Safety(layout, "supervised")
+    pts = list(zip(wp["joints"], wp["poses"]))
+    if args.reverse:
+        pts.reverse()
+    here = robot.pose()
+    first = pts[0][1]
+    gap = max(abs(here[i] - first[i]) for i in range(3))
+    print(f"arm at {[round(v, 1) for v in here[:3]]}, first waypoint {[round(v, 1) for v in first[:3]]}, gap {gap:.1f} mm")
+    if gap > args.start_tolerance:
+        robot.disconnect()
+        sys.exit(f"arm is {gap:.0f} mm from the first waypoint; drag it there first (tolerance {args.start_tolerance})")
+    robot.set_speed(args.speed)
+    for i, (j, p) in enumerate(pts, 1):
+        safety.check_target(p, f"{args.name} waypoint {i}")
+        if args.step and input(f"  waypoint {i}/{len(pts)} -> {[round(v, 1) for v in p[:3]]}  Enter to go, q to quit: ").strip().lower() == "q":
+            break
+        ext = robot.joints()[4:]
+        t0 = time.time()
+        robot.move_abs_joints(list(j[:4]) + list(ext))
+        while robot.state().moving and time.time() - t0 < 120:
+            time.sleep(0.1)
+        after = robot.pose()
+        dev = max(abs(after[k] - p[k]) for k in range(3))
+        print(f"  {i:2d}/{len(pts)} pose {[round(v, 1) for v in after[:3]]} dev {dev:.1f} mm  {time.time() - t0:.1f}s")
+        if dev > args.max_dev:
+            print(f"  stopped: deviation {dev:.1f} mm exceeds {args.max_dev}")
+            break
+    robot.disconnect()
+
+
 def cmd_measure_grip(args):
     """Close in steps on a plate held between the fingers until the jaw stops following; store the width."""
     layout = load_layout()
@@ -428,6 +471,10 @@ def main():
     p = sub.add_parser("move-z"); p.add_argument("delta_mm", type=float); p.add_argument("--speed", type=float, default=0.01)
     p.add_argument("--allow-floor", action="store_true", help="permit going below the region floor (seat moves)")
     p.set_defaults(fn=cmd_move_z)
+    p = sub.add_parser("replay"); p.add_argument("name"); p.add_argument("--reverse", action="store_true")
+    p.add_argument("--speed", type=float, default=0.01); p.add_argument("--step", action="store_true")
+    p.add_argument("--start-tolerance", type=float, default=15.0); p.add_argument("--max-dev", type=float, default=5.0)
+    p.set_defaults(fn=cmd_replay)
     p = sub.add_parser("measure-grip"); p.add_argument("grip", choices=("short_edges", "long_edges"))
     p.add_argument("--step", type=float, default=0.25); p.add_argument("--pause", type=float, default=0.3)
     p.add_argument("--backoff", type=float, default=0.1); p.set_defaults(fn=cmd_measure_grip)
