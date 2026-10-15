@@ -375,6 +375,99 @@ def cmd_place_test(args):
         robot.disconnect()
 
 
+def cmd_hotel_cycle_test(args):
+    """Supervised: pick from the slot, put it back, pick again, route back to the rotating stage, place at -90, lift."""
+    from nova_cell.cycle import Cycle
+    from nova_cell.safety import Safety
+    layout = load_layout()
+    tele = Telemetry(os.path.join(RUNS, "teach"))
+    robot, st = connect_robot_readonly(layout, tele.log)
+    if st.drag:
+        robot._r.EnableDragModeAsync(False)
+        time.sleep(1.5)
+    if not robot.enable():
+        sys.exit("robot could not be enabled")
+    safety = Safety(layout, "supervised")
+    g = layout["gripper"]
+    geom = Cycle.__new__(Cycle)
+    geom.L = layout
+    slot = Cycle.hotel_slot_pose(geom, args.slot)
+    h = layout["fixtures"]["hotel"]
+    ax, mm, lift = h["approach"]["axis"], h["approach"]["mm"], h["lift_mm"]
+    approach = [slot[0] + ax[0] * mm, slot[1] + ax[1] * mm, slot[2] + lift] + list(slot[3:])
+    carry = [slot[0], slot[1], slot[2] + lift] + list(slot[3:])
+    wp = layout["trajectories"]["polar_to_hotel"]
+    pts = list(zip(wp["joints"], wp["poses"]))
+    seat = pts[0][1]
+    above_seat = pts[1][1]
+    hover = layout["fixtures"]["polar"]["hover"]["pose"]
+    pz = layout["polar"]["ext_axis"]
+    stage_target = pz["zero_reading"] + pz["direction"] * 90
+
+    def say(label):
+        p = robot.pose()
+        print(f"  {label:26s} {[round(v, 1) for v in p[:3]]} yaw {p[5]:.1f} jaw {robot.jaw():.2f}", flush=True)
+
+    def close_on(grip):
+        want = g["closed"][grip]
+        v = robot.jaw()
+        while v > want + 1e-6:
+            v = max(want, v - 0.5)
+            try:
+                robot.jaw_to(v)
+            except MotionRefused:
+                break
+            time.sleep(0.15)
+        time.sleep(0.4)
+        jaw = robot.jaw()
+        if abs(jaw - want) > g["tolerance"]:
+            raise SystemExit(f"STOP: grasp check failed, jaw {jaw:.2f} expected {want} +- {g['tolerance']}")
+        say(f"closed ({grip})")
+
+    def lin(p, label, speed):
+        safety.check_target(p, label, allow_floor_regions=("hotel", "polar"))
+        robot.set_speed(speed)
+        robot.move_linear(p)
+        say(label)
+
+    fast, mid, slow = args.speed, args.speed / 2, args.speed / 3
+    try:
+        say("start")
+        robot.set_speed(fast)
+        robot.jaw_to(g["open"]["long_edges"])
+        lin(approach, "pre-approach", fast)
+        for rep, action in enumerate(("pick", "place", "pick"), 1):
+            lin(carry, f"{rep} slide in", mid)
+            lin(slot, f"{rep} lower", slow)
+            if action == "pick":
+                close_on("long_edges")
+            else:
+                robot.jaw_to(g["open"]["long_edges"])
+                time.sleep(0.5)
+                say("released")
+            lin(carry, f"{rep} lift", slow)
+            lin(approach, f"{rep} slide out", mid)
+        robot.set_speed(fast)
+        robot.move_joint(pts[-1][1])
+        say("route end (joint)")
+        for i, (j, pp) in reversed(list(enumerate(pts, 1))):
+            if i == 1:
+                break
+            robot.move_abs_joints_stepped(list(j[:4]))
+            say(f"route wp {i}")
+        angle = robot.ext_axis(int(pz["index"]))
+        if abs(angle - stage_target) > 2.0:
+            raise SystemExit(f"STOP: rotating stage at {angle:.1f}, expected {stage_target:.1f} for the long-edge seat")
+        lin(seat, "stage seat", slow)
+        robot.jaw_to(g["open"]["long_edges"])
+        time.sleep(0.5)
+        say("released on stage")
+        lin(hover, "stage hover", slow)
+        print("done: plate on the rotating stage at -90, arm at the hover, fingers open")
+    finally:
+        robot.disconnect()
+
+
 def cmd_measure_grip(args):
     """Close in steps on a plate held between the fingers until the jaw stops following; store the width."""
     layout = load_layout()
@@ -558,6 +651,8 @@ def main():
     p.add_argument("--stage", type=int, choices=(1, 2, 3, 4), required=True)
     p.add_argument("--speed", type=float, default=0.20); p.add_argument("--max-dev", type=float, default=5.0)
     p.add_argument("--start-tolerance", type=float, default=40.0); p.set_defaults(fn=cmd_place_test)
+    p = sub.add_parser("hotel-cycle-test"); p.add_argument("slot", default="A1", nargs="?")
+    p.add_argument("--speed", type=float, default=0.30); p.set_defaults(fn=cmd_hotel_cycle_test)
     p = sub.add_parser("measure-grip"); p.add_argument("grip", choices=("short_edges", "long_edges"))
     p.add_argument("--step", type=float, default=0.25); p.add_argument("--pause", type=float, default=0.3)
     p.add_argument("--backoff", type=float, default=0.1); p.set_defaults(fn=cmd_measure_grip)
