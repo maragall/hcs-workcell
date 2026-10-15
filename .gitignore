@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+runs/
+state.json
+state_sim.json
+reference_images/
+layout.json.tmp
