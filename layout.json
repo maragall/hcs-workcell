@@ -278,23 +278,7 @@
         8
       ],
       "_a1_check": {
-        "old_taught": [
-          290.983,
-          137.469,
-          73.942,
-          0,
-          0,
-          -1.0282
-        ],
-        "route_end_seated_by_hand": [
-          298.0,
-          154.2,
-          79.7,
-          0,
-          0,
-          -5.9
-        ],
-        "_todo": "17 mm apart in y: verify A1 by replaying to the approach and lowering under supervision before trusting either"
+        "verified": "2026-10-15 placement test, A1 x corrected +2 mm by operator"
       }
     }
   },
