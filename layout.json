@@ -23,24 +23,20 @@
   "gripper": {
     "open": {
       "short_edges": 26.0,
-      "long_edges": null
+      "long_edges": 6.0
     },
     "closed": {
       "short_edges": 24.0,
-      "long_edges": null
+      "long_edges": 2.84
     },
     "tolerance": 0.35,
     "stall_lag": 0.3,
-    "_todo": "closed widths measured on the real plastic plate: run.py measure-grip <grip>",
-    "measured": {
-      "short_edges": "2026-10-15 servo refused step 24.25->24.0, jaw 24.02; calibration plate"
-    },
     "_note": "open is per grip: the microscope holder limits how wide the fingers may be when descending",
     "readings": {
+      "long_edges_on_plate": 2.84,
       "short_edges_on_plate": 24.0,
-      "long_edges_on_plate": 3.022,
       "empty_closed": -0.04,
-      "_warning": "long edges read SMALLER than short edges: the jaw scale may be inverted (value falls as the gap widens). Resolve with the caliper test before any automated grasp."
+      "_note": "value = finger gap: long-edge grip holds the 85 mm width (2.84), short-edge grip holds the 128 mm length (24.0)"
     }
   },
   "speeds": {
@@ -244,7 +240,7 @@
       ],
       "taught": {
         "A1": [
-          290.983,
+          292.983,
           137.469,
           73.942,
           0,

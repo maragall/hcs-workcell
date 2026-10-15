@@ -163,10 +163,21 @@ class VendorRobot:
     def ext_axis(self, index: int) -> float:
         return float(list(self._r.GetCurExtJointAsync())[index])
 
-    def ext_axis_to(self, index: int, value: float):
-        # readouts are 0-based (extjoints[0] = E1 gripper, [1] = E2 polar stage); move commands are 1-based
-        if not self._r.MoveSingleExtJointAsync(index + 1, float(value)):
-            raise MotionRefused(f"external axis {index + 1} move refused to {value} (drag mode on? index invalid?)")
+    def ext_axis_to(self, index: int, value: float, tol: float = 0.15, timeout: float = 20.0):
+        # readouts are 0-based (extjoints[0] = E1 gripper, [1] = E2 polar stage); move commands are 1-based.
+        # The SDK flag is unreliable under load; completion is verified from the axis reading.
+        ok = self._r.MoveSingleExtJointAsync(index + 1, float(value))
+        t0 = time.time()
+        last = None
+        while time.time() - t0 < timeout:
+            now = self.ext_axis(index)
+            if abs(now - float(value)) <= tol:
+                return
+            if last is not None and abs(now - last) < 0.01 and time.time() - t0 > 2.0:
+                break                                   # stalled: an obstruction, or the plate for a closing move
+            last = now
+            time.sleep(0.2)
+        raise MotionRefused(f"external axis {index + 1} stopped at {self.ext_axis(index):.2f}, target {value} (sdk={ok})")
 
     def write_do(self, signal: str, value: int):
         if not self._r.WriteDOAsync(signal, int(value)):
