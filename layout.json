@@ -1333,6 +1333,7 @@
     "operator_timeout_s": 600,
     "step_timeout_s": 120,
     "health_check_every_s": 30,
-    "max_waypoint_pose_dev_mm": 6.0
+    "max_waypoint_pose_dev_mm": 6.0,
+    "vision_retry_s": 300
   }
 }

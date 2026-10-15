@@ -1,6 +1,7 @@
 # STATUS 2026-10-15 02:00 (previous entries below)
 
 ## Tonight
+- 03:01 UNATTENDED LOOP STARTED: run_forever.py A1 (microscope <-> A1 ping-pong), 20 % profile, gates/vision correction off, drift warn-only, recording 1 fps. Stop with runs/STOP. Supervisor relaunches only on recoverable stops (3/h, 10/day).
 - 02:37 A3 run: collision stop during the joint move from the route end (257,234,103) to the A3 pre-approach (193,137.5,174). The arm stopped at (227,193,121), plate still held (jaw 3.05, was 2.84). Diagnosis: for rows above 1 the pre-approach is higher than the route end, and the joint move climbs while still inside the rack's shelf depth, so the plate sweeps up into a shelf. Fix to apply: retreat in -x to a climb column clear of the shelves, climb vertically there, then approach. ARM LEFT IN PLACE; operator must look before any motion.
 - 02:25 FIRST FULL CYCLE through the real cycle code: microscope -> stage -> rotate -> hotel A1 -> back -> microscope. 331 s. Two safe stops on the way, both correct: a 1.5 mm demo-pose mismatch (tolerance now 6 mm on waypoints, joints strict) and a real collision stop when the hotel pick slid in at plate height (pick now mirrors the place). Matrix run A3..C9 started 02:27 with gates and vision correction off.
 - Taught: microscope seat+hover, rotating-stage seat (0 and -90) + hover, A1 corrected +2 mm x.

@@ -192,18 +192,26 @@ class Cycle:
             return
         self._last_health = time.time()
         st = self.robot.state()
-        try:
-            vs = self.vision.status()
-        except Exception as e:
-            self.corr.alert("health", f"vision box unreachable: {e}")
-            raise StopSafe("vision box unreachable")
+        vs = None
+        deadline = time.time() + self.lim.get("vision_retry_s", 300)
+        while vs is None:
+            try:
+                vs = self.vision.status()
+            except Exception as e:
+                if time.time() > deadline:
+                    self.corr.alert("health", f"vision box unreachable for {self.lim.get('vision_retry_s', 300)} s: {e}")
+                    raise StopSafe("vision box unreachable")
+                self.tele.log("health", "vision", f"unreachable, retrying: {e}")
+                time.sleep(10)
         free_gb = shutil.disk_usage(self.run_dir).free / 1e9
         self.tele.log("health", "check", robot_enabled=st.enabled, drag=st.drag, vision=vs.state, clients=vs.clients,
                       disk_free_gb=round(free_gb, 1))
         if st.drag:
             raise StopSafe("drag mode turned on during the run")
         if not st.enabled:
-            raise StopSafe("controller lost enable between steps")
+            # between steps the arm is stationary; one re-enable per health check, counted by the corrector
+            if not self.corr.on_disabled("health") or not self.robot.state().enabled:
+                raise StopSafe("controller lost enable between steps and could not be re-enabled")
         if free_gb < self.lim["min_disk_free_gb"]:
             raise StopSafe(f"disk nearly full ({free_gb:.1f} GB free)")
 
