@@ -52,11 +52,11 @@
   "workspace_box": {
     "x": [
       90,
-      330
+      360
     ],
     "y": [
       -170,
-      170
+      340
     ],
     "z": [
       45,
@@ -67,16 +67,16 @@
     "microscope": {
       "box": {
         "x": [
-          0,
-          0
+          280,
+          360
         ],
         "y": [
-          0,
-          0
+          250,
+          340
         ]
       },
-      "z_floor": 0,
-      "_todo": "set from the taught microscope pose; floor = pick z - 2"
+      "z_floor": 265.0,
+      "_todo": "provisional: box from the taught pose +-40 mm, floor = seat z - 2; replace with measured values"
     },
     "polar": {
       "box": {
@@ -107,8 +107,14 @@
   },
   "fixtures": {
     "microscope": {
-      "_todo": "teach: plate gripped on its SHORT edges at the microscope stage",
-      "pose": null,
+      "pose": [
+        317.799,
+        301.908,
+        267.068,
+        0.0,
+        -0.0,
+        89.1315
+      ],
       "hover_mm": 25,
       "approach": {
         "axis": [
@@ -120,7 +126,15 @@
       },
       "grip": "short_edges",
       "aruco_reference": "microscope_ref",
-      "aruco_marker_id": 1
+      "aruco_marker_id": 1,
+      "taught_at": "2026-10-14 23:15:44",
+      "jaw_at_teach": 24.107,
+      "vendor_teach": {
+        "name": "microscope-short",
+        "pick_method": "long",
+        "id": "ca0d0ee1-40ea-44ee-b028-e4885b093348",
+        "workspace": "autoteach"
+      }
     },
     "polar": {
       "pose_at_0": {
