@@ -33,10 +33,11 @@ class Warning_:
 
 
 class DriftMonitor:
-    def __init__(self, path: str, window: int = 60, warn_z: float = 3.5, stop_z: float = 6.0, min_n: int = 8):
+    def __init__(self, path: str, window: int = 60, warn_z: float = 3.5, stop_z: float = 6.0, min_n: int = 8,
+                 min_rel_scale: float = 0.02, min_abs_scale: float = 1e-3):
         self.path, self.window, self.warn_z, self.stop_z, self.min_n = path, window, warn_z, stop_z, min_n
+        self.min_rel_scale, self.min_abs_scale = min_rel_scale, min_abs_scale
         self.hist: Dict[str, Deque[float]] = defaultdict(lambda: deque(maxlen=window))
-        self.trend: Dict[str, List[float]] = defaultdict(list)
         self._load()
 
     def _load(self):
@@ -58,8 +59,9 @@ class DriftMonitor:
         verdict = None
         if len(h) >= self.min_n:
             med = statistics.median(h)
-            mad = statistics.median(abs(x - med) for x in h) or 1e-6
-            z = abs(value - med) / (1.4826 * mad)
+            mad = statistics.median(abs(x - med) for x in h)
+            scale = max(1.4826 * mad, self.min_rel_scale * abs(med), self.min_abs_scale)
+            z = abs(value - med) / scale
             if z >= self.stop_z:
                 verdict = Warning_(feature, value, med, mad, z, "stop")
             elif z >= self.warn_z:
@@ -89,7 +91,7 @@ class PreChecks:
         self.jaw_tol = layout["gripper"]["tolerance"]
         self.jaw_open = layout["gripper"]["open"]
 
-    def before_grasp(self, jaw: float, robot_state, vision_status) -> List[str]:
+    def before_grasp(self, jaw: float, robot_state) -> List[str]:
         p = []
         if jaw < self.jaw_open - 1.0:
             p.append(f"jaw not open before grasp ({jaw:.2f})")
@@ -97,8 +99,6 @@ class PreChecks:
             p.append("drag mode on")
         if not robot_state.enabled:
             p.append("robot not enabled")
-        if vision_status is not None and vision_status.state not in ("idle", "running"):
-            p.append(f"vision service state {vision_status.state}")
         return p
 
     def grasp_ok(self, jaw: float) -> Optional[str]:

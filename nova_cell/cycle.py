@@ -4,15 +4,19 @@ The plate cycle.
     microscope (short-edge grip) -> polar stage at 0 deg -> rotate 90 -> long-edge grip
     -> hotel slot -> back to polar at 90 -> rotate 0 -> short-edge grip -> microscope
 
-Every fixture visit follows the same pattern: travel, hover, vision check, lower, act on the jaw,
-verify the jaw, lift.  The state file is updated before and after each step so the cycle can resume.
+Every fixture visit follows the same pattern: travel, hover, vision gate, lower, jaw action, jaw
+verification, lift, held-plate check.  The state file is updated before and after each step.
+Motion is never retried; every motion is observed to completion and compared with its target.
 """
 from __future__ import annotations
 
+import math
+import shutil
 import time
 from typing import List, Optional
 
 from .corrector import Corrector, StopSafe
+from .lower_check import LowerCheck
 from .polar import PolarError, PolarStage
 from .predictor import DriftMonitor, PreChecks
 from .robot import MotionRefused, Robot
@@ -20,7 +24,6 @@ from .safety import Safety, SafetyViolation
 from .state import StateStore
 from .telemetry import Telemetry
 from .vision import VisionClient, VisionError
-from .lower_check import LowerCheck
 
 
 def _add(p: List[float], d: List[float]) -> List[float]:
@@ -31,20 +34,50 @@ class Cycle:
     def __init__(self, layout: dict, robot: Robot, vision: VisionClient, tele: Telemetry, store: StateStore,
                  mode: str, run_dir: str, ref_dir: str):
         self.L, self.robot, self.vision, self.tele, self.store = layout, robot, vision, tele, store
+        self.run_dir = run_dir
         self.supervised = mode == "supervised"
         self.safety = Safety(layout, mode)
         self.checks = PreChecks(layout)
         self.drift = DriftMonitor(run_dir + "/drift.json")
         self.corr = Corrector(layout, vision, robot, self.safety, tele, self.supervised)
-        self.polar = PolarStage(layout["polar"], robot, tele.log, self.supervised)
+        self.polar = PolarStage(layout["polar"], robot, tele.log, self.supervised, store.s.polar_angle)
         lc = layout["vision"]["lower_check"]
         self.lower = LowerCheck(ref_dir, lc["min_refs"], lc["margin"], lc["floor"])
         self.g = layout["gripper"]
+        self.lim = layout["limits"]
         self.down_cam = layout["vision"]["down_camera"]
         self.front_cam = layout["vision"]["front_camera"]
+        self.led = layout["vision"]["led"]
         self._last_health = 0.0
 
-    # ------------------------------------------------------------- primitives
+    # --------------------------------------------------------------- recording
+    def _fault(self, step: str, kind: str, detail: str):
+        self.store.fault(step, kind, detail)
+        self.tele.log("fault", step, kind, detail=detail)
+
+    def _observe(self, feature: str, value: float):
+        w = self.drift.observe(feature, value)
+        if w:
+            self.corr.on_drift(w)
+
+    # -------------------------------------------------------------- primitives
+    def _wait_still(self, label: str):
+        t0 = time.time()
+        while self.robot.state().moving:
+            if time.time() - t0 > self.lim["step_timeout_s"]:
+                raise StopSafe(f"{label}: still moving after {self.lim['step_timeout_s']} s")
+            time.sleep(0.05)
+
+    def _settle(self, label: str, target_xyz: List[float]) -> float:
+        self._wait_still(label)
+        after = self.robot.pose()
+        dev = max(abs(after[i] - target_xyz[i]) for i in range(3))
+        if dev > self.lim["max_pose_deviation_mm"]:
+            self._fault(label, "pose_deviation", f"{dev:.2f} mm")
+            raise StopSafe(f"{label}: arm stopped {dev:.1f} mm from target; possible collision or stall")
+        self.store.s.last_safe_pose = after
+        return dev
+
     def _move(self, kind: str, target: List[float], label: str, speed: float, allow_floor=()):
         here = self.robot.pose()
         if kind == "L":
@@ -56,48 +89,52 @@ class Cycle:
         try:
             (self.robot.move_linear if kind == "L" else self.robot.move_joint)(target)
         except MotionRefused as e:
-            st = self.robot.state()
-            if not st.enabled and self.corr.on_disabled(label):
-                (self.robot.move_linear if kind == "L" else self.robot.move_joint)(target)
-            else:
-                self.store.fault(label, "motion_refused", str(e))
-                self.corr.on_motion_refused(label, e)
+            self._fault(label, "motion_refused", str(e))
+            if not self.robot.state().enabled:
+                self.corr.on_disabled(label)
+            raise StopSafe(f"{label}: {e}")
+        dev = self._settle(label, target)
         dt = time.time() - t0
-        after = self.robot.pose()
-        dev = max(abs(after[i] - target[i]) for i in range(3))
-        self.tele.log("move", label, kind, target=[round(v, 2) for v in target], actual=[round(v, 2) for v in after],
-                      dt=round(dt, 2), speed=speed, dev=round(dev, 2))
-        if dev > self.L["limits"]["max_pose_deviation_mm"]:
-            self.store.fault(label, "pose_deviation", f"{dev:.2f} mm")
-            raise StopSafe(f"{label}: arm stopped {dev:.1f} mm from target; possible collision or stall")
-        w = self.drift.observe(f"dt:{label}", dt)
-        if w:
-            self.corr.on_drift(w)
-        self.store.s.last_safe_pose = after
+        self.tele.log("move", label, kind, target=[round(v, 2) for v in target],
+                      actual=[round(v, 2) for v in self.robot.pose()], dt=round(dt, 2), speed=speed, dev=round(dev, 2))
+        self._observe(f"dt:{label}", dt)
 
     def _waypoints(self, name: str, reverse: bool = False):
         wp = self.L["trajectories"].get(name)
         if not wp:
-            raise SafetyViolation(f"trajectory '{name}' is not taught; record it with run.py trace/normalise")
+            raise SafetyViolation(f"trajectory '{name}' is not taught")
         pts = list(zip(wp["joints"], wp["poses"]))
         if reverse:
             pts.reverse()
         self.robot.set_speed(self.safety.profile.travel)
         for i, (j, p) in enumerate(pts, 1):
-            self.safety.check_target(p, f"{name} waypoint {i}")
+            label = f"{name}[{i}/{len(pts)}]"
+            self.safety.check_target(p, label)
+            ext = self.robot.joints()[4:]
             t0 = time.time()
             try:
-                self.robot.move_abs_joints(j)
+                self.robot.move_abs_joints(list(j[:4]) + list(ext))     # external axes are never driven here
             except MotionRefused as e:
-                self.store.fault(name, "motion_refused", str(e))
-                self.corr.on_motion_refused(f"{name} waypoint {i}", e)
-            self.tele.log("move", f"{name}[{i}/{len(pts)}]", "AJ", dt=round(time.time() - t0, 2))
+                self._fault(label, "motion_refused", str(e))
+                raise StopSafe(f"{label}: {e}")
+            dev = self._settle(label, p)
+            self.tele.log("move", label, "AJ", dt=round(time.time() - t0, 2), dev=round(dev, 2))
 
-    def _jaw_open(self):
-        self.robot.jaw_to(self.g["open"])
-        time.sleep(1.0)
+    def _jaw(self, value: float, label: str):
+        try:
+            self.robot.jaw_to(value)
+        except MotionRefused as e:
+            self._fault(label, "jaw_refused", str(e))
+            raise StopSafe(f"{label}: {e}")
+
+    def _jaw_open(self) -> float:
+        self._jaw(self.g["open"], "jaw open")
+        self._wait_still("jaw open")
+        time.sleep(0.5)
         jaw = self.robot.jaw()
         self.tele.log("jaw", "open", jaw=round(jaw, 2))
+        if jaw < self.g["open"] - 1.0:
+            raise StopSafe(f"jaw did not open ({jaw:.2f})")
         return jaw
 
     def _jaw_close(self) -> float:
@@ -106,94 +143,119 @@ class Cycle:
         curve = []
         while v > self.g["closed_on_plate"] + 1e-6:
             v = max(self.g["closed_on_plate"], v - prof.jaw_step)
-            self.robot.jaw_to(v)
+            self._jaw(v, "jaw close")
             time.sleep(prof.jaw_pause)
             curve.append(round(self.robot.jaw(), 3))
+        self._wait_still("jaw close")
         time.sleep(0.5)
         jaw = self.robot.jaw()
         self.tele.log("jaw", "close", jaw=round(jaw, 2), curve=curve)
-        w = self.drift.observe("jaw:closed", jaw)
-        if w:
-            self.corr.on_drift(w)
+        self._observe("jaw:closed", jaw)
         return jaw
 
-    def _health(self):
-        if time.time() - self._last_health < self.L["limits"]["health_check_every_s"]:
+    def _health(self, force: bool = False):
+        if not force and time.time() - self._last_health < self.lim["health_check_every_s"]:
             return
         self._last_health = time.time()
         st = self.robot.state()
-        vs = None
         try:
             vs = self.vision.status()
         except Exception as e:
             self.corr.alert("health", f"vision box unreachable: {e}")
             raise StopSafe("vision box unreachable")
-        self.tele.log("health", "check", robot_enabled=st.enabled, drag=st.drag, vision=vs.state, clients=vs.clients)
+        free_gb = shutil.disk_usage(self.run_dir).free / 1e9
+        self.tele.log("health", "check", robot_enabled=st.enabled, drag=st.drag, vision=vs.state, clients=vs.clients,
+                      disk_free_gb=round(free_gb, 1))
         if st.drag:
             raise StopSafe("drag mode turned on during the run")
+        if not st.enabled:
+            raise StopSafe("controller lost enable between steps")
+        if free_gb < self.lim["min_disk_free_gb"]:
+            raise StopSafe(f"disk nearly full ({free_gb:.1f} GB free)")
 
     # ------------------------------------------------------------ vision gates
+    def _frame(self, cam: str) -> Optional[bytes]:
+        try:
+            return self.vision.frame(cam, 1920, 1080, 85, None, self.led)
+        except Exception as e:
+            self.tele.log("vision", "frame", f"{cam}: {e}")
+            return None
+
     def _vision_correction(self, fixture: dict, label: str) -> List[float]:
         ref = fixture.get("aruco_reference")
         if not ref:
             return [0.0] * 6
         try:
             off = self.vision.pose_offset(self.down_cam, ref, self.L["vision"]["workspace"],
-                                          fixture.get("aruco_marker_id", 1), None, self.L["vision"]["led"])
-        except VisionError as e:
-            self.tele.image(f"{label}_vision_error", self._safe_frame(self.down_cam))
+                                          fixture.get("aruco_marker_id", 1), None, self.led)
+        except (VisionError, OSError) as e:
+            self.tele.image(f"{label}_vision_error", self._frame(self.down_cam))
             if self.corr.on_vision_error(label, e):
                 return [0.0] * 6
             raise StopSafe(f"{label}: no vision correction available")
         self.tele.image(f"{label}_aruco", off.image)
-        mag = (off.d[0] ** 2 + off.d[1] ** 2 + off.d[2] ** 2) ** 0.5
+        mag = math.sqrt(off.d[0] ** 2 + off.d[1] ** 2 + off.d[2] ** 2)
         self.tele.log("vision", f"{label} offset", d=[round(v, 2) for v in off.d], mag=round(mag, 2), frame=off.frame)
-        w = self.drift.observe(f"vision_mag:{label}", mag)
-        if w:
-            self.corr.on_drift(w)
+        self._observe(f"vision_mag:{label}", mag)
         if mag > self.safety.vision_jump_mm:
             self.corr.on_vision_too_far(label, mag)
         return [off.d[0], off.d[1], 0.0, 0.0, 0.0, 0.0]
 
-    def _safe_frame(self, cam: str) -> Optional[bytes]:
-        try:
-            return self.vision.frame(cam, 1920, 1080, 80, None, self.L["vision"]["led"])
-        except Exception:
-            return None
-
-    def _gate_lower(self, fixture_name: str, state: str, label: str):
-        led = self.L["vision"]["led"]
-        for attempt in range(self.L["vision"]["lower_check"]["retries"] + 1):
-            img = self.vision.frame(self.down_cam, 1920, 1080, 85, None, led)
-            v = self.lower.verdict(fixture_name, state, img)
+    def _gate_lower(self, gate: str, state: str, label: str):
+        led = self.led
+        attempts = self.L["vision"]["lower_check"]["retries"] + 1
+        for attempt in range(attempts):
+            img = self._frame(self.down_cam)
+            if img is None:
+                raise StopSafe(f"{label}: no frame from {self.down_cam} for the lower gate")
+            v = self.lower.verdict(gate, state, img)
             self.tele.image(f"{label}_lower_{attempt}", img)
             self.tele.log("vision", f"{label} lower_check", v.reason, score=round(v.best, 3), thr=round(v.threshold, 3),
-                          refs=v.n_refs, safe=v.safe)
-            w = self.drift.observe(f"lower:{fixture_name}:{state}", v.best)
-            if w:
-                self.corr.on_drift(w)
+                          refs=v.n_refs, safe=v.safe, gate=gate)
+            self._observe(f"lower:{gate}:{state}", v.best)
             if v.safe:
                 return
-            led = self.corr.on_lower_blocked(fixture_name, attempt, v)
+            led = self.corr.on_lower_blocked(gate, attempt, attempts, v)
+        raise StopSafe(f"{label}: lower gate exhausted {attempts} attempts without a safe verdict")
+
+    def _check_plate_in_gripper(self, step: str, grip: str):
+        img = self._frame(self.front_cam)
+        self.tele.image(f"{step}_lifted", img)
+        if img is None:
+            if self.supervised:
+                return
+            raise StopSafe(f"{step}: front camera frame failed after lift")
+        v = self.lower.verdict("gripper", grip, img)
+        self.tele.log("vision", f"{step} plate_in_gripper", v.reason, score=round(v.best, 3), safe=v.safe, refs=v.n_refs)
+        if v.n_refs < self.lower.min_refs:
+            return
+        self._observe(f"gripper:{grip}", v.best)
+        if not v.safe:
+            self._fault(step, "not_held", v.reason)
+            if not self.corr.operator_or_stop(step, "plate in gripper does not match references",
+                                              "Plate is held correctly?"):
+                raise StopSafe("plate not held correctly after lift")
 
     # ---------------------------------------------------------- fixture visits
-    def _pick(self, fixture_name: str, pose: List[float], fixture: dict, grip: str, trajectory_in: Optional[str]):
+    def _pick(self, fixture_name: str, pose: List[float], fixture: dict, grip: str, trajectory_in: Optional[str],
+              gate: Optional[str] = None):
         prof = self.safety.profile
-        hover = _add(pose, [0, 0, fixture["hover_mm"]])
+        gate = gate or fixture_name
         step = f"pick:{fixture_name}"
         self.store.begin(step)
         self._health()
         if trajectory_in:
             self._waypoints(trajectory_in)
+        hover = _add(pose, [0, 0, fixture["hover_mm"]])
         self._move("J", hover, f"{step} hover", prof.approach)
         self._jaw_open()
         target = _add(pose, self._vision_correction(fixture, step))
         hover = _add(target, [0, 0, fixture["hover_mm"]])
         self._move("L", hover, f"{step} hover(corrected)", prof.approach)
 
-        for attempt in range(2):
-            self._gate_lower(fixture_name, "plate_present", step)
-            problems = self.checks.before_grasp(self.robot.jaw(), self.robot.state(), None)
+        for attempt in range(1, self.corr.budget.regrasp + 2):
+            self._gate_lower(gate, "plate_present", step)
+            problems = self.checks.before_grasp(self.robot.jaw(), self.robot.state())
             if problems:
                 raise StopSafe(f"{step}: " + "; ".join(problems))
             self._move("L", target, f"{step} lower", prof.contact, allow_floor=(fixture_name,))
@@ -201,27 +263,28 @@ class Cycle:
             err = self.checks.grasp_ok(jaw)
             if not err:
                 break
-            self.store.fault(step, "grasp", err)
+            self._fault(step, "grasp", err)
             self._jaw_open()
             self._move("L", hover, f"{step} lift(empty)", prof.approach)
-            if not self.corr.on_grasp_failed(fixture_name, attempt + 1, err):
-                raise StopSafe(err)
+            self.corr.on_grasp_failed(fixture_name, attempt, err)
             target = _add(pose, self._vision_correction(fixture, step))
             hover = _add(target, [0, 0, fixture["hover_mm"]])
+            self._move("L", hover, f"{step} hover(recorrected)", prof.approach)
 
-        self.store.done(plate_at="gripper", grip=grip)
         self._move("L", hover, f"{step} lift", prof.approach)
         self._check_plate_in_gripper(step, grip)
+        self.store.done(plate_at="gripper", grip=grip)
 
     def _place(self, fixture_name: str, pose: List[float], fixture: dict, at: str, trajectory_in: Optional[str],
-               reverse: bool = False):
+               reverse: bool = False, gate: Optional[str] = None):
         prof = self.safety.profile
-        hover = _add(pose, [0, 0, fixture["hover_mm"]])
+        gate = gate or fixture_name
         step = f"place:{fixture_name}"
         self.store.begin(step)
         self._health()
         if trajectory_in:
             self._waypoints(trajectory_in, reverse)
+        hover = _add(pose, [0, 0, fixture["hover_mm"]])
         self._move("J", hover, f"{step} hover", prof.approach)
         target = _add(pose, self._vision_correction(fixture, step))
         hover = _add(target, [0, 0, fixture["hover_mm"]])
@@ -229,60 +292,56 @@ class Cycle:
         problems = self.checks.before_release(self.robot.jaw())
         if problems:
             raise StopSafe(f"{step}: " + "; ".join(problems))
-        self._gate_lower(fixture_name, "empty", step)
+        self._gate_lower(gate, "empty", step)
         self._move("L", target, f"{step} lower", prof.contact, allow_floor=(fixture_name,))
         self._jaw_open()
-        self.store.done(plate_at=at, grip="none")
         self._move("L", hover, f"{step} lift", prof.approach)
-        img = self.vision.frame(self.down_cam, 1920, 1080, 85, None, self.L["vision"]["led"])
+        img = self._frame(self.down_cam)
         self.tele.image(f"{step}_placed", img)
-        v = self.lower.verdict(fixture_name, "plate_present", img)
-        self.tele.log("vision", f"{step} seated_check", v.reason, score=round(v.best, 3), safe=v.safe)
+        if img is None:
+            raise StopSafe(f"{step}: no frame for the seated check")
+        v = self.lower.verdict(gate, "plate_present", img)
+        self.tele.log("vision", f"{step} seated_check", v.reason, score=round(v.best, 3), safe=v.safe, gate=gate)
         if not v.safe and v.n_refs >= self.lower.min_refs:
+            self._fault(step, "not_seated", v.reason)
             if not self.corr.operator_or_stop(step, "plate does not look seated after release",
                                               "Plate is seated correctly?"):
                 raise StopSafe("plate not seated")
-
-    def _check_plate_in_gripper(self, step: str, grip: str):
-        img = self._safe_frame(self.front_cam)
-        self.tele.image(f"{step}_lifted", img)
-        if img is None:
-            return
-        v = self.lower.verdict("gripper", grip, img)
-        self.tele.log("vision", f"{step} plate_in_gripper", v.reason, score=round(v.best, 3), safe=v.safe, refs=v.n_refs)
-        if v.n_refs < self.lower.min_refs:
-            return
-        w = self.drift.observe(f"gripper:{grip}", v.best)
-        if w:
-            self.corr.on_drift(w)
-        if not v.safe and not self.corr.operator_or_stop(step, "plate in gripper does not match references",
-                                                         "Plate is held correctly?"):
-            raise StopSafe("plate not held correctly after lift")
+        self.store.done(plate_at=at, grip="none")
 
     # ------------------------------------------------------------------ hotel
     def hotel_slot_pose(self, slot: str) -> List[float]:
         h = self.L["fixtures"]["hotel"]
+        col, row = slot[:1], slot[1:]
+        if col not in h["columns"] or not row.isdigit() or int(row) not in h["odd_rows"]:
+            raise SafetyViolation(f"slot {slot} does not exist")
         if slot in h["taught"]:
             return list(h["taught"][slot])
         a, b, n = h["row_vector_from"]
         rv = [(h["taught"][b][i] - h["taught"][a][i]) / n for i in range(3)]
-        col, row = slot[0], int(slot[1:])
         base = h["taught"][col + "1"]
-        return [base[i] + (row - 1) * rv[i] for i in range(3)] + list(base[3:])
+        return [base[i] + (int(row) - 1) * rv[i] for i in range(3)] + list(base[3:])
 
-    def _hotel_place(self, slot: str):
-        prof = self.safety.profile
+    def _hotel_geometry(self, slot: str):
         h = self.L["fixtures"]["hotel"]
         p = self.hotel_slot_pose(slot)
         ax, mm, lift = h["approach"]["axis"], h["approach"]["mm"], h["lift_mm"]
         approach = _add(p, [ax[0] * mm, ax[1] * mm, lift])
+        align = _add(p, [ax[0] * mm, ax[1] * mm, 0])
         carry = _add(p, [0, 0, lift])
+        return p, approach, align, carry
+
+    def _hotel_place(self, slot: str):
+        prof = self.safety.profile
+        p, approach, _, carry = self._hotel_geometry(slot)
         step = f"place:hotel:{slot}"
+        if self.store.s.hotel.get(slot) is not None:
+            raise StopSafe(f"{step}: state says {slot} is occupied")
         self.store.begin(step)
         self._health()
         self._waypoints("polar_to_hotel")
         self._move("J", approach, f"{step} approach", prof.approach)
-        ready, img = self.vision.live_detection(self.front_cam, aruco=False, led=self.L["vision"]["led"])
+        ready, img = self.vision.live_detection(self.front_cam, aruco=False, led=self.led)
         self.tele.image(f"{step}_slot_view", img)
         self.tele.log("vision", f"{step} slot_view", "object seen" if ready else "slot looks empty", ready=ready)
         if ready and not self.corr.operator_or_stop(step, f"{slot} may be occupied", "Slot is actually empty?"):
@@ -292,82 +351,100 @@ class Cycle:
         self._move("L", carry, f"{step} slide in", prof.contact)
         self._move("L", p, f"{step} lower", prof.contact)
         self._jaw_open()
-        self.store.s.hotel[slot] = self.store.s.plate_id
-        self.store.done(plate_at=f"hotel:{slot}", grip="none")
         self._move("L", carry, f"{step} lift off", prof.approach)
         self._move("L", approach, f"{step} slide out", prof.approach)
+        self.store.s.hotel[slot] = self.store.s.plate_id
+        self.store.done(plate_at=f"hotel:{slot}", grip="none")
 
     def _hotel_pick(self, slot: str):
         prof = self.safety.profile
-        h = self.L["fixtures"]["hotel"]
-        p = self.hotel_slot_pose(slot)
-        ax, mm, lift = h["approach"]["axis"], h["approach"]["mm"], h["lift_mm"]
-        approach = _add(p, [ax[0] * mm, ax[1] * mm, lift])
-        carry = _add(p, [0, 0, lift])
+        p, approach, align, carry = self._hotel_geometry(slot)
         step = f"pick:hotel:{slot}"
         self.store.begin(step)
         self._health()
         self._move("J", approach, f"{step} approach", prof.approach)
         self._jaw_open()
-        self._move("L", _add(p, [ax[0] * mm, ax[1] * mm, 0]), f"{step} align", prof.approach)
+        self._move("L", align, f"{step} align", prof.approach)
         self._move("L", p, f"{step} slide in", prof.contact)
         jaw = self._jaw_close()
         err = self.checks.grasp_ok(jaw)
         if err:
-            self.store.fault(step, "grasp", err)
+            self._fault(step, "grasp", err)
             raise StopSafe(f"{step}: {err}")
-        self.store.s.hotel.pop(slot, None)
-        self.store.done(plate_at="gripper", grip="long_edges")
         self._move("L", carry, f"{step} lift", prof.approach)
         self._move("L", approach, f"{step} slide out", prof.approach)
+        self._check_plate_in_gripper(step, "long_edges")
+        expected = self.store.s.hotel.get(slot, "")
+        if expected and self.store.s.plate_id and expected != self.store.s.plate_id:
+            self.corr.alert(step, f"plate id mismatch: slot had {expected}, scanned {self.store.s.plate_id}")
+        self.store.s.hotel.pop(slot, None)
+        self.store.done(plate_at="gripper", grip="long_edges")
         self._waypoints("polar_to_hotel", reverse=True)
 
-    # --------------------------------------------------------------- the loop
-    def _polar_rotate(self, deg: int):
+    # ------------------------------------------------------------------ polar
+    def _polar_rotate(self, deg: int, from_pose: List[float]):
+        F = self.L["fixtures"]["polar"]
         self.store.begin(f"polar:{deg}")
-        clear = _add(self.robot.pose(), [0, 0, self.L["fixtures"]["polar"]["clear_mm"]])
+        clear = _add(from_pose, [0, 0, F["hover_mm"] + F["clear_mm"]])
         self._move("L", clear, "polar clear", self.safety.profile.approach)
         while True:
             try:
                 self.polar.rotate_to(deg)
                 break
             except PolarError as e:
-                self.store.fault("polar", "rotate", str(e))
+                self._fault("polar", "rotate", str(e))
                 self.corr.on_polar_failed(e)
         self.store.done(polar_angle=deg)
 
     def _scan_plate(self):
         try:
-            codes, img = self.vision.scan(self.front_cam, 3.0, "QR;DATAMATRIX;CODE128", self.L["vision"]["led"], True)
-        except VisionError:
+            codes, img = self.vision.scan(self.front_cam, 3.0, "QR;DATAMATRIX;CODE128", self.led, True)
+        except (VisionError, OSError):
             codes, img = [], None
         self.tele.image("plate_barcode", img)
         self.tele.log("vision", "barcode", ",".join(codes) or "none")
         self.store.s.plate_id = codes[0] if codes else ""
 
+    # --------------------------------------------------------------- the loop
     def outbound(self, slot: str):
         F = self.L["fixtures"]
+        P0, P90 = F["polar"]["pose_at_0"]["pose"], F["polar"]["pose_at_90"]["pose"]
         self._pick("microscope", F["microscope"]["pose"], F["microscope"], "short_edges", None)
-        self._place("polar", F["polar"]["pose_at_0"]["pose"], F["polar"], "polar", "microscope_to_polar")
-        self._polar_rotate(90)
-        self._pick("polar", F["polar"]["pose_at_90"]["pose"], F["polar"], "long_edges", None)
+        self._place("polar", P0, F["polar"], "polar", "microscope_to_polar", gate="polar@0")
+        self._polar_rotate(90, P0)
+        self._pick("polar", P90, F["polar"], "long_edges", None, gate="polar@90")
         self._scan_plate()
         self._hotel_place(slot)
 
     def inbound(self, slot: str):
         F = self.L["fixtures"]
+        P0, P90 = F["polar"]["pose_at_0"]["pose"], F["polar"]["pose_at_90"]["pose"]
         self._hotel_pick(slot)
-        self._place("polar", F["polar"]["pose_at_90"]["pose"], F["polar"], "polar", None)
-        self._polar_rotate(0)
-        self._pick("polar", F["polar"]["pose_at_0"]["pose"], F["polar"], "short_edges", None)
+        self._place("polar", P90, F["polar"], "polar", None, gate="polar@90")
+        self._polar_rotate(0, P90)
+        self._pick("polar", P0, F["polar"], "short_edges", None, gate="polar@0")
         self._place("microscope", F["microscope"]["pose"], F["microscope"], "microscope", "microscope_to_polar",
                     reverse=True)
 
-    def run(self, slot: str, cycles: int):
+    def _check_resumable(self, slot: str):
         s = self.store.s
         if not s.step_done:
             raise StopSafe(f"last step '{s.step}' did not finish; plate_at={s.plate_at} grip={s.grip}. "
-                           "Inspect the cell, fix the state file, then rerun.")
+                           "Inspect the cell, fix state.json, then rerun.")
+        if s.plate_at not in ("microscope", f"hotel:{slot}"):
+            raise StopSafe(f"plate_at={s.plate_at}: no automatic resume from here; move the plate by hand "
+                           "and edit state.json")
+        if s.last_safe_pose:
+            here = self.robot.pose()
+            far = max(abs(here[i] - s.last_safe_pose[i]) for i in range(3))
+            if far > self.lim["max_restart_offset_mm"]:
+                raise StopSafe(f"arm is {far:.0f} mm from where the last run left it; jog it back before restarting")
+
+    def run(self, slot: str, cycles: int):
+        s = self.store.s
+        self.hotel_slot_pose(slot)
+        self._check_resumable(slot)
+        self._health(force=True)
         for _ in range(cycles):
             self.corr.new_cycle()
             s.cycle += 1
@@ -381,6 +458,4 @@ class Cycle:
             self.drift.save()
             dt = time.time() - t0
             self.tele.log("cycle", "done", dt=round(dt, 1), state=s.plate_at)
-            w = self.drift.observe("dt:cycle", dt)
-            if w:
-                self.corr.on_drift(w)
+            self._observe("dt:cycle", dt)

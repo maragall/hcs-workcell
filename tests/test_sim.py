@@ -1,7 +1,6 @@
 """
-Offline test of the cycle against the simulator and a fake vision box.
-Runs without the arm or the Pi.  Exercises: the full outbound and inbound cycle, state persistence,
-a refused move, a missed grasp with one retry, and a lower-check block.
+Offline tests of the cycle against the simulator and a fake vision box. No arm, no Pi.
+Each test maps to a row of DESIGN.md section 6.
 """
 from __future__ import annotations
 
@@ -22,15 +21,20 @@ from nova_cell.corrector import StopSafe  # noqa: E402
 from nova_cell.cycle import Cycle  # noqa: E402
 from nova_cell.lower_check import LowerCheck  # noqa: E402
 from nova_cell.robot import SimFaults, SimRobot  # noqa: E402
+from nova_cell.safety import SafetyViolation  # noqa: E402
 from nova_cell.state import StateStore  # noqa: E402
 from nova_cell.telemetry import Telemetry  # noqa: E402
-from nova_cell.vision import PoseOffset, Status  # noqa: E402
+from nova_cell.vision import PoseOffset, Status, VisionError  # noqa: E402
+
+SAFE, BAD = 1, 99
+GATES = [("microscope", "plate_present"), ("microscope", "empty"), ("polar@0", "plate_present"), ("polar@0", "empty"),
+         ("polar@90", "plate_present"), ("polar@90", "empty"), ("gripper", "short_edges"), ("gripper", "long_edges")]
 
 
-def jpeg(seed: int, noise: float = 0.0) -> bytes:
+def jpeg(seed: int, noise: float = 3.0) -> bytes:
     rng = np.random.default_rng(seed)
     base = np.zeros((120, 160), np.uint8)
-    if seed == 99:
+    if seed == BAD:
         base[5:40, 100:155] = 230
         base[70:115, 5:60] = 120
     else:
@@ -45,27 +49,37 @@ def jpeg(seed: int, noise: float = 0.0) -> bytes:
 
 class FakeVision:
     def __init__(self):
-        self.scene = "safe"
+        self.scene = {"auto_teach_camera": SAFE, "scan_camera": SAFE}
         self.offset = [1.0, -0.5, 0, 0, 0, 0]
+        self.offset_error = None
+        self.slot_occupied = False
+        self.status_error = None
+        self.on_status = None
 
     def status(self):
+        if self.on_status:
+            self.on_status()
+        if self.status_error:
+            raise self.status_error
         return Status("idle", 1000, 2, 1, 0, 0)
 
     def frame(self, cam, *a, **k):
-        return jpeg(1, 3.0) if self.scene == "safe" else jpeg(99, 60.0)
+        return jpeg(self.scene[cam])
 
     def pose_offset(self, *a, **k):
+        if self.offset_error:
+            raise self.offset_error
         d = list(self.offset)
         return PoseOffset(d, "robot", (d[0] ** 2 + d[1] ** 2) ** 0.5, 0.0, jpeg(2))
 
     def live_detection(self, *a, **k):
-        return False, jpeg(3)
+        return self.slot_occupied, jpeg(3)
 
     def scan(self, *a, **k):
         return ["PLATE-0001"], jpeg(4)
 
 
-def layout(tmp):
+def layout():
     with open(os.path.join(os.path.dirname(HERE), "layout.json"), "r", encoding="utf-8") as f:
         L = json.load(f)
     L["fixtures"]["microscope"]["pose"] = [120.0, 40.0, 110.0, 0, 0, 0.5]
@@ -75,100 +89,231 @@ def layout(tmp):
           "poses": [[150, 80, 150, 0, 0, 0], [180, 60, 150, 0, 0, 0]], "spread_deg": 0, "max_step_deg": 10, "demos": 1}
     L["trajectories"] = {"microscope_to_polar": wp, "polar_to_hotel": wp}
     L["polar"]["driver"] = "do"
+    L["polar"]["di"] = {"at_0": "P0", "at_90": "P90"}
     L["limits"]["health_check_every_s"] = 0
+    L["limits"]["min_disk_free_gb"] = 0
     return L
 
 
-def make(tmp, faults=None, scene="safe"):
-    L = layout(tmp)
-    refs = os.path.join(tmp, "refs")
-    lc = LowerCheck(refs)
-    for fx in ("microscope", "polar"):
-        for st in ("plate_present", "empty"):
-            for k in range(3):
-                lc.add_reference(fx, st, jpeg(1, 3.0))
-    tele = Telemetry(os.path.join(tmp, "run"))
-    store = StateStore(os.path.join(tmp, "state.json"))
-    robot = SimRobot(L["fixtures"]["microscope"]["pose"], faults or SimFaults(), tele.log, jaw=10.0)
-    vis = FakeVision()
-    vis.scene = scene
-    return Cycle(L, robot, vis, tele, store, "unsupervised", os.path.join(tmp, "run"), refs), robot, store, vis
+class Rig:
+    def __init__(self, faults=None, refs=GATES, mode="unsupervised"):
+        self.tmp = tempfile.mkdtemp()
+        self.L = layout()
+        ref_dir = os.path.join(self.tmp, "refs")
+        lc = LowerCheck(ref_dir)
+        for gate, state in refs:
+            for _ in range(3):
+                lc.add_reference(gate, state, jpeg(SAFE))
+        self.tele = Telemetry(os.path.join(self.tmp, "run"))
+        self.store = StateStore(os.path.join(self.tmp, "state.json"))
+        self.robot = SimRobot(self.L["fixtures"]["microscope"]["pose"], faults or SimFaults(), self.tele.log, jaw=10.0)
+        self.robot.dis = {"P0": 1, "P90": 1}
+        for wp in self.L["trajectories"].values():
+            for j, pose in zip(wp["joints"], wp["poses"]):
+                self.robot.joint_pose_map[tuple(round(v, 3) for v in j[:4])] = pose
+        self.vis = FakeVision()
+        self.cyc = Cycle(self.L, self.robot, self.vis, self.tele, self.store, mode, os.path.join(self.tmp, "run"), ref_dir)
+
+    def run(self, slot="A1", cycles=1):
+        return self.cyc.run(slot, cycles)
+
+    def expect_stop(self, text, slot="A1"):
+        try:
+            self.run(slot)
+        except (StopSafe, SafetyViolation) as e:
+            assert text in str(e), f"expected '{text}' in '{e}'"
+            return e
+        raise AssertionError(f"expected a safe stop containing '{text}'")
+
+    def events(self):
+        with open(os.path.join(self.tmp, "run", "events.jsonl"), encoding="utf-8") as f:
+            return [json.loads(line) for line in f]
+
+    def close(self):
+        self.tele.close()
+        shutil.rmtree(self.tmp, ignore_errors=True)
 
 
 def test_full_cycle():
-    tmp = tempfile.mkdtemp()
-    cyc, robot, store, vis = make(tmp)
-    cyc.run("A1", 1)
-    assert store.s.plate_at == "microscope", store.s.plate_at
-    assert store.s.step_done
-    assert store.s.polar_angle == 0
-    assert robot.dos.get("POLAR_ROT") == 0 and robot.dos.get("POLAR_HOME") == 0
-    with open(os.path.join(tmp, "run", "events.jsonl")) as f:
-        kinds = [json.loads(l)["kind"] for l in f]
-    assert "vision" in kinds and "jaw" in kinds and "cycle" in kinds
-    cyc.tele.close()
-    shutil.rmtree(tmp, ignore_errors=True)
-    print("full cycle ok")
+    r = Rig()
+    r.run()
+    s = r.store.s
+    assert s.plate_at == "microscope" and s.step_done and s.polar_angle == 0
+    kinds = {e["kind"] for e in r.events()}
+    assert {"vision", "jaw", "cycle", "move", "health"} <= kinds
+    for kind, j in r.robot.trace:
+        if kind == "AJ":
+            assert j[4:] == r.robot.joints()[4:], "waypoint replay drove an external axis"
+    r.close()
 
 
-def test_refused_move_stops_safe():
-    tmp = tempfile.mkdtemp()
-    cyc, robot, store, vis = make(tmp, SimFaults(refuse_move_at=5))
-    try:
-        cyc.run("A1", 1)
-        raise AssertionError("expected StopSafe")
-    except StopSafe:
-        pass
-    assert not store.s.step_done
-    assert store.s.faults and store.s.faults[-1]["kind"] == "motion_refused"
-    cyc.tele.close()
-    shutil.rmtree(tmp, ignore_errors=True)
-    print("refused move -> safe stop ok")
+def test_refused_move_stops_without_retry():
+    r = Rig(SimFaults(refuse_move_at=5))
+    r.expect_stop("refus")
+    assert not r.store.s.step_done
+    assert r.robot._moves == 5
+    r.close()
 
 
-def test_missed_grasp_retries_once():
-    tmp = tempfile.mkdtemp()
-    cyc, robot, store, vis = make(tmp, SimFaults(miss_grasp_at=1))
-    cyc.run("A1", 1)
-    assert any(f["kind"] == "grasp" for f in store.s.faults)
-    assert store.s.plate_at == "microscope"
-    cyc.tele.close()
-    shutil.rmtree(tmp, ignore_errors=True)
-    print("missed grasp -> retry ok")
+def test_missed_grasp_retries_once_then_ok():
+    r = Rig(SimFaults(miss_grasp_at=1))
+    r.run()
+    assert any(f["kind"] == "grasp" for f in r.store.s.faults)
+    assert r.store.s.plate_at == "microscope"
+    r.close()
 
 
-def test_lower_blocked_unsupervised_stops():
-    tmp = tempfile.mkdtemp()
-    cyc, robot, store, vis = make(tmp, scene="bad")
-    try:
-        cyc.run("A1", 1)
-        raise AssertionError("expected StopSafe")
-    except StopSafe as e:
-        assert "does not match" in str(e) or "lower blocked" in str(e)
-    assert store.s.plate_at == "microscope" and store.s.grip == "none"
-    cyc.tele.close()
-    shutil.rmtree(tmp, ignore_errors=True)
-    print("lower-check block -> safe stop ok")
+def test_obstructed_grasp_twice_stops():
+    r = Rig()
+    orig = r.robot.jaw_to
+
+    def jaw_to(v):
+        orig(v)
+        if v <= 3.0:
+            r.robot._jaw = 3.6
+    r.robot.jaw_to = jaw_to
+    r.expect_stop("grasp failed")
+    assert sum(1 for f in r.store.s.faults if f["kind"] == "grasp") == 2
+    r.close()
+
+
+def test_lower_blocked_stops():
+    r = Rig()
+    r.vis.scene["auto_teach_camera"] = BAD
+    r.expect_stop("does not match")
+    assert r.store.s.plate_at == "microscope" and r.store.s.grip == "none"
+    r.close()
+
+
+def test_lower_gate_never_falls_through():
+    r = Rig()
+    r.L["vision"]["lower_check"]["retries"] = 0
+    r.vis.scene["auto_teach_camera"] = BAD
+    r.expect_stop("does not match")
+    r.close()
+
+
+def test_plate_not_held_stops():
+    r = Rig()
+    r.vis.scene["scan_camera"] = BAD
+    r.expect_stop("plate in gripper")
+    assert any(f["kind"] == "not_held" for f in r.store.s.faults)
+    r.close()
+
+
+def test_fixture_moved_stops():
+    r = Rig()
+    r.vis.offset = [30.0, 0, 0, 0, 0, 0]
+    r.expect_stop("exceeds")
+    r.close()
+
+
+def test_aruco_missing_stops_unsupervised():
+    r = Rig()
+    r.vis.offset_error = VisionError("1002", "Operation Failed", "", "get_pose_offset")
+    r.expect_stop("get_pose_offset")
+    r.close()
+
+
+def test_stall_is_detected():
+    r = Rig(SimFaults(stall_at=3))
+    r.expect_stop("possible collision")
+    assert r.store.s.faults[-1]["kind"] == "pose_deviation"
+    r.close()
+
+
+def test_lost_enable_stops_without_motion_retry():
+    r = Rig(SimFaults(drop_enable_at=3))
+    r.expect_stop("not enabled")
+    assert r.robot._moves == 3
+    r.close()
+
+
+def test_polar_feedback_missing_retries_once_then_stops():
+    r = Rig()
+    r.robot.dis = {"P0": 1, "P90": 0}
+    r.expect_stop("polar stage")
+    assert sum(1 for f in r.store.s.faults if f["kind"] == "rotate") == 2
+    r.close()
+
+
+def test_hotel_slot_occupied_stops():
+    r = Rig()
+    r.vis.slot_occupied = True
+    r.expect_stop("occupied")
+    r.close()
+
+
+def test_vision_box_down_stops():
+    r = Rig()
+    r.vis.status_error = OSError("unreachable")
+    r.expect_stop("vision box unreachable")
+    r.close()
+
+
+def test_drag_on_mid_run_stops():
+    r = Rig()
+    calls = {"n": 0}
+
+    def flip():
+        calls["n"] += 1
+        if calls["n"] == 3:
+            r.robot.faults.drag_on = True
+    r.vis.on_status = flip
+    r.expect_stop("drag mode")
+    r.close()
+
+
+def test_invalid_slot_rejected():
+    r = Rig()
+    r.expect_stop("does not exist", slot="A2")
+    assert r.robot._moves == 0
+    r.close()
 
 
 def test_resume_refuses_half_step():
-    tmp = tempfile.mkdtemp()
-    cyc, robot, store, vis = make(tmp)
-    store.begin("pick:microscope")
-    try:
-        cyc.run("A1", 1)
-        raise AssertionError("expected StopSafe")
-    except StopSafe as e:
-        assert "did not finish" in str(e)
-    cyc.tele.close()
-    shutil.rmtree(tmp, ignore_errors=True)
-    print("half-finished step -> refuses to resume ok")
+    r = Rig()
+    r.store.begin("pick:microscope")
+    r.expect_stop("did not finish")
+    r.close()
+
+
+def test_resume_refuses_unknown_plate_location():
+    r = Rig()
+    r.store.s.plate_at = "polar"
+    r.store.save()
+    r.expect_stop("no automatic resume")
+    assert r.robot._moves == 0
+    r.close()
+
+
+def test_resume_refuses_moved_arm():
+    r = Rig()
+    r.store.s.last_safe_pose = [300.0, 0.0, 300.0, 0, 0, 0]
+    r.store.save()
+    r.expect_stop("jog it back")
+    r.close()
+
+
+def test_drift_warning_is_logged():
+    r = Rig()
+    for _ in range(10):
+        r.cyc.drift.observe("jaw:closed", 2.92)
+    orig = r.robot.jaw_to
+
+    def jaw_to(v):
+        orig(v)
+        if v <= 3.0:
+            r.robot._jaw = 3.2
+    r.robot.jaw_to = jaw_to
+    r.run()
+    assert any(e["kind"] == "predict" for e in r.events())
+    r.close()
 
 
 if __name__ == "__main__":
-    test_full_cycle()
-    test_refused_move_stops_safe()
-    test_missed_grasp_retries_once()
-    test_lower_blocked_unsupervised_stops()
-    test_resume_refuses_half_step()
-    print("ALL OK")
+    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
+    for t in tests:
+        t()
+        print("ok ", t.__name__)
+    print(f"ALL OK ({len(tests)} tests)")

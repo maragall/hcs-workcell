@@ -74,12 +74,17 @@ class VisionClient:
     # ------------------------------------------------------------------ core
     def _raw(self, line: bytes) -> bytes:
         with self._lock:
+            deadline = time.time() + self.timeout
             s = socket.create_connection((self.host, self.port), timeout=self.timeout)
             try:
                 s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 s.sendall(line)
                 buf = bytearray()
                 while True:
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        raise VisionError("timeout", f"no complete reply within {self.timeout}s")
+                    s.settimeout(remaining)
                     chunk = s.recv(1 << 20)
                     if not chunk:
                         raise ConnectionError("vision box closed the connection")
@@ -133,6 +138,8 @@ class VisionClient:
 
     def status(self) -> Status:
         p = self.request("get_status")
+        if not p:
+            raise VisionError("empty", "get_status returned no payload", "", "get_status")
         return Status(p[0].decode(), int(self._f(p, 1)), int(self._f(p, 2)), int(self._f(p, 3)),
                       int(self._f(p, 4)), int(self._f(p, 5)), p[6].decode() if len(p) > 6 else "")
 

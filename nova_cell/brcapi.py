@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import socket
+from collections import deque
 import threading
 import time
 from dataclasses import dataclass
@@ -78,11 +79,16 @@ class Brcapi:
             except socket.timeout:
                 return None
             if not chunk:
+                self.close()
+                self._buf.clear()
                 raise ConnectionError("controller closed the connection")
             self._buf += chunk
 
     def _dispatch_push(self, msg: dict):
-        self._pushes.setdefault(int(msg.get("id", 0)), []).append(msg)
+        rid = int(msg.get("id", 0))
+        self._pushes.setdefault(rid, deque(maxlen=32)).append(msg)
+        for old in [k for k in self._pushes if k and k < self._id - 50]:
+            del self._pushes[old]
 
     def call(self, cmd: str, params=None):
         with self._lock:
@@ -218,6 +224,5 @@ class Brcapi:
             if st == 3:
                 raise BrcapiError("prog_error", f"Lua program in error: {self.call('getRobotErr')}", "run_job")
             if self.sysvars(range(0, 1)).get(0, 0) == 0 and time.time() - t0 > 5:
-                self._log("ctrl", "job done", "sysvar0 cleared without push; treating as done")
-                return 1
+                raise BrcapiError("no_push", "job variable cleared but no completion push received", "run_job")
         raise BrcapiError("timeout", f"job not finished in {timeout_s}s", "run_job")

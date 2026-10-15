@@ -17,11 +17,13 @@ class PolarError(Exception):
 
 
 class PolarStage:
-    def __init__(self, cfg: dict, robot, log, supervised: bool):
+    def __init__(self, cfg: dict, robot, log, supervised: bool, initial_angle: int = 0):
         self.cfg, self.robot, self.log, self.supervised = cfg, robot, log, supervised
         self.driver = cfg.get("driver", "manual")
         self.settle = float(cfg.get("settle_s", 3.0))
-        self.angle = int(cfg.get("assumed_angle", 0))
+        self.angle = int(initial_angle)
+        if not supervised and not cfg.get("di"):
+            raise PolarError("unsupervised mode needs polar stage feedback (layout.polar.di)")
 
     def rotate_to(self, deg: int):
         if deg == self.angle:

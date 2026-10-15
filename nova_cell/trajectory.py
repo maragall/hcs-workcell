@@ -87,6 +87,7 @@ def normalise(traces: List[Trace], n_samples: int = 200, max_points: int = 15, m
     """
     trimmed = [_trim_static(t) for t in traces]
     J = np.stack([_resample(np.asarray(t.joints)[:, :4], n_samples) for t in trimmed])
+    E = np.stack([_resample(np.asarray(t.joints)[:, 4:], n_samples) for t in trimmed]).mean(axis=0)
     P = np.stack([_resample(np.asarray(t.poses), n_samples) for t in trimmed])
     spread = float(np.abs(J - J.mean(axis=0)).max()) if len(traces) > 1 else 0.0
     j_mean = _smooth(J.mean(axis=0))
@@ -103,7 +104,7 @@ def normalise(traces: List[Trace], n_samples: int = 200, max_points: int = 15, m
         k = int(np.argmin(gaps[:-1] + gaps[1:])) + 1
         idx.pop(k)
 
-    joints = [list(map(float, j_mean[i])) + [0.0] * 4 for i in idx]
+    joints = [list(map(float, j_mean[i])) + list(map(float, E[i])) for i in idx]   # ext axes recorded, never replayed
     poses = [list(map(float, p_mean[i])) for i in idx]
     steps = [float(np.abs(np.asarray(joints[i + 1][:4]) - np.asarray(joints[i][:4])).max()) for i in range(len(idx) - 1)]
     if steps and max(steps) > max_joint_step:

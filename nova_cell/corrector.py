@@ -14,6 +14,26 @@ class StopSafe(Exception):
     """Cycle cannot continue without an operator. State on disk says where the plate is."""
 
 
+def ask_with_timeout(prompt: str, timeout_s: float) -> str:
+    """Operator question that defaults to 'n' when nobody answers or stdin is not a terminal."""
+    import sys
+    import threading
+    if not sys.stdin or not sys.stdin.isatty():
+        return "n"
+    answer = []
+
+    def _read():
+        try:
+            answer.append(input(prompt).strip().lower())
+        except EOFError:
+            answer.append("n")
+
+    t = threading.Thread(target=_read, daemon=True)
+    t.start()
+    t.join(timeout_s)
+    return answer[0] if answer else "n"
+
+
 @dataclass
 class Budget:
     regrasp: int = 1
@@ -27,7 +47,9 @@ class Corrector:
         self.layout, self.vision, self.robot, self.safety, self.tele = layout, vision, robot, safety, tele
         self.supervised = supervised
         self.budget = Budget()
-        self.led_levels = [layout["vision"]["led"], 30, 60]
+        self.led_levels = [layout["vision"]["led"], 30, 60, 90]
+        self.enables_this_run = 0
+        self.operator_timeout_s = layout["limits"].get("operator_timeout_s", 600)
 
     def alert(self, step: str, reason: str):
         self.tele.log("alert", step, reason)
@@ -38,12 +60,12 @@ class Corrector:
         self.alert(step, reason)
         if not self.supervised:
             raise StopSafe(reason)
-        return input(f"  >>> {question} [y/N]: ").strip().lower() == "y"
+        return ask_with_timeout(f"  >>> {question} [y/N]: ", self.operator_timeout_s) == "y"
 
-    def on_lower_blocked(self, fixture: str, attempt: int, verdict) -> int:
+    def on_lower_blocked(self, fixture: str, attempt: int, attempts: int, verdict) -> int:
         """Returns the LED level to use for the next image, or raises StopSafe."""
-        if attempt < self.budget.reimage:
-            level = self.led_levels[min(attempt, len(self.led_levels) - 1)]
+        if attempt < attempts - 1:
+            level = self.led_levels[min(attempt + 1, len(self.led_levels) - 1)]
             self.tele.log("correct", "lower_check", f"retry {attempt + 1} with LED {level}", score=verdict.best)
             time.sleep(1.0)
             return level
@@ -52,12 +74,10 @@ class Corrector:
             return self.led_levels[0]
         raise StopSafe(f"lower blocked at {fixture}")
 
-    def on_grasp_failed(self, fixture: str, attempt: int, detail: str) -> bool:
-        """True = retry allowed."""
+    def on_grasp_failed(self, fixture: str, attempt: int, detail: str) -> None:
         self.tele.log("correct", "grasp", f"{fixture}: {detail} (attempt {attempt})")
-        if attempt <= self.budget.regrasp:
-            return True
-        raise StopSafe(f"grasp failed twice at {fixture}: {detail}")
+        if attempt > self.budget.regrasp:
+            raise StopSafe(f"grasp failed {attempt} times at {fixture}: {detail}")
 
     def on_vision_too_far(self, fixture: str, mag: float):
         raise StopSafe(f"{fixture}: vision correction {mag:.1f} mm exceeds the allowed jump; marker or fixture moved")
@@ -70,10 +90,11 @@ class Corrector:
         raise StopSafe(f"{step}: {err}")
 
     def on_disabled(self, step: str) -> bool:
-        if self.budget.enable_retry <= 0:
-            return False
-        self.budget.enable_retry -= 1
-        self.tele.log("correct", step, "controller disabled; re-enabling")
+        """Re-enable so the operator can jog. Never followed by a motion retry."""
+        self.enables_this_run += 1
+        self.tele.log("correct", step, f"controller disabled; re-enabling (run total {self.enables_this_run})")
+        if self.enables_this_run > 1:
+            self.alert(step, "controller lost enable more than once this run")
         return self.robot.enable()
 
     def on_polar_failed(self, err) -> bool:

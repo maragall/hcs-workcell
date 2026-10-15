@@ -152,13 +152,47 @@ def cmd_to_mp4(args):
     print(chr(10).join(files) if files else "ffmpeg not found or no video folders")
 
 
+def _walk(node, path=""):
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield from _walk(v, f"{path}.{k}" if path else k)
+    else:
+        yield path, node
+
+
+def preflight(layout: dict, ref_dir: str) -> list:
+    problems = [p for p, v in _walk(layout) if p.endswith("_todo")]
+    F = layout["fixtures"]
+    for name, pose in (("microscope", F["microscope"].get("pose")),
+                       ("polar.pose_at_0", F["polar"]["pose_at_0"].get("pose")),
+                       ("polar.pose_at_90", F["polar"]["pose_at_90"].get("pose"))):
+        if not pose:
+            problems.append(f"pose not taught: {name}")
+    for name, t in layout["trajectories"].items():
+        if not t:
+            problems.append(f"trajectory not taught: {name}")
+    box = layout["regions"]["microscope"]["box"]
+    if box["x"][0] >= box["x"][1] or box["y"][0] >= box["y"][1]:
+        problems.append("regions.microscope box not set")
+    need = layout["vision"]["lower_check"]["min_refs"]
+    for gate, state in (("microscope", "plate_present"), ("microscope", "empty"), ("polar@0", "plate_present"),
+                        ("polar@0", "empty"), ("polar@90", "plate_present"), ("polar@90", "empty"),
+                        ("gripper", "short_edges"), ("gripper", "long_edges")):
+        d = os.path.join(ref_dir, gate, state)
+        n = len([f for f in os.listdir(d)]) if os.path.isdir(d) else 0
+        if n < need:
+            problems.append(f"reference images {gate}/{state}: {n}/{need}")
+    return problems
+
+
 def cmd_run(args):
     layout = load_layout()
-    missing = [k for k in ("microscope",) if not layout["fixtures"][k].get("pose")]
-    if not layout["fixtures"]["polar"]["pose_at_0"].get("pose"):
-        missing.append("polar.pose_at_0")
-    if missing and not args.sim:
-        sys.exit("poses not taught yet: " + ", ".join(missing))
+    if not args.sim:
+        problems = preflight(layout, REFS)
+        if problems:
+            sys.exit("preflight failed:" + chr(10) + "  " + (chr(10) + "  ").join(problems))
+    if args.mode == "supervised" and not sys.stdin.isatty():
+        sys.exit("supervised mode needs an interactive terminal")
     run_dir = os.path.join(RUNS, time.strftime("%Y%m%d_%H%M%S") + ("_sim" if args.sim else ""))
     tele = Telemetry(run_dir)
     store = StateStore(os.path.join(HERE, "state.json" if not args.sim else "state_sim.json"))
@@ -181,7 +215,12 @@ def cmd_run(args):
         rec = Recorder(run_dir, vision, [layout["vision"]["down_camera"], layout["vision"]["front_camera"]],
                        fps=args.record_fps, screen=True, log=tele.log)
         rec.start()
-    cyc = Cycle(layout, robot, vision, tele, store, args.mode, run_dir, REFS)
+    try:
+        cyc = Cycle(layout, robot, vision, tele, store, args.mode, run_dir, REFS)
+    except Exception as e:
+        tele.log("stop", "setup", repr(e))
+        robot.disconnect()
+        sys.exit(f"setup failed: {e}")
     try:
         cyc.run(args.slot, args.cycles)
         tele.log("run", "finished", state=store.s.plate_at)
@@ -189,6 +228,10 @@ def cmd_run(args):
     except (StopSafe, SafetyViolation) as e:
         tele.log("stop", "safe", str(e), state=store.s.plate_at, grip=store.s.grip)
         return 2
+    except Exception as e:
+        tele.log("stop", "crash", repr(e), state=store.s.plate_at, grip=store.s.grip)
+        cyc.corr.alert("crash", repr(e))
+        raise
     finally:
         if rec:
             rec.stop()

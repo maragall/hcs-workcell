@@ -57,6 +57,9 @@
   "limits": {
     "max_waypoint_joint_step_deg": 25.0,
     "max_pose_deviation_mm": 1.0,
+    "max_restart_offset_mm": 5.0,
+    "min_disk_free_gb": 5.0,
+    "operator_timeout_s": 600,
     "step_timeout_s": 120,
     "health_check_every_s": 30
   }

@@ -63,9 +63,3 @@ class Safety:
             p = [a[i] + t * (b[i] - a[i]) for i in range(3)]
             self.check_target(p + list(b[3:]), f"{label} (segment {k}/{n})", allow_floor_regions)
 
-    # ---- vision -----------------------------------------------------------------
-    def check_vision_correction(self, d: List[float], label: str):
-        mag = (d[0] ** 2 + d[1] ** 2 + d[2] ** 2) ** 0.5
-        if mag > self.vision_jump_mm:
-            raise SafetyViolation(f"{label}: vision correction {mag:.1f} mm exceeds limit {self.vision_jump_mm} mm")
-        return mag

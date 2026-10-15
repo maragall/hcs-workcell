@@ -137,10 +137,12 @@ class VendorRobot:
 # ============================================================================ simulator
 @dataclass
 class SimFaults:
-    """Fault injection for tests. Each is a count-down: fires when it reaches 0."""
-    refuse_move_at: int = -1          # n-th motion call is refused
-    miss_grasp_at: int = -1           # n-th jaw close ends at 0 (plate missed)
-    drop_enable_at: int = -1          # n-th motion call finds the arm disabled
+    """Fault injection for tests; counters refer to the n-th motion call or n-th jaw close."""
+    refuse_move_at: int = -1
+    miss_grasp_at: int = -1           # that close ends at 0: nothing between the fingers
+    obstruct_at: int = -1             # that close stops at 3.6: obstruction
+    stall_at: int = -1                # that motion stops 3 mm short of target
+    drop_enable_at: int = -1
     drag_on: bool = False
 
 
@@ -160,6 +162,7 @@ class SimRobot:
         self.dos = {}
         self.dis = {}
         self.trace = []
+        self.joint_pose_map = {}      # tests map waypoint joints to the pose the arm would reach
 
     def connect(self):
         self._log("robot", "connect", "SIMULATOR")
@@ -195,6 +198,8 @@ class SimRobot:
         if self._moves == self.faults.refuse_move_at:
             raise MotionRefused(f"simulated refusal ({kind})")
         self._pose = list(target)
+        if self._moves == self.faults.stall_at:
+            self._pose[2] -= 3.0
         self.trace.append((kind, list(target)))
 
     def move_linear(self, p):
@@ -204,20 +209,31 @@ class SimRobot:
         self._motion(p, "J")
 
     def move_abs_joints(self, j):
+        if not self._enabled:
+            raise MotionRefused("controller not enabled")
         self._joints = list(j)
+        pose = self.joint_pose_map.get(tuple(round(v, 3) for v in j[:4]))
+        if pose is not None:
+            self._pose = list(pose)
         self.trace.append(("AJ", list(j)))
+
+    def set_pose_for_test(self, p):
+        self._pose = list(p)
 
     def jaw_to(self, value):
         if self.faults.drag_on:
             raise MotionRefused("gripper refused in drag mode")
         if value >= 9.0:
-            self._missed = False
-        elif value < self._jaw and value <= 3.0:
+            self._missed = self._obstructed = False
+        elif value <= 3.0 < self._jaw:
             self._closes += 1
-            if self._closes == self.faults.miss_grasp_at:
-                self._missed = True
+            self._missed = self._closes == self.faults.miss_grasp_at
+            self._obstructed = self._closes == self.faults.obstruct_at
         if getattr(self, "_missed", False):
             self._jaw = 0.0
+            return
+        if getattr(self, "_obstructed", False):
+            self._jaw = max(value, 3.6)
             return
         self._jaw = value
 
