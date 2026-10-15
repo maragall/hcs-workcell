@@ -7,6 +7,14 @@ Priority: P0 = can damage hardware or lose a plate. P1 = can stop the 7-day run.
 
 QUEUE = [
     {
+        "id": "Q0", "priority": "P0", "file": "nova_cell/robot.py:VendorRobot.jaw_to", "what": "external joint index",
+        "decision": "Vendor SDK reads external joints 0-based (extjoints[0] = E1 gripper, [1] = E2 rotary) but "
+                    "MoveSingleExtJoint is 1-based (1 = E1). Verified live: index 0 -> '外部关节索引不合法'; index 1 "
+                    "moved E1 only. E2 (reads 91.8 deg) is very likely the polar stage; never command index 2 "
+                    "until confirmed.",
+        "snippet": "self._r.MoveSingleExtJointAsync(self.grip_axis + 1, float(value))",
+    },
+    {
         "id": "Q1", "priority": "P0", "file": "nova_cell/safety.py", "what": "z floors and workspace box",
         "decision": "Every commanded target is checked against the global box and the z floor of the region it "
                     "falls in. Linear moves are sampled every 5 mm along the segment. A fixture may go below its own "

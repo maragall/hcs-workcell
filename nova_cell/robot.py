@@ -122,8 +122,9 @@ class VendorRobot:
             raise MotionRefused(f"abs joint move refused to {j}")
 
     def jaw_to(self, value: float):
-        if not self._r.MoveSingleExtJointAsync(self.grip_axis, float(value)):
-            raise MotionRefused(f"gripper move refused to {value} (drag mode on?)")
+        # readouts are 0-based (extjoints[0] = E1), move commands are 1-based (E1 = 1)
+        if not self._r.MoveSingleExtJointAsync(self.grip_axis + 1, float(value)):
+            raise MotionRefused(f"gripper move refused to {value} (drag mode on? index invalid?)")
 
     def write_do(self, signal: str, value: int):
         if not self._r.WriteDOAsync(signal, int(value)):
