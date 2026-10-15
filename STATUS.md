@@ -1,3 +1,13 @@
+# STATUS 2026-10-15 02:00 (previous entries below)
+
+## Tonight
+- Taught: microscope seat+hover, rotating-stage seat (0 and -90) + hover, A1 corrected +2 mm x.
+- Rotating stage = robot external axis 2; zero reference 89.808; driven and verified by readback.
+- Jaw scale resolved: value = gap; long-edge 2.84/open 6.0, short-edge 24.0/open 26.
+- Vendor SDK completion flags are unreliable; every move is verified by readback (robot.py).
+- Route A (stage -> hotel) recorded, normalised, trimmed; replayed; full hotel pick/place/pick + return + place on stage ran clean at 30 %.
+- Open: route B (stage <-> microscope), reference images, stage rotation + short-edge pick, hand-eye check, collision sensitivity on the pendant.
+
 # STATUS 2026-10-14 23:15
 
 ## Decisions taken (correct me)
