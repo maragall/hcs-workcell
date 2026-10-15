@@ -7,6 +7,14 @@ Priority: P0 = can damage hardware or lose a plate. P1 = can stop the 7-day run.
 
 QUEUE = [
     {
+        "id": "Q0d", "priority": "P0", "file": "nova_cell/cycle.py:_hotel_place/_hotel_pick", "what": "route end -> slot pre-approach path",
+        "decision": "Proposed: from the route end, (1) linear retreat in -x to a climb column x_c in front of the rack, (2) vertical "
+                    "linear climb to slot z + lift at x_c, (3) joint move to the pre-approach with the slot yaw, (4) slide in. "
+                    "x_c must leave the plate's far edge clear of the shelf fronts for every yaw along the way. Needs the rack front "
+                    "x and side y measured (caliper/tape) or taught by dragging the plate to the rack face.",
+        "numbers": "A1 pre-approach x 193 worked at slot z+25; A3 attempt climbed at x 257 and hit a shelf at z ~121",
+    },
+    {
         "id": "Q0c", "priority": "P1", "file": "nova_cell/robot.py:move_linear", "what": "MoveLinear sometimes does not execute",
         "decision": "Observed 2026-10-15 at the microscope hover: a 9 mm vertical + 1 mm lateral MoveLinear produced no motion "
                     "(SDK position check failed, arm never moved); the same target as MoveJoint executed. Earlier linear "
