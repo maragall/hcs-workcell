@@ -25,6 +25,7 @@ from nova_cell import trajectory  # noqa: E402
 from nova_cell.corrector import StopSafe  # noqa: E402
 from nova_cell.cycle import Cycle  # noqa: E402
 from nova_cell.lower_check import LowerCheck  # noqa: E402
+from nova_cell.recorder import Recorder  # noqa: E402
 from nova_cell.robot import SimFaults, SimRobot, VendorRobot  # noqa: E402
 from nova_cell.safety import SafetyViolation  # noqa: E402
 from nova_cell.state import StateStore  # noqa: E402
@@ -146,6 +147,11 @@ def cmd_check_lower(args):
     print(LowerCheck(REFS, lc["min_refs"], lc["margin"], lc["floor"]).verdict(args.fixture, args.state, img))
 
 
+def cmd_to_mp4(args):
+    files = Recorder.to_mp4(os.path.join(args.run_dir, "video"), args.fps)
+    print(chr(10).join(files) if files else "ffmpeg not found or no video folders")
+
+
 def cmd_run(args):
     layout = load_layout()
     missing = [k for k in ("microscope",) if not layout["fixtures"][k].get("pose")]
@@ -170,6 +176,11 @@ def cmd_run(args):
         sys.exit("unsupervised mode needs a real polar stage driver (layout.polar.driver)")
     if not args.sim and input("Arm clear, plate where state.json says, hands away. Start? type YES: ") != "YES":
         sys.exit("not started")
+    rec = None
+    if args.record:
+        rec = Recorder(run_dir, vision, [layout["vision"]["down_camera"], layout["vision"]["front_camera"]],
+                       fps=args.record_fps, screen=True, log=tele.log)
+        rec.start()
     cyc = Cycle(layout, robot, vision, tele, store, args.mode, run_dir, REFS)
     try:
         cyc.run(args.slot, args.cycles)
@@ -179,6 +190,8 @@ def cmd_run(args):
         tele.log("stop", "safe", str(e), state=store.s.plate_at, grip=store.s.grip)
         return 2
     finally:
+        if rec:
+            rec.stop()
         robot.disconnect()
         tele.close()
 
@@ -198,7 +211,12 @@ def main():
     p.add_argument("--slot", default="A1")
     p.add_argument("--cycles", type=int, default=1)
     p.add_argument("--sim", action="store_true")
+    p.add_argument("--record", action="store_true", help="record both cameras and the screen for the whole run")
+    p.add_argument("--record-fps", type=float, default=2.0)
     p.set_defaults(fn=cmd_run)
+    p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
+    p.add_argument("run_dir"); p.add_argument("--fps", type=float, default=2.0)
+    p.set_defaults(fn=cmd_to_mp4)
     args = ap.parse_args()
     return args.fn(args)
 
