@@ -21,17 +21,18 @@
     }
   },
   "gripper": {
-    "open": 10.0,
+    "open": 26.0,
     "closed": {
-      "short_edges": 24.12,
+      "short_edges": 24.0,
       "long_edges": null
     },
     "tolerance": 0.35,
     "stall_lag": 0.3,
     "_todo": "closed widths measured on the real plastic plate: run.py measure-grip <grip>",
     "measured": {
-      "short_edges": "2026-10-15 00:5x read under drag mode, calibration plate; confirm with measure-grip"
-    }
+      "short_edges": "2026-10-15 servo refused step 24.25->24.0, jaw 24.02; calibration plate"
+    },
+    "_note": "open 26 clears the short edges (24.0); long edges will need a wider open value, measure on the plate"
   },
   "speeds": {
     "supervised": {

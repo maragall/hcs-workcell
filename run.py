@@ -26,7 +26,7 @@ from nova_cell.corrector import StopSafe  # noqa: E402
 from nova_cell.cycle import Cycle  # noqa: E402
 from nova_cell.lower_check import LowerCheck  # noqa: E402
 from nova_cell.recorder import Recorder  # noqa: E402
-from nova_cell.robot import SimFaults, SimRobot, VendorRobot  # noqa: E402
+from nova_cell.robot import MotionRefused, SimFaults, SimRobot, VendorRobot  # noqa: E402
 from nova_cell.safety import SafetyViolation  # noqa: E402
 from nova_cell.state import StateStore  # noqa: E402
 from nova_cell.telemetry import Telemetry  # noqa: E402
@@ -222,7 +222,12 @@ def cmd_measure_grip(args):
     contact = None
     while v > 0.2:
         v = round(v - args.step, 3)
-        robot.jaw_to(v)
+        try:
+            robot.jaw_to(v)
+        except MotionRefused:
+            contact = robot.jaw()          # the controller refuses a step the servo cannot complete: fingers on the plate
+            print(f"  cmd {v:5.2f} refused; jaw holds at {contact:.2f}")
+            break
         time.sleep(args.pause)
         read = robot.jaw()
         print(f"  cmd {v:5.2f}  read {read:5.2f}  lag {read - v:+.2f}")
@@ -233,9 +238,7 @@ def cmd_measure_grip(args):
         robot.jaw_to(g["open"])
         robot.disconnect()
         sys.exit("jaw closed fully without meeting a plate; nothing measured, jaw reopened")
-    width = round(contact - args.backoff, 2)
-    robot.jaw_to(width)
-    time.sleep(0.5)
+    width = round(contact, 2)
     final = robot.jaw()
     robot.disconnect()
     layout["gripper"]["closed"][args.grip] = width
