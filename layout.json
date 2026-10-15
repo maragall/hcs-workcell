@@ -68,8 +68,8 @@
     "microscope": {
       "box": {
         "x": [
-          90,
-          360
+          60,
+          220
         ],
         "y": [
           250,
@@ -77,7 +77,7 @@
         ]
       },
       "z_floor": 264.0,
-      "_note": "y threshold = taught seat y - 150 (operator rule); floor provisional = seat z - 2",
+      "_note": "microscope at x 123 y 400; polar stage sits at x 317 y 305, same y band but 200 mm away in x and 200 mm lower, so the zone is bounded in x",
       "no_swing": true,
       "max_lateral_mm": 2.0,
       "max_yaw_change_deg": 0.5,
@@ -86,15 +86,16 @@
     "polar": {
       "box": {
         "x": [
-          100,
-          150
+          270,
+          360
         ],
         "y": [
-          90,
-          145
+          260,
+          350
         ]
       },
-      "z_floor": 60
+      "z_floor": 67.0,
+      "_note": "floor = polar0 seat z - 2.7, provisional"
     },
     "hotel": {
       "box": {
@@ -155,8 +156,22 @@
     },
     "polar": {
       "pose_at_0": {
-        "_todo": "teach: plate gripped on SHORT edges, polar stage at 0 deg",
-        "pose": null
+        "pose": [
+          316.592,
+          305.224,
+          69.694,
+          0.0,
+          -0.0,
+          -92.5114
+        ],
+        "taught_at": "2026-10-15 00:33:56",
+        "jaw_at_teach": 24.096,
+        "vendor_teach": {
+          "name": "polar0-short",
+          "pick_method": "long",
+          "id": "09424700-faa5-4811-8ca6-d277253ad391",
+          "workspace": "autoteach"
+        }
       },
       "pose_at_90": {
         "_todo": "teach: plate gripped on LONG edges, polar stage at 90 deg",
