@@ -7,6 +7,13 @@ Priority: P0 = can damage hardware or lose a plate. P1 = can stop the 7-day run.
 
 QUEUE = [
     {
+        "id": "Q0c", "priority": "P1", "file": "nova_cell/robot.py:move_linear", "what": "MoveLinear sometimes does not execute",
+        "decision": "Observed 2026-10-15 at the microscope hover: a 9 mm vertical + 1 mm lateral MoveLinear produced no motion "
+                    "(SDK position check failed, arm never moved); the same target as MoveJoint executed. Earlier linear "
+                    "slides/lowers at the hotel worked. Cause unknown (pose near y 400?). Readback verification caught it. "
+                    "Decide: allow a joint-interpolated fallback for sub-15 mm moves, or find the controller rule.",
+    },
+    {
         "id": "Q0", "priority": "P0", "file": "nova_cell/robot.py:VendorRobot.jaw_to", "what": "external joint index",
         "decision": "Vendor SDK reads external joints 0-based (extjoints[0] = E1 gripper, [1] = E2 rotary) but "
                     "MoveSingleExtJoint is 1-based (1 = E1). Verified live: index 0 -> '外部关节索引不合法'; index 1 "
