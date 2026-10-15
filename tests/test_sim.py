@@ -98,6 +98,8 @@ def layout():
     L["limits"]["health_check_every_s"] = 0
     L["limits"]["min_disk_free_gb"] = 0
     L["gripper"]["closed"] = {"short_edges": 2.92, "long_edges": 2.92}
+    L["gripper"]["open"] = {"short_edges": 10.0, "long_edges": 10.0}
+    L["polar"]["ext_axis"]["direction"] = -1
     return L
 
 

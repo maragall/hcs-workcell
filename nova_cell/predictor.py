@@ -93,7 +93,7 @@ class PreChecks:
 
     def before_grasp(self, jaw: float, robot_state) -> List[str]:
         p = []
-        if jaw < self.jaw_open - 1.0:
+        if jaw < min(v for v in self.jaw_open.values() if v) - 1.0:
             p.append(f"jaw not open before grasp ({jaw:.2f})")
         if robot_state.drag:
             p.append("drag mode on")

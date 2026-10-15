@@ -188,7 +188,13 @@ def cmd_polar(args):
     a = layout["polar"]["ext_axis"]
     idx = int(a["index"])
     now = robot.ext_axis(idx)
-    if args.what == "jog":
+    if args.what == "open":
+        if args.value <= 0:
+            sys.exit("give the opening value")
+        robot.ext_axis_to(0, args.value)
+        time.sleep(2.0)
+        print(f"jaw: {robot.jaw():.2f}")
+    elif args.what == "jog":
         robot.set_speed(float(a["speed"]))
         robot.ext_axis_to(idx, now + args.value)
         time.sleep(abs(args.value) / 5.0 + 1.0)
@@ -206,6 +212,44 @@ def cmd_polar(args):
         robot.ext_axis_to(idx, target)
         time.sleep(abs(target - now) / 5.0 + 1.0)
         print(f"axis {idx + 1}: {now:.2f} -> {robot.ext_axis(idx):.2f} (target {target:.2f})")
+    robot.disconnect()
+
+
+def cmd_preflight(args):
+    problems = preflight(load_layout(), REFS)
+    print("READY: all poses, widths, trajectories and references present" if not problems else
+          "missing:" + chr(10) + chr(10).join("  " + p for p in problems))
+    return 1 if problems else 0
+
+
+def cmd_move_z(args):
+    """Vertical move of the arm by <delta_mm> at contact speed, drag off, with the safety checks. Nothing else moves."""
+    from nova_cell.safety import Safety
+    layout = load_layout()
+    tele = Telemetry(os.path.join(RUNS, "teach"))
+    robot, st = connect_robot_readonly(layout, tele.log)
+    if st.drag:
+        sys.exit("drag mode is on; turn it off first")
+    if not st.enabled and not robot.enable():
+        sys.exit("robot could not be enabled")
+    here = robot.pose()
+    target = list(here)
+    target[2] += args.delta_mm
+    safety = Safety(layout, "supervised")
+    region = safety.region_of(target)
+    try:
+        safety.check_segment(here, target, "move-z", allow_floor_regions=(region,) if args.allow_floor else ())
+    except Exception as e:
+        robot.disconnect()
+        sys.exit(f"refused: {e}")
+    print(f"z {here[2]:.1f} -> {target[2]:.1f} at {args.speed * 100:.0f} % (region {region})")
+    robot.set_speed(args.speed)
+    robot.move_linear(target)
+    t0 = time.time()
+    while robot.state().moving and time.time() - t0 < 60:
+        time.sleep(0.1)
+    after = robot.pose()
+    print(f"now z {after[2]:.1f} (deviation {max(abs(after[i] - target[i]) for i in range(3)):.2f} mm)")
     robot.disconnect()
 
 
@@ -242,6 +286,8 @@ def cmd_measure_grip(args):
     final = robot.jaw()
     robot.disconnect()
     layout["gripper"]["closed"][args.grip] = width
+    if not layout["gripper"]["open"].get(args.grip):
+        layout["gripper"]["open"][args.grip] = round(width + 2.0, 2)
     if all(layout["gripper"]["closed"].values()):
         layout["gripper"].pop("_todo", None)
     save_layout(layout)
@@ -288,6 +334,11 @@ def preflight(layout: dict, ref_dir: str) -> list:
     for grip, w in layout["gripper"]["closed"].items():
         if not w:
             problems.append(f"grip width not measured: {grip}")
+    for grip, w in layout["gripper"]["open"].items():
+        if not w:
+            problems.append(f"open width not set: {grip}")
+    if layout["polar"]["ext_axis"].get("zero_reading") is None:
+        problems.append("polar zero reference not set")
     for name, t in layout["trajectories"].items():
         if not t:
             problems.append(f"trajectory not taught: {name}")
@@ -363,6 +414,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status").set_defaults(fn=cmd_status)
+    sub.add_parser("preflight").set_defaults(fn=cmd_preflight)
     p = sub.add_parser("record-pose"); p.add_argument("name"); p.add_argument("--local-only", action="store_true")
     p.set_defaults(fn=cmd_record_pose)
     p = sub.add_parser("record-trigger"); p.add_argument("fixture", choices=sorted(VENDOR_TEACH))
@@ -371,8 +423,11 @@ def main():
     p = sub.add_parser("trace"); p.add_argument("name"); p.add_argument("--max-seconds", type=float, default=900)
     p.set_defaults(fn=cmd_trace)
     p = sub.add_parser("normalise"); p.add_argument("name"); p.set_defaults(fn=cmd_normalise)
-    p = sub.add_parser("polar"); p.add_argument("what", choices=("jog", "zero", "goto"))
+    p = sub.add_parser("polar"); p.add_argument("what", choices=("jog", "zero", "goto", "open"))
     p.add_argument("value", type=float, nargs="?", default=0.0); p.set_defaults(fn=cmd_polar)
+    p = sub.add_parser("move-z"); p.add_argument("delta_mm", type=float); p.add_argument("--speed", type=float, default=0.01)
+    p.add_argument("--allow-floor", action="store_true", help="permit going below the region floor (seat moves)")
+    p.set_defaults(fn=cmd_move_z)
     p = sub.add_parser("measure-grip"); p.add_argument("grip", choices=("short_edges", "long_edges"))
     p.add_argument("--step", type=float, default=0.25); p.add_argument("--pause", type=float, default=0.3)
     p.add_argument("--backoff", type=float, default=0.1); p.set_defaults(fn=cmd_measure_grip)

@@ -21,7 +21,10 @@
     }
   },
   "gripper": {
-    "open": 26.0,
+    "open": {
+      "short_edges": 26.0,
+      "long_edges": null
+    },
     "closed": {
       "short_edges": 24.0,
       "long_edges": null
@@ -32,7 +35,7 @@
     "measured": {
       "short_edges": "2026-10-15 servo refused step 24.25->24.0, jaw 24.02; calibration plate"
     },
-    "_note": "open 26 clears the short edges (24.0); long edges will need a wider open value, measure on the plate"
+    "_note": "open is per grip: the microscope holder limits how wide the fingers may be when descending"
   },
   "speeds": {
     "supervised": {
@@ -259,9 +262,10 @@
     "ext_axis": {
       "index": 1,
       "zero_reading": 89.808,
-      "direction": 1,
+      "direction": -1,
       "speed": 0.02,
-      "tolerance_deg": 0.5
+      "tolerance_deg": 0.5,
+      "_note": "stage turns -90 (axis reading decreases) from parallel-to-x to the long-edge orientation"
     },
     "do": {
       "rotate_90": "POLAR_ROT",

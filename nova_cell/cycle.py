@@ -140,14 +140,15 @@ class Cycle:
             self._fault(label, "jaw_refused", str(e))
             raise StopSafe(f"{label}: {e}")
 
-    def _jaw_open(self) -> float:
-        self._jaw(self.g["open"], "jaw open")
+    def _jaw_open(self, grip: str) -> float:
+        want = self.g["open"][grip]
+        self._jaw(want, "jaw open")
         self._wait_still("jaw open")
         time.sleep(0.5)
         jaw = self.robot.jaw()
-        self.tele.log("jaw", "open", jaw=round(jaw, 2))
-        if jaw < self.g["open"] - 1.0:
-            raise StopSafe(f"jaw did not open ({jaw:.2f})")
+        self.tele.log("jaw", "open", jaw=round(jaw, 2), grip=grip)
+        if jaw < want - 1.0:
+            raise StopSafe(f"jaw did not open to {want} for {grip} ({jaw:.2f})")
         return jaw
 
     def _jaw_close(self, grip: str) -> float:
@@ -262,7 +263,7 @@ class Cycle:
             self._waypoints(trajectory_in)
         hover = _add(pose, [0, 0, fixture["hover_mm"]])
         self._arrive(hover, f"{step} hover", prof.approach)
-        self._jaw_open()
+        self._jaw_open(grip)
         target = _add(pose, self._vision_correction(fixture, step))
         hover = _add(target, [0, 0, fixture["hover_mm"]])
         self._move("L", hover, f"{step} hover(corrected)", prof.approach)
@@ -278,7 +279,7 @@ class Cycle:
             if not err:
                 break
             self._fault(step, "grasp", err)
-            self._jaw_open()
+            self._jaw_open(grip)
             self._move("L", hover, f"{step} lift(empty)", prof.approach)
             self.corr.on_grasp_failed(fixture_name, attempt, err)
             target = _add(pose, self._vision_correction(fixture, step))
@@ -308,7 +309,7 @@ class Cycle:
             raise StopSafe(f"{step}: " + "; ".join(problems))
         self._gate_lower(gate, "empty", step)
         self._move("L", target, f"{step} lower", prof.contact, allow_floor=(fixture_name,))
-        self._jaw_open()
+        self._jaw_open(self.store.s.grip)
         self._move("L", hover, f"{step} lift", prof.approach)
         img = self._frame(self.down_cam)
         self.tele.image(f"{step}_placed", img)
@@ -364,7 +365,7 @@ class Cycle:
             raise StopSafe(f"{step}: not holding a plate on its long edges")
         self._move("L", carry, f"{step} slide in", prof.contact)
         self._move("L", p, f"{step} lower", prof.contact)
-        self._jaw_open()
+        self._jaw_open("long_edges")
         self._move("L", carry, f"{step} lift off", prof.approach)
         self._move("L", approach, f"{step} slide out", prof.approach)
         self.store.s.hotel[slot] = self.store.s.plate_id
@@ -377,7 +378,7 @@ class Cycle:
         self.store.begin(step)
         self._health()
         self._move("J", approach, f"{step} approach", prof.approach)
-        self._jaw_open()
+        self._jaw_open("long_edges")
         self._move("L", align, f"{step} align", prof.approach)
         self._move("L", p, f"{step} slide in", prof.contact)
         jaw = self._jaw_close("long_edges")
