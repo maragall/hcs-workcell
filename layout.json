@@ -56,7 +56,7 @@
     ],
     "y": [
       -170,
-      340
+      450
     ],
     "z": [
       45,
@@ -71,11 +71,11 @@
           360
         ],
         "y": [
-          152,
-          340
+          250,
+          450
         ]
       },
-      "z_floor": 265.0,
+      "z_floor": 264.0,
       "_note": "y threshold = taught seat y - 150 (operator rule); floor provisional = seat z - 2",
       "no_swing": true,
       "max_lateral_mm": 2.0,
@@ -112,12 +112,12 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        317.799,
-        301.908,
-        267.068,
+        123.364,
+        399.924,
+        266.254,
         0.0,
         -0.0,
-        89.1315
+        90.8371
       ],
       "hover_mm": 44.0,
       "approach": {
@@ -131,12 +131,12 @@
       "grip": "short_edges",
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
-      "taught_at": "2026-10-14 23:15:44",
+      "taught_at": "2026-10-14 23:27:47",
       "jaw_at_teach": 24.107,
       "vendor_teach": {
         "name": "microscope-short",
         "pick_method": "long",
-        "id": "ca0d0ee1-40ea-44ee-b028-e4885b093348",
+        "id": "dd068617-edec-4209-82b9-9905fd1607a1",
         "workspace": "autoteach"
       },
       "hover": {
