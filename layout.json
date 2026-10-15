@@ -177,15 +177,22 @@
         }
       },
       "pose_at_90": {
-        "_todo": "teach: plate gripped on LONG edges, polar stage at 90 deg",
         "pose": [
-          125.421,
-          117.434,
-          67.859,
-          0,
-          0,
-          -0.0076
-        ]
+          317.316,
+          304.32,
+          68.965,
+          0.0,
+          -0.0,
+          -92.6239
+        ],
+        "taught_at": "2026-10-15 00:53:00",
+        "jaw_at_teach": 3.022,
+        "vendor_teach": {
+          "name": "polar90-wide",
+          "pick_method": "wide",
+          "id": "f609b418-5a8a-49d4-92f0-cfd1e849416f",
+          "workspace": "autoteach"
+        }
       },
       "hover_mm": 34.4,
       "clear_mm": 60,
