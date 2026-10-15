@@ -82,6 +82,15 @@ def cmd_status(args):
     robot.disconnect()
 
 
+# vendor workspace names: the vision box is the system of record for taught positions.
+# pick_method follows the vendor vocabulary: "wide" = fingers on the long edges, "long" = fingers on the short edges.
+VENDOR_TEACH = {
+    "microscope": ("microscope-short", "long"),
+    "polar.pose_at_0": ("polar0-short", "long"),
+    "polar.pose_at_90": ("polar90-wide", "wide"),
+}
+
+
 def cmd_record_pose(args):
     layout = load_layout()
     tele = Telemetry(os.path.join(RUNS, "teach"))
@@ -95,8 +104,46 @@ def cmd_record_pose(args):
     node["taught_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
     node["jaw_at_teach"] = round(jaw, 3)
     node.pop("_todo", None)
+    vendor = VENDOR_TEACH.get(args.name)
+    if vendor and not args.local_only:
+        name, pick = vendor
+        v = VisionClient(layout["vision"]["host"], layout["vision"]["port"], log=tele.log)
+        ws = layout["vision"]["workspace"]
+        existing = {p["name"]: p for p in v.positions(ws, "teach")}
+        if name in existing:
+            v.delete_position(name, "teach", ws)
+        v.add_teach(name, pose, pick, ws)
+        stored = {p["name"]: p for p in v.positions(ws, "teach")}.get(name)
+        node["vendor_teach"] = {"name": name, "pick_method": pick, "id": stored["id"] if stored else None,
+                                "workspace": ws}
+        print(f"vision box: teach point '{name}' ({pick}) stored as {node['vendor_teach']['id']}")
     save_layout(layout)
     print(f"fixtures.{args.name}.pose = {node['pose']}  (jaw {jaw:.2f})")
+
+
+def cmd_record_trigger(args):
+    """Store the current pose as a vendor trigger point (camera over the marker) and relate it to a teach point."""
+    layout = load_layout()
+    tele = Telemetry(os.path.join(RUNS, "teach"))
+    robot, st = connect_robot_readonly(layout, tele.log)
+    pose = robot.pose()
+    robot.disconnect()
+    v = VisionClient(layout["vision"]["host"], layout["vision"]["port"], log=tele.log)
+    ws = layout["vision"]["workspace"]
+    teach_name, pick = VENDOR_TEACH[args.fixture]
+    cam = layout["vision"]["down_camera"]
+    if args.name in {p["name"] for p in v.positions(ws, "trigger")}:
+        v.delete_position(args.name, "trigger", ws)
+    v.add_trigger(args.name, pose, cam, "aruco", args.caltab_mm, pick, ws, layout["vision"]["led"])
+    rel = f"{args.name}-rel"
+    v.add_relation(args.name, teach_name, rel, pick, ws)
+    node = layout["fixtures"]
+    for key in args.fixture.split("."):
+        node = node[key]
+    node.setdefault("vendor_triggers", []).append({"name": args.name, "relation": rel, "pose": [round(x, 4) for x in pose],
+                                                   "caltab_mm": args.caltab_mm})
+    save_layout(layout)
+    print(f"vision box: trigger '{args.name}' -> teach '{teach_name}' via relation '{rel}'")
 
 
 def cmd_trace(args):
@@ -282,7 +329,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status").set_defaults(fn=cmd_status)
-    p = sub.add_parser("record-pose"); p.add_argument("name"); p.set_defaults(fn=cmd_record_pose)
+    p = sub.add_parser("record-pose"); p.add_argument("name"); p.add_argument("--local-only", action="store_true")
+    p.set_defaults(fn=cmd_record_pose)
+    p = sub.add_parser("record-trigger"); p.add_argument("fixture", choices=sorted(VENDOR_TEACH))
+    p.add_argument("name"); p.add_argument("--caltab-mm", type=float, default=150)
+    p.set_defaults(fn=cmd_record_trigger)
     p = sub.add_parser("trace"); p.add_argument("name"); p.add_argument("--max-seconds", type=float, default=900)
     p.set_defaults(fn=cmd_trace)
     p = sub.add_parser("normalise"); p.add_argument("name"); p.set_defaults(fn=cmd_normalise)

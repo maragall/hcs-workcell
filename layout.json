@@ -23,12 +23,15 @@
   "gripper": {
     "open": 10.0,
     "closed": {
-      "short_edges": null,
+      "short_edges": 24.12,
       "long_edges": null
     },
     "tolerance": 0.35,
     "stall_lag": 0.3,
-    "_todo": "closed widths measured on the real plastic plate: run.py measure-grip <grip>"
+    "_todo": "closed widths measured on the real plastic plate: run.py measure-grip <grip>",
+    "measured": {
+      "short_edges": "2026-10-15 00:5x read under drag mode, calibration plate; confirm with measure-grip"
+    }
   },
   "speeds": {
     "supervised": {
