@@ -238,9 +238,16 @@
     }
   },
   "polar": {
-    "driver": "manual",
-    "settle_s": 3.0,
-    "assumed_angle": 0,
+    "driver": "ext_axis",
+    "settle_s": 1.0,
+    "ext_axis": {
+      "index": 1,
+      "zero_reading": null,
+      "direction": 1,
+      "speed": 0.02,
+      "tolerance_deg": 0.5,
+      "_todo": "zero_reading = axis value when the stage is parallel to x (set by run.py polar-zero)"
+    },
     "do": {
       "rotate_90": "POLAR_ROT",
       "home": "POLAR_HOME",

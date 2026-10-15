@@ -178,6 +178,37 @@ def cmd_normalise(args):
         print(f"  {i:2d} joints {[round(v, 1) for v in j[:4]]}  pose {[round(v, 1) for v in p[:3]]}")
 
 
+def cmd_polar(args):
+    """polar jog <deg> | polar zero | polar goto <0|90>  (external axis; drag must be off)."""
+    layout = load_layout()
+    tele = Telemetry(os.path.join(RUNS, "teach"))
+    robot, st = connect_robot_readonly(layout, tele.log)
+    if st.drag:
+        sys.exit("drag mode is on; turn it off first")
+    a = layout["polar"]["ext_axis"]
+    idx = int(a["index"])
+    now = robot.ext_axis(idx)
+    if args.what == "jog":
+        robot.set_speed(float(a["speed"]))
+        robot.ext_axis_to(idx, now + args.value)
+        time.sleep(abs(args.value) / 5.0 + 1.0)
+        print(f"axis {idx + 1}: {now:.2f} -> {robot.ext_axis(idx):.2f}")
+    elif args.what == "zero":
+        layout["polar"]["ext_axis"]["zero_reading"] = round(now, 3)
+        layout["polar"]["ext_axis"].pop("_todo", None)
+        save_layout(layout)
+        print(f"polar zero reference = {now:.3f} (axis reading when parallel to x)")
+    elif args.what == "goto":
+        if a.get("zero_reading") is None:
+            sys.exit("zero not set; run polar zero first")
+        target = a["zero_reading"] + a["direction"] * args.value
+        robot.set_speed(float(a["speed"]))
+        robot.ext_axis_to(idx, target)
+        time.sleep(abs(target - now) / 5.0 + 1.0)
+        print(f"axis {idx + 1}: {now:.2f} -> {robot.ext_axis(idx):.2f} (target {target:.2f})")
+    robot.disconnect()
+
+
 def cmd_measure_grip(args):
     """Close in steps on a plate held between the fingers until the jaw stops following; store the width."""
     layout = load_layout()
@@ -337,6 +368,8 @@ def main():
     p = sub.add_parser("trace"); p.add_argument("name"); p.add_argument("--max-seconds", type=float, default=900)
     p.set_defaults(fn=cmd_trace)
     p = sub.add_parser("normalise"); p.add_argument("name"); p.set_defaults(fn=cmd_normalise)
+    p = sub.add_parser("polar"); p.add_argument("what", choices=("jog", "zero", "goto"))
+    p.add_argument("value", type=float, nargs="?", default=0.0); p.set_defaults(fn=cmd_polar)
     p = sub.add_parser("measure-grip"); p.add_argument("grip", choices=("short_edges", "long_edges"))
     p.add_argument("--step", type=float, default=0.25); p.add_argument("--pause", type=float, default=0.3)
     p.add_argument("--backoff", type=float, default=0.1); p.set_defaults(fn=cmd_measure_grip)

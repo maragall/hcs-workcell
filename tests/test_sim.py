@@ -93,8 +93,8 @@ def layout():
     wp_ph = {"joints": [[30, 0, 0, 0, 0, 0, 0, 0], [40, 0, 0, 0, 0, 0, 0, 0]],
              "poses": [[150, 80, 150, 0, 0, 0], [180, 60, 150, 0, 0, 0]], "spread_deg": 0, "max_step_deg": 10, "demos": 1}
     L["trajectories"] = {"microscope_to_polar": wp_mp, "polar_to_hotel": wp_ph}
-    L["polar"]["driver"] = "do"
-    L["polar"]["di"] = {"at_0": "P0", "at_90": "P90"}
+    L["polar"]["driver"] = "ext_axis"
+    L["polar"]["ext_axis"]["zero_reading"] = 84.5
     L["limits"]["health_check_every_s"] = 0
     L["limits"]["min_disk_free_gb"] = 0
     L["gripper"]["closed"] = {"short_edges": 2.92, "long_edges": 2.92}
@@ -236,11 +236,17 @@ def test_lost_enable_stops_without_motion_retry():
     r.close()
 
 
-def test_polar_feedback_missing_retries_once_then_stops():
-    r = Rig()
-    r.robot.dis = {"P0": 1, "P90": 0}
-    r.expect_stop("polar stage")
+def test_polar_axis_lands_off_target_retries_once_then_stops():
+    r = Rig(SimFaults(ext_error=2.0))
+    r.expect_stop("polar")
     assert sum(1 for f in r.store.s.faults if f["kind"] == "rotate") == 2
+    r.close()
+
+
+def test_polar_axis_is_commanded_from_zero_reference():
+    r = Rig()
+    r.run()
+    assert abs(r.robot.ext_axis(1) - 84.5) < 1e-6      # back at 0 deg = zero reading after the inbound leg
     r.close()
 
 

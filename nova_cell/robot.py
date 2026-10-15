@@ -48,6 +48,8 @@ class Robot(Protocol):
     def move_joint(self, pose: List[float]) -> None: ...
     def move_abs_joints(self, joints: List[float]) -> None: ...
     def jaw_to(self, value: float) -> None: ...
+    def ext_axis(self, index: int) -> float: ...
+    def ext_axis_to(self, index: int, value: float) -> None: ...
     def write_do(self, signal: str, value: int) -> None: ...
     def read_di(self, signal: str) -> int: ...
 
@@ -122,9 +124,15 @@ class VendorRobot:
             raise MotionRefused(f"abs joint move refused to {j}")
 
     def jaw_to(self, value: float):
-        # readouts are 0-based (extjoints[0] = E1), move commands are 1-based (E1 = 1)
-        if not self._r.MoveSingleExtJointAsync(self.grip_axis + 1, float(value)):
-            raise MotionRefused(f"gripper move refused to {value} (drag mode on? index invalid?)")
+        self.ext_axis_to(self.grip_axis, value)
+
+    def ext_axis(self, index: int) -> float:
+        return float(list(self._r.GetCurExtJointAsync())[index])
+
+    def ext_axis_to(self, index: int, value: float):
+        # readouts are 0-based (extjoints[0] = E1 gripper, [1] = E2 polar stage); move commands are 1-based
+        if not self._r.MoveSingleExtJointAsync(index + 1, float(value)):
+            raise MotionRefused(f"external axis {index + 1} move refused to {value} (drag mode on? index invalid?)")
 
     def write_do(self, signal: str, value: int):
         if not self._r.WriteDOAsync(signal, int(value)):
@@ -144,6 +152,8 @@ class SimFaults:
     stall_at: int = -1                # that motion stops 3 mm short of target
     drop_enable_at: int = -1
     drag_on: bool = False
+    ext_error: float = 0.0            # degrees the polar axis lands away from its command
+    ext_error: float = 0.0            # degrees the polar axis lands away from its command
 
 
 class SimRobot:
@@ -163,6 +173,8 @@ class SimRobot:
         self.dis = {}
         self.trace = []
         self.joint_pose_map = {}      # tests map waypoint joints to the pose the arm would reach
+        self._ext = {}
+        self._ext = {}
 
     def connect(self):
         self._log("robot", "connect", "SIMULATOR")
@@ -236,6 +248,26 @@ class SimRobot:
             self._jaw = max(value, 3.6)
             return
         self._jaw = value
+
+    def ext_axis(self, index):
+        return self._jaw if index == 0 else self._ext.get(index, 0.0)
+
+    def ext_axis_to(self, index, value):
+        if index == 0:
+            return self.jaw_to(value)
+        if self.faults.drag_on:
+            raise MotionRefused("external axis refused in drag mode")
+        self._ext[index] = float(value) + self.faults.ext_error
+
+    def ext_axis(self, index):
+        return self._jaw if index == 0 else self._ext.get(index, 0.0)
+
+    def ext_axis_to(self, index, value):
+        if index == 0:
+            return self.jaw_to(value)
+        if self.faults.drag_on:
+            raise MotionRefused("external axis refused in drag mode")
+        self._ext[index] = float(value) + self.faults.ext_error
 
     def write_do(self, signal, value):
         self.dos[signal] = value
