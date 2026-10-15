@@ -67,16 +67,16 @@
     "microscope": {
       "box": {
         "x": [
-          280,
+          90,
           360
         ],
         "y": [
-          250,
+          152,
           340
         ]
       },
       "z_floor": 265.0,
-      "_todo": "provisional: box from the taught pose +-40 mm, floor = seat z - 2; replace with measured values"
+      "_note": "y threshold = taught seat y - 150 (operator rule); floor provisional = seat z - 2"
     },
     "polar": {
       "box": {
@@ -115,7 +115,7 @@
         -0.0,
         89.1315
       ],
-      "hover_mm": 25,
+      "hover_mm": 44.0,
       "approach": {
         "axis": [
           0,
@@ -134,6 +134,18 @@
         "pick_method": "long",
         "id": "ca0d0ee1-40ea-44ee-b028-e4885b093348",
         "workspace": "autoteach"
+      },
+      "hover": {
+        "pose": [
+          317.484,
+          301.94,
+          311.154,
+          0.0,
+          -0.0,
+          89.2232
+        ],
+        "taught_at": "2026-10-14 23:19:16",
+        "jaw_at_teach": 24.1
       }
     },
     "polar": {
