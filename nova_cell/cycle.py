@@ -472,8 +472,12 @@ class Cycle:
             raise StopSafe(f"{step}: state says {slot} is occupied")
         self.store.begin(step)
         self._health()
-        self._waypoints("polar_to_hotel")
-        self._move("J", approach, f"{step} approach", prof.approach)
+        here = self.robot.pose()
+        if max(abs(here[i] - approach[i]) for i in range(3)) > 5.0:      # resuming at the approach point skips the route
+            self._waypoints("polar_to_hotel")
+            self._move("J", approach, f"{step} approach", prof.approach)
+        else:
+            self.resuming = False
         img = self._frame(self.front_cam)
         self.tele.image(f"{step}_slot_view", img)
         sv = self.slots.verdict(slot, img) if img else None

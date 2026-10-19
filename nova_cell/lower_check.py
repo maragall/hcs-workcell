@@ -116,8 +116,8 @@ class TwoClassVerdict:
 class SlotCheck:
     """Two-class decision for a hotel slot from the front camera at the approach point."""
 
-    def __init__(self, ref_root: str, min_refs: int = 5, margin: float = 0.0):
-        self.ref_root, self.min_refs, self.margin = ref_root, min_refs, margin
+    def __init__(self, ref_root: str, min_refs: int = 5, margin: float = 0.0, min_match: float = 0.85):
+        self.ref_root, self.min_refs, self.margin, self.min_match = ref_root, min_refs, margin, min_match
         self._cache = {}
 
     def _refs(self, slot: str, state: str):
@@ -139,5 +139,8 @@ class SlotCheck:
             return TwoClassVerdict("unknown", 0.0, 0.0, min(len(e), len(o)))
         cur = _prep(img_bytes)
         se, so = max(ncc(cur, r) for r in e), max(ncc(cur, r) for r in o)
-        decision = "empty" if se - so > self.margin else "occupied"
+        if max(se, so) < self.min_match:
+            decision = "unknown"            # the view matches neither class: do not decide on noise
+        else:
+            decision = "empty" if se - so > self.margin else "occupied"
         return TwoClassVerdict(decision, float(se), float(so), min(len(e), len(o)))
