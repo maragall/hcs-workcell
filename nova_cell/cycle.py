@@ -266,8 +266,9 @@ class Cycle:
 
     # ------------------------------------------------------------ vision gates
     def _frame(self, cam: str) -> Optional[bytes]:
+        # 1280x720: the camera's 1080p mode is a different sensor crop, and all gate references are 720p
         try:
-            return self.vision.frame(cam, 1920, 1080, 85, None, self.led)
+            return self.vision.frame(cam, 1280, 720, 85, None, self.led)
         except Exception as e:
             self.tele.log("vision", "frame", f"{cam}: {e}")
             return None
