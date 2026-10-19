@@ -57,8 +57,8 @@ class LowerCheck:
         self.ref_root, self.min_refs, self.margin, self.floor, self.roi = ref_root, min_refs, margin, floor, roi
         self._cache = {}
 
-    def _refs(self, fixture: str, state: str) -> List[np.ndarray]:
-        key = (fixture, state)
+    def _refs(self, fixture: str, state: str, roi=None) -> List[np.ndarray]:
+        key = (fixture, state, roi)
         if key not in self._cache:
             d = os.path.join(self.ref_root, fixture, state)
             refs = []
@@ -66,9 +66,13 @@ class LowerCheck:
                 for n in sorted(os.listdir(d)):
                     if n.lower().endswith((".png", ".jpg", ".jpeg")):
                         with open(os.path.join(d, n), "rb") as f:
-                            refs.append(_prep(f.read(), self.roi))
+                            refs.append(_prep(f.read(), roi or self.roi))
             self._cache[key] = refs
         return self._cache[key]
+
+    def count(self, fixture: str, state: str) -> int:
+        d = os.path.join(self.ref_root, fixture, state)
+        return len([n for n in os.listdir(d) if n.lower().endswith((".png", ".jpg", ".jpeg"))]) if os.path.isdir(d) else 0
 
     def threshold(self, refs: List[np.ndarray]) -> float:
         """Lowest pairwise correlation among the safe references, minus a margin; never below `floor`."""
@@ -77,12 +81,12 @@ class LowerCheck:
         worst = min(ncc(refs[i], refs[j]) for i in range(len(refs)) for j in range(i + 1, len(refs)))
         return max(self.floor, worst - self.margin)
 
-    def verdict(self, fixture: str, state: str, img_bytes: bytes) -> LowerVerdict:
-        refs = self._refs(fixture, state)
+    def verdict(self, fixture: str, state: str, img_bytes: bytes, roi=None) -> LowerVerdict:
+        refs = self._refs(fixture, state, roi)
         if len(refs) < self.min_refs:
             return LowerVerdict(False, 0.0, 1.0, len(refs),
                                 f"only {len(refs)} reference images for {fixture}/{state}; need {self.min_refs}")
-        cur = _prep(img_bytes, self.roi)
+        cur = _prep(img_bytes, roi or self.roi)
         scores = [ncc(cur, r) for r in refs]
         best, thr = max(scores), self.threshold(refs)
         if np.isnan(best):
@@ -96,7 +100,8 @@ class LowerCheck:
         n = len([x for x in os.listdir(d) if x.lower().endswith(".png")]) + 1
         path = os.path.join(d, f"ref_{n:03d}.png")
         Image.open(io.BytesIO(img_bytes)).convert("RGB").save(path)
-        self._cache.pop((fixture, state), None)
+        for k in [k for k in self._cache if k[0] == fixture and k[1] == state]:
+            self._cache.pop(k, None)
         return path
 
 

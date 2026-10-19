@@ -18,6 +18,17 @@
       "margin": 0.08,
       "floor": 0.55,
       "retries": 3
+    },
+    "seated_front": {
+      "roi": [
+        0.0,
+        0.55,
+        1.0,
+        1.0
+      ],
+      "auto_refs": 12,
+      "enforce": false,
+      "_note": "front camera at release, bottom band; shadow mode until the verdict statistics are reviewed"
     }
   },
   "gripper": {

@@ -399,8 +399,7 @@ class Cycle:
         self._gate_lower(gate, "empty", step)
         self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
         self._jaw_open(self.store.s.grip)
-        self.tele.image(f"{step}_released_front", self._frame(self.front_cam))   # does the front camera see the seat?
-        self.tele.image(f"{step}_released_down", self._frame(self.down_cam))
+        self._seated_front(step, gate)
         self._move("L", hover, f"{step} lift", prof.approach)
         img = self._frame(self.down_cam)
         self.tele.image(f"{step}_placed", img)
@@ -414,6 +413,34 @@ class Cycle:
                                               "Plate is seated correctly?"):
                 raise StopSafe("plate not seated")
         self.store.done(plate_at=at, grip="none")
+
+    def _seated_front(self, step: str, gate: str):
+        """Seated check from the front camera at the release moment, fingers open, before lifting.
+        Uses the bottom band of the frame, where the plate's top edge and the holder sit. The first
+        `seated_front.auto_refs` releases at each gate become its references; until then, and while gates are
+        off, the verdict is only logged (shadow mode)."""
+        img = self._frame(self.front_cam)
+        self.tele.image(f"{step}_released_front", img)
+        self.tele.image(f"{step}_released_down", self._frame(self.down_cam))
+        if img is None:
+            return
+        cfg = self.L["vision"].get("seated_front", {})
+        roi = tuple(cfg.get("roi", [0.0, 0.55, 1.0, 1.0]))
+        name = "seated_front"
+        n = self.lower.count(name, gate)
+        if n < cfg.get("auto_refs", 12):
+            self.lower.add_reference(name, gate, img)
+            self.tele.log("vision", f"{step} seated_front", f"reference {n + 1} collected", gate=gate)
+            return
+        v = self.lower.verdict(name, gate, img, roi=roi)
+        self._observe(f"seated_front:{gate}", v.best)
+        enforce = cfg.get("enforce", False) and not self.commission["no_gates"]
+        self.tele.log("vision", f"{step} seated_front", v.reason, score=round(v.best, 3), thr=round(v.threshold, 3),
+                      safe=v.safe, gate=gate, enforce=enforce)
+        if enforce and not v.safe:
+            self._fault(step, "not_seated_front", v.reason)
+            if not self.corr.operator_or_stop(step, "front camera: plate does not look seated", "Plate is seated correctly?"):
+                raise StopSafe("plate not seated (front camera)")
 
     # ------------------------------------------------------------------ hotel
     def hotel_slot_pose(self, slot: str) -> List[float]:
