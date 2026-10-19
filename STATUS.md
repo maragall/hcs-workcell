@@ -1,3 +1,12 @@
+# STATUS 2026-10-19 01:40
+- Unattended run ended 10-18 21:23 after 492 cycles (disk full). Arm parked holding the plate above the rotating stage, step place:polar, disabled.
+- runs/ moved to D:
+ova_cell_runs (43.8 GB) with a junction at nova_cell/runs; C: has 49.8 GB free again. Recording is now a ring buffer.
+- Vision gates proven blind from the taught hovers (see ANALYSIS.md section 9). Camera decision pending.
+- Speed/stress profiles and the 13-point route are ready for supervised validation. Grasp tolerance 0.08.
+- Repo remote set to github.com/maragall/arm-setup (push pending login). Docs: docs/REPLICATION.md, docs/VENDOR_SDK.md.
+- Open measurements: rack front/side by touch, shelf clearance, scope highest obstacle, holder lip, collision sensitivity values, ArUco markers, plate barcode.
+
 # STATUS 2026-10-15 02:00 (previous entries below)
 
 ## Tonight
