@@ -89,6 +89,7 @@ class PreChecks:
         self.layout = layout
         self.closed = layout["gripper"]["closed"]
         self.jaw_tol = layout["gripper"]["tolerance"]
+        self.release_tol = layout["gripper"].get("release_tolerance", 0.3)
         self.jaw_open = layout["gripper"]["open"]
 
     def before_grasp(self, jaw: float, robot_state) -> List[str]:
@@ -110,5 +111,6 @@ class PreChecks:
         return f"jaw stopped at {jaw:.2f}: obstruction or plate not seated"
 
     def before_release(self, jaw: float, grip: str) -> List[str]:
+        """Looser than the grasp check: a plate carried for minutes may sit a few tenths of a unit wider."""
         want = self.closed[grip]
-        return [] if abs(jaw - want) <= self.jaw_tol else [f"not holding a plate on {grip} ({jaw:.2f})"]
+        return [] if abs(jaw - want) <= self.release_tol else [f"not holding a plate on {grip} ({jaw:.2f})"]

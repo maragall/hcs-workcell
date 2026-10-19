@@ -54,7 +54,9 @@
       "long_edges_sd": 0.0012,
       "n": 985,
       "_note": "from 492 cycles; 5-sigma bands 0.033 / 0.006"
-    }
+    },
+    "release_tolerance": 0.3,
+    "_tolerances": "grasp 0.08 (fresh grasp, measured sd 0.007); release 0.3 (0.6 mm, a carried plate may settle)"
   },
   "speeds": {
     "supervised": {
