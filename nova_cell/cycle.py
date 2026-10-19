@@ -17,7 +17,7 @@ import time
 from typing import List, Optional
 
 from .corrector import Corrector, StopSafe
-from .lower_check import LowerCheck
+from .lower_check import LowerCheck, SlotCheck
 from .polar import PolarError, PolarStage
 from .predictor import DriftMonitor, PreChecks
 from .robot import MotionRefused, Robot
@@ -44,6 +44,7 @@ class Cycle:
         self.polar = PolarStage(layout["polar"], robot, tele.log, self.supervised, store.s.polar_angle)
         lc = layout["vision"]["lower_check"]
         self.lower = LowerCheck(ref_dir, lc["min_refs"], lc["margin"], lc["floor"])
+        self.slots = SlotCheck(ref_dir)
         self.g = layout["gripper"]
         self.lim = layout["limits"]
         self.down_cam = layout["vision"]["down_camera"]
@@ -446,11 +447,24 @@ class Cycle:
         self._health()
         self._waypoints("polar_to_hotel")
         self._move("J", approach, f"{step} approach", prof.approach)
-        ready, img = self.vision.live_detection(self.front_cam, aruco=False, led=self.led)
+        img = self._frame(self.front_cam)
         self.tele.image(f"{step}_slot_view", img)
-        self.tele.log("vision", f"{step} slot_view", "object seen" if ready else "slot looks empty", ready=ready)
-        if ready and not self.corr.operator_or_stop(step, f"{slot} may be occupied", "Slot is actually empty?"):
-            raise StopSafe(f"{slot} occupied")
+        sv = self.slots.verdict(slot, img) if img else None
+        try:
+            ready, _ = self.vision.live_detection(self.front_cam, aruco=False, led=self.led)
+        except Exception:
+            ready = None
+        self.tele.log("vision", f"{step} slot_view", sv.decision if sv else "no frame",
+                      score_empty=round(sv.score_empty, 3) if sv else None,
+                      score_occupied=round(sv.score_occupied, 3) if sv else None, vendor_live=ready)
+        if sv and sv.decision == "occupied":
+            self._fault(step, "slot_occupied", f"empty {sv.score_empty:.3f} vs occupied {sv.score_occupied:.3f}")
+            if not self.corr.operator_or_stop(step, f"{slot} looks occupied", "Slot is actually empty?"):
+                raise StopSafe(f"{slot} occupied")
+        if sv is None or sv.decision == "unknown":
+            if ready and not self.corr.operator_or_stop(step, f"{slot} may be occupied (vendor live detection)",
+                                                        "Slot is actually empty?"):
+                raise StopSafe(f"{slot} occupied")
         if self.checks.before_release(self.robot.jaw(), "long_edges"):
             raise StopSafe(f"{step}: not holding a plate on its long edges")
         self._slide(carry, f"{step} slide in")

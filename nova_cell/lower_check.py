@@ -98,3 +98,41 @@ class LowerCheck:
         Image.open(io.BytesIO(img_bytes)).convert("RGB").save(path)
         self._cache.pop((fixture, state), None)
         return path
+
+
+@dataclass
+class TwoClassVerdict:
+    decision: str          # "empty" | "occupied" | "unknown"
+    score_empty: float
+    score_occupied: float
+    n_refs: int
+
+
+class SlotCheck:
+    """Two-class decision for a hotel slot from the front camera at the approach point."""
+
+    def __init__(self, ref_root: str, min_refs: int = 5, margin: float = 0.0):
+        self.ref_root, self.min_refs, self.margin = ref_root, min_refs, margin
+        self._cache = {}
+
+    def _refs(self, slot: str, state: str):
+        key = (slot, state)
+        if key not in self._cache:
+            d = os.path.join(self.ref_root, f"slot_{slot}", state)
+            refs = []
+            if os.path.isdir(d):
+                for n in sorted(os.listdir(d)):
+                    if n.lower().endswith((".jpg", ".png")):
+                        with open(os.path.join(d, n), "rb") as f:
+                            refs.append(_prep(f.read()))
+            self._cache[key] = refs
+        return self._cache[key]
+
+    def verdict(self, slot: str, img_bytes: bytes) -> TwoClassVerdict:
+        e, o = self._refs(slot, "empty"), self._refs(slot, "occupied")
+        if len(e) < self.min_refs or len(o) < self.min_refs:
+            return TwoClassVerdict("unknown", 0.0, 0.0, min(len(e), len(o)))
+        cur = _prep(img_bytes)
+        se, so = max(ncc(cur, r) for r in e), max(ncc(cur, r) for r in o)
+        decision = "empty" if se - so > self.margin else "occupied"
+        return TwoClassVerdict(decision, float(se), float(so), min(len(e), len(o)))
