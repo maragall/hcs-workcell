@@ -78,13 +78,27 @@ The grasp signature is far tighter than the 0.35 tolerance in use. A 5-sigma ban
 
 Statistical method for all trend predictors: robust median/MAD baselines per feature (already in `predictor.py`), plus a CUSUM on the standardized residual with a 5-sigma decision threshold, which gives an estimated cycles-to-threshold number instead of a binary alarm. With 492 cycles of baseline data these can be fitted offline this week.
 
-## 7. Speed plan
+## 7. Speed plan (corrected after measuring the route)
 
-1. Replace route B with the 13 via points of the same demo (`microscope_to_polar_fast` in layout), validated at 20 % with the operator watching, then at the `fast` profile 40/20/8. Expected: 302 s -> about 60 s per cycle.
-2. Staged lowers and slides: approach speed until 10 mm from the seat, contact speed after (done).
-3. Drop the redundant corrected-hover move when the correction is zero (done).
-4. Hotel approach joint move at travel speed (22 s -> ~6 s).
-Target: a cycle under 4 minutes without raising contact speeds.
+Route B is slow because of joint travel, not waypoint count: the demo path is 617 degrees of summed joint
+motion, 240 units of it the z column (335 mm down to 94 mm), at 4 deg/s and 4 mm/s at the 20 % profile.
+That is 152 s one way, which matches the log. Cutting 39 waypoints to 13 via points keeps the same corridor
+and saves only SDK call overhead; the lever is speed. The SDK maps 100 % to the controller's manual-mode cap
+(about 20 deg/s), and the vendor's own Lua templates run joint moves at 100 %.
+
+| profile | travel | approach | contact | route B one way (est.) | cycle (est.) |
+|---|---|---|---|---|---|
+| supervised (ran 492 cycles) | 20 % | 10 % | 5 % | 152 s | 660 s |
+| fast | 40 % | 20 % | 8 % | ~75 s | ~300 s |
+| stress | 50 % | 25 % | 10 % | ~60 s | ~240 s |
+| stress-2 (after a clean stress run) | 70 % | 25 % | 10 % | ~45 s | ~200 s |
+
+Other reductions already in the code: staged lowers and slides (contact speed only for the last 6 mm),
+the zero-correction hover move removed, hotel approach at travel speed. Contact speeds stay low: they are
+not where the time is.
+
+Validation order: fast route at the fast profile, supervised, gates on, 3 cycles; then stress for 3 cycles;
+then unattended stress. Each step gates on zero safe stops and jaw values inside the 0.08 band.
 
 ## 8. Hotel shuffling
 
