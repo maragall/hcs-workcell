@@ -81,6 +81,30 @@ class Cycle:
         self.store.s.last_safe_pose = after
         return dev
 
+    def _descend(self, target: List[float], label: str, allow_floor=()):
+        """Lower onto a seat: approach speed until slow_zone_mm above it, contact speed for the rest."""
+        prof = self.safety.profile
+        here = self.robot.pose()
+        slow = self.lim.get("slow_zone_mm", 10.0)
+        if here[2] - target[2] > slow + 1.0:
+            mid = list(target)
+            mid[2] = target[2] + slow
+            self._move("L", mid, f"{label} (fast part)", prof.approach, allow_floor)
+        self._move("L", target, label, prof.contact, allow_floor)
+
+    def _slide(self, target: List[float], label: str, allow_floor=()):
+        """Horizontal slide into a rack: approach speed until slow_zone_mm before the end, then contact speed."""
+        prof = self.safety.profile
+        here = self.robot.pose()
+        slow = self.lim.get("slow_zone_mm", 10.0)
+        d = [target[i] - here[i] for i in range(3)]
+        dist = math.sqrt(sum(v * v for v in d))
+        if dist > slow + 1.0:
+            f = (dist - slow) / dist
+            mid = [here[i] + d[i] * f for i in range(3)] + list(target[3:])
+            self._move("L", mid, f"{label} (fast part)", prof.approach, allow_floor)
+        self._move("L", target, label, prof.contact, allow_floor)
+
     def _move(self, kind: str, target: List[float], label: str, speed: float, allow_floor=()):
         here = self.robot.pose()
         if kind == "L":
@@ -203,9 +227,13 @@ class Cycle:
                     raise StopSafe("vision box unreachable")
                 self.tele.log("health", "vision", f"unreachable, retrying: {e}")
                 time.sleep(10)
+        ctrl_err = self._controller_errors()
+        if ctrl_err:
+            self.corr.alert("health", f"controller error: {ctrl_err}")
+            raise StopSafe(f"controller error {ctrl_err}")
         free_gb = shutil.disk_usage(self.run_dir).free / 1e9
         self.tele.log("health", "check", robot_enabled=st.enabled, drag=st.drag, vision=vs.state, clients=vs.clients,
-                      disk_free_gb=round(free_gb, 1))
+                      disk_free_gb=round(free_gb, 1), sdk_stops=getattr(self.robot, "sdk_stops", 0))
         if st.drag:
             raise StopSafe("drag mode turned on during the run")
         if not st.enabled:
@@ -214,6 +242,26 @@ class Cycle:
                 raise StopSafe("controller lost enable between steps and could not be re-enabled")
         if free_gb < self.lim["min_disk_free_gb"]:
             raise StopSafe(f"disk nearly full ({free_gb:.1f} GB free)")
+
+    def _controller_errors(self):
+        """Controller error list over the documented protocol; empty when unreachable (the SDK path still guards)."""
+        try:
+            import json as _json
+            import socket as _socket
+            s = _socket.create_connection((self.L["robot"]["ip"], 56788), timeout=3)
+            s.settimeout(3)
+            s.sendall((_json.dumps({"BRCAPI": "1.0", "cmd": "getRobotErr", "id": 7}) + chr(10)).encode())
+            buf = b""
+            while not buf.endswith(b"\n"):
+                c = s.recv(65536)
+                if not c:
+                    break
+                buf += c
+            s.close()
+            ret = _json.loads(buf).get("ret") or []
+            return [e for e in ret if e.get("errCode") is not None]
+        except Exception:
+            return []
 
     # ------------------------------------------------------------ vision gates
     def _frame(self, cam: str) -> Optional[bytes]:
@@ -300,16 +348,18 @@ class Cycle:
         hover = _add(pose, [0, 0, fixture["hover_mm"]])
         self._arrive(hover, f"{step} hover", prof.approach)
         self._jaw_open(grip)
-        target = _add(pose, self._vision_correction(fixture, step))
+        corr = self._vision_correction(fixture, step)
+        target = _add(pose, corr)
         hover = _add(target, [0, 0, fixture["hover_mm"]])
-        self._move("L", hover, f"{step} hover(corrected)", prof.approach)
+        if any(abs(v) > 0.05 for v in corr[:3]):
+            self._move("L", hover, f"{step} hover(corrected)", prof.approach)
 
         for attempt in range(1, self.corr.budget.regrasp + 2):
             self._gate_lower(gate, "plate_present", step)
             problems = self.checks.before_grasp(self.robot.jaw(), self.robot.state())
             if problems:
                 raise StopSafe(f"{step}: " + "; ".join(problems))
-            self._move("L", target, f"{step} lower", prof.contact, allow_floor=(fixture_name,))
+            self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
             jaw = self._jaw_close(grip)
             err = self.checks.grasp_ok(jaw, grip)
             if not err:
@@ -337,14 +387,16 @@ class Cycle:
             self._waypoints(trajectory_in, reverse)
         hover = _add(pose, [0, 0, fixture["hover_mm"]])
         self._arrive(hover, f"{step} hover", prof.approach)
-        target = _add(pose, self._vision_correction(fixture, step))
+        corr = self._vision_correction(fixture, step)
+        target = _add(pose, corr)
         hover = _add(target, [0, 0, fixture["hover_mm"]])
-        self._move("L", hover, f"{step} hover(corrected)", prof.approach)
+        if any(abs(v) > 0.05 for v in corr[:3]):
+            self._move("L", hover, f"{step} hover(corrected)", prof.approach)
         problems = self.checks.before_release(self.robot.jaw(), self.store.s.grip)
         if problems:
             raise StopSafe(f"{step}: " + "; ".join(problems))
         self._gate_lower(gate, "empty", step)
-        self._move("L", target, f"{step} lower", prof.contact, allow_floor=(fixture_name,))
+        self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
         self._jaw_open(self.store.s.grip)
         self._move("L", hover, f"{step} lift", prof.approach)
         img = self._frame(self.down_cam)
@@ -399,8 +451,8 @@ class Cycle:
             raise StopSafe(f"{slot} occupied")
         if self.checks.before_release(self.robot.jaw(), "long_edges"):
             raise StopSafe(f"{step}: not holding a plate on its long edges")
-        self._move("L", carry, f"{step} slide in", prof.contact)
-        self._move("L", p, f"{step} lower", prof.contact)
+        self._slide(carry, f"{step} slide in")
+        self._descend(p, f"{step} lower")
         self._jaw_open("long_edges")
         self._move("L", carry, f"{step} lift off", prof.approach)
         self._move("L", approach, f"{step} slide out", prof.approach)
@@ -415,8 +467,8 @@ class Cycle:
         self._health()
         self._move("J", approach, f"{step} approach", prof.approach)
         self._jaw_open("long_edges")
-        self._move("L", carry, f"{step} slide in", prof.contact)       # same path as the place, reversed
-        self._move("L", p, f"{step} lower onto plate", prof.contact)
+        self._slide(carry, f"{step} slide in")                        # same path as the place, reversed
+        self._descend(p, f"{step} lower onto plate")
         jaw = self._jaw_close("long_edges")
         err = self.checks.grasp_ok(jaw, "long_edges")
         if err:
@@ -441,6 +493,10 @@ class Cycle:
         while True:
             try:
                 self.polar.rotate_to(deg)
+                if self.polar.driver == "ext_axis":
+                    err = self.polar.read_angle() - (90 if deg == 90 else 0)
+                    self.tele.log("polar", "readback", deg=deg, err_deg=round(err, 3))
+                    self._observe(f"polar_err:{deg}", err)
                 break
             except PolarError as e:
                 self._fault("polar", "rotate", str(e))

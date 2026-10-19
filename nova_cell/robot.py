@@ -62,6 +62,7 @@ class VendorRobot:
         self._log = log or (lambda *a: None)
         self._r = None
         self._speed = 0.01
+        self.sdk_stops = 0
 
     def connect(self):
         try:
@@ -112,6 +113,7 @@ class VendorRobot:
         return float(list(self._r.GetCurExtJointAsync())[self.grip_axis])
 
     def _verify_pose(self, p, ok: bool, kind: str, tol: float = 1.0, timeout: float = 60.0):
+        """Raises MotionRefused when the pose is not reached."""
         """The SDK's completion flag also compares the gripper axis to 0.02 units, so it reports False whenever a
         plate is held. Completion is verified here from the pose instead."""
         t0 = time.time()
@@ -125,7 +127,7 @@ class VendorRobot:
         now = self.pose()
         raise MotionRefused(f"{kind} move did not reach {[round(float(v), 1) for v in p[:3]]}; at {[round(v, 1) for v in now[:3]]}")
 
-    def move_linear(self, p):
+    def move_linear(self, p, _retry: bool = True):
         before = self.pose()
         ok = self._r.MoveLinearAsync(*[float(v) for v in p], self._speed)
         try:
@@ -134,6 +136,11 @@ class VendorRobot:
             now = self.pose()
             moved = max(abs(now[i] - before[i]) for i in range(3))
             span = max(abs(float(p[i]) - before[i]) for i in range(3))
+            remaining = max(abs(float(p[i]) - now[i]) for i in range(3))
+            if _retry and moved >= 0.5 and remaining <= 15.0 and self._sdk_stopped_us():
+                self._log("robot", "sdk_motionstop", f"linear move stopped {remaining:.1f} mm short with enable intact; re-issuing once")
+                self.sdk_stops += 1
+                return self.move_linear(p, _retry=False)
             if moved < 0.5 and span <= 30.0:
                 # the controller silently ignored a short linear move (seen at the microscope hover); same target, joint interpolation
                 self._log("robot", "move_linear", f"no motion on a {span:.1f} mm linear move; using joint interpolation")
@@ -146,9 +153,14 @@ class VendorRobot:
         ok = self._r.MoveJointAsync(*[float(v) for v in p], self._speed)
         self._verify_pose(p, ok, "joint")
 
-    def move_abs_joints(self, j, tol: float = 0.3, timeout: float = 120.0):
-        """The SDK's own completion check is unreliable (returns False on moves that complete), so completion is
-        verified here by reading the joints. Sub-stepped by the caller so each call stays inside the SDK window."""
+    def _sdk_stopped_us(self) -> bool:
+        """The vendor SDK issues MotionStop when its own position check fails (gripper jitter > 0.02 while a plate is
+        held). That leaves the arm short of target with enable intact and no controller error. A collision stop
+        drops enable. Distinguishing the two decides whether one re-issue of the same command is allowed."""
+        st = self.state()
+        return st.enabled and not st.drag and not st.moving
+
+    def move_abs_joints(self, j, tol: float = 0.3, timeout: float = 60.0, _retry: bool = True):
         target = [float(v) for v in j[:4]]
         arr = self._Array[self._Double](target + [float(v) for v in self.joints()[4:]])
         ok = self._r.MoveAbsJointAsync(arr, self._speed)
@@ -161,6 +173,11 @@ class VendorRobot:
             if not ok and time.time() - t0 > 3.0 and not self.state().moving:
                 break
         now = self.joints()[:4]
+        short = max(abs(a - b) for a, b in zip(now, target))
+        if _retry and short <= 12.0 and self._sdk_stopped_us():
+            self._log("robot", "sdk_motionstop", f"abs joint move stopped {short:.1f} deg short with enable intact; re-issuing once")
+            self.sdk_stops += 1
+            return self.move_abs_joints(j, tol, timeout, _retry=False)
         raise MotionRefused(f"abs joint move did not reach {[round(v, 2) for v in target]}; at {[round(v, 2) for v in now]}")
 
     def move_abs_joints_stepped(self, j, max_step: float = 8.0):

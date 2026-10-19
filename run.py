@@ -672,7 +672,8 @@ def cmd_run(args):
     rec = None
     if args.record:
         rec = Recorder(run_dir, vision, [layout["vision"]["down_camera"], layout["vision"]["front_camera"]],
-                       fps=args.record_fps, screen=True, log=tele.log)
+                       fps=args.record_fps, screen=True, size=(640, 360), quality=70, log=tele.log,
+                       max_gb=args.record_max_gb)
         rec.start()
     try:
         cyc = Cycle(layout, robot, vision, tele, store, args.mode, run_dir, REFS)
@@ -753,7 +754,8 @@ def main():
     p.add_argument("--speeds", help="override travel,approach,contact fractions for this run, e.g. 0.30,0.15,0.05")
     p.add_argument("--drift-warn-only", action="store_true", help="drift statistics log warnings but never stop the run")
     p.add_argument("--stop-file", default=os.path.join(HERE, "runs", "STOP"), help="create this file to end the loop between cycles")
-    p.add_argument("--record-fps", type=float, default=2.0)
+    p.add_argument("--record-fps", type=float, default=0.5)
+    p.add_argument("--record-max-gb", type=float, default=8.0, help="video ring buffer per run")
     p.set_defaults(fn=cmd_run)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
     p.add_argument("run_dir"); p.add_argument("--fps", type=float, default=2.0)

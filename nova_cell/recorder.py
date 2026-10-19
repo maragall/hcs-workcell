@@ -18,7 +18,9 @@ from typing import Dict, List, Optional
 
 class Recorder:
     def __init__(self, run_dir: str, vision, cameras: List[str], fps: float = 2.0, screen: bool = True,
-                 size=(1280, 720), quality: int = 75, log=None):
+                 size=(1280, 720), quality: int = 75, log=None, max_gb: float = 8.0):
+        self.max_bytes = max_gb * 1e9
+        self._written = 0
         self.dir = os.path.join(run_dir, "video")
         self.vision, self.cameras, self.fps, self.screen = vision, cameras, fps, screen
         self.size, self.quality = size, quality
@@ -54,14 +56,30 @@ class Recorder:
                     with open(os.path.join(d, f"{n:06d}.jpg"), "wb") as f:
                         f.write(data)
                     self._index[name].append((n, round(t0, 3)))
+                    self._written += len(data)
                     n += 1
                     failures = 0
+                    if n % 200 == 0:
+                        self._prune(name, d)
             except Exception as e:
                 failures += 1
                 if failures in (1, 10, 100):
                     self._log("record", name, f"grab failed x{failures}: {e}")
                 time.sleep(min(5.0, 0.5 * failures))
             self._stop.wait(max(0.0, period - (time.time() - t0)))
+
+    def _prune(self, name: str, d: str):
+        """Ring buffer: when the run's video exceeds the budget, drop the oldest frames of this source."""
+        if self._written < self.max_bytes:
+            return
+        files = sorted(f for f in os.listdir(d) if f.endswith(".jpg"))
+        for f in files[: max(1, len(files) // 5)]:
+            try:
+                self._written -= os.path.getsize(os.path.join(d, f))
+                os.remove(os.path.join(d, f))
+            except OSError:
+                pass
+        self._log("record", name, f"pruned oldest frames to stay under {self.max_bytes / 1e9:.1f} GB")
 
     def _grab_screen(self) -> Optional[bytes]:
         from PIL import ImageGrab
