@@ -327,12 +327,13 @@ def test_drift_warning_is_logged():
     r = Rig()
     for _ in range(10):
         r.cyc.drift.observe("jaw:closed:short_edges", 2.92)
+    r.cyc.drift.min_rel_scale = 0.005          # a tight baseline, as the measured 0.007 sd gives
     orig = r.robot.jaw_to
 
     def jaw_to(v):
         orig(v)
         if v <= 3.0:
-            r.robot._jaw = 3.2
+            r.robot._jaw = 2.99                 # inside the 0.08 grasp band, but 4.8 sigma off the baseline
     r.robot.jaw_to = jaw_to
     r.run()
     assert any(e["kind"] == "predict" for e in r.events())
