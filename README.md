@@ -4,6 +4,14 @@ Plate transfer cell on the Bioyond Nova SCARA arm: microscope stage, rotating (p
 Vision-gated, state-persisted, built to run unattended for days and to log the data that later
 prediction models train on.
 
+## Documents
+
+- `docs/REPLICATION.md`: rebuild the cell from hardware to an unattended loop, step by step.
+- `docs/VENDOR_SDK.md`: what the vendor .NET SDK really does (measured).
+- `DESIGN.md`: gates, damage prevention, tolerance model, data contract, failure cases, tests.
+- `ANALYSIS.md`: results of the first 90-hour unattended run and the plan derived from it.
+- `STATUS.md`, `review_queue.py`: current state and decisions awaiting review.
+
 ## Topology
 
 ```mermaid
