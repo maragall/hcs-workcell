@@ -87,6 +87,8 @@ def main():
     ap.add_argument("slot", nargs="?", default="A1")
     ap.add_argument("--extra", default="--no-gates --no-vision-correction --drift-warn-only")
     ap.add_argument("--speeds", default="")
+    ap.add_argument("--profile", default="", help="speed profile name passed to run.py (fast, stress)")
+    ap.add_argument("--route-b", default="", help="trajectory name for microscope<->stage")
     ap.add_argument("--per-hour", type=int, default=3)
     ap.add_argument("--per-day", type=int, default=10)
     ap.add_argument("--cooldown", type=float, default=60.0)
@@ -104,6 +106,10 @@ def main():
                "--cycles", "1000000", "--allow-no-tty", "--yes", "--record", "--record-fps", "1"] + args.extra.split()
         if args.speeds:
             cmd += ["--speeds", args.speeds]
+        if args.profile:
+            cmd += ["--profile", args.profile]
+        if args.route_b:
+            cmd += ["--route-b", args.route_b]
         if first and args.first_state:
             cmd += ["--set-state", args.first_state]
         elif not st.get("step_done", True):
