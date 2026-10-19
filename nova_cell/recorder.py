@@ -99,8 +99,18 @@ class Recorder:
         self._log("record", "stop", ", ".join(f"{k}:{len(v)}" for k, v in self._index.items()))
 
     @staticmethod
-    def to_mp4(video_dir: str, fps: float = 2.0) -> List[str]:
+    def find_ffmpeg() -> Optional[str]:
         ff = shutil.which("ffmpeg")
+        if ff:
+            return ff
+        import glob
+        hits = glob.glob(os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Packages",
+                                      "Gyan.FFmpeg*", "ffmpeg*", "bin", "ffmpeg.exe"))
+        return hits[0] if hits else None
+
+    @staticmethod
+    def to_mp4(video_dir: str, fps: float = 2.0) -> List[str]:
+        ff = Recorder.find_ffmpeg()
         out = []
         for name in sorted(os.listdir(video_dir)):
             d = os.path.join(video_dir, name)
