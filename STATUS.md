@@ -1,3 +1,7 @@
+# STATUS 2026-10-19 03:15
+- Stress run live on A1 at 50/25/10 % (supervisor PID 26708): full cycles 398 s and 394 s, zero stops. Lighting-robust edge gate in use; slot gate on A1; seated_front check collecting references in shadow mode; run lock prevents a second loop.
+- Earlier tonight: slot gate false 'occupied' traced to lighting (raw intensity NCC); release tolerance split from grasp tolerance (0.3 vs 0.08); a duplicate supervisor was killed before it reached the arm.
+
 # STATUS 2026-10-19 01:40
 - Unattended run ended 10-18 21:23 after 492 cycles (disk full). Arm parked holding the plate above the rotating stage, step place:polar, disabled.
 - runs/ moved to D:
