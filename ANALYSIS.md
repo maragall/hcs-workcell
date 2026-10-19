@@ -103,3 +103,30 @@ then unattended stress. Each step gates on zero safe stops and jaw values inside
 ## 8. Hotel shuffling
 
 Hotel-to-hotel transfers keep the long-edge grip and the yaw, so they do not need the stage: pick slot S1, retreat straight out, climb or descend in a column clear of the shelf fronts, approach S2, slide in, place. The climb column needs the rack's front x. A3 stopped on height alone because the climb happened inside the shelf depth; the retreat-then-climb path removes that.
+
+## 9. Vision gates: what the logged frames actually show
+
+The gate frames logged at every hover were labelled from the step names (1,766 fixture frames, 1,765
+gripper frames) and scored with the gate's own correlation. Result: no separation at all. "Plate present" and
+"empty" frames correlate at 1.000 with each other at every fixture, because neither camera sees the plate or
+the seat from the hover poses:
+
+- The down camera sits about 90 mm behind the fingertips. At the microscope hover it looks at the microscope
+  body; at the stage hovers it looks at the stage edge and the table. The plate is outside its view.
+- The front camera looks horizontally into the room at both hovers. At the hotel approach it sees the rack.
+- Higher on route B, at about 70 to 100 mm above the stage seat, the down camera does see the stage seat
+  clearly, with the plate absent, during the outbound carry on the long-edge grip. On the short-edge grip the
+  plate sits under the camera and blocks it.
+
+Consequences:
+1. The cross-correlation gate as placed is blind. Gates stay off until the camera geometry changes.
+2. A stage gate is cheap: capture at the existing route point above the stage before placing (empty seat
+   check, stage at its known position). Seated-after-release needs a 70 mm lift above the hover, about 4 s at
+   the stress profile.
+3. The microscope seated check, the one that matters most, cannot be done from the arm's cameras at the
+   taught hover. Options: an inspection pose offset 90 mm along the gripper axis if the microscope body allows
+   it, or a fixed external camera on the holder read by this PC, which also removes the robot time and the
+   lighting dependence. The external camera is the recommended route for the microscope.
+4. ArUco pose offsets need the same geometry: markers must lie where the down camera looks from a pose the
+   cycle already visits, or from a dedicated trigger pose 150 to 200 mm above the marker, which is how the
+   vendor's own no-teach flow is laid out.
