@@ -29,7 +29,7 @@
       "short_edges": 24.0,
       "long_edges": 2.84
     },
-    "tolerance": 0.35,
+    "tolerance": 0.08,
     "stall_lag": 0.3,
     "_note": "open is per grip: the microscope holder limits how wide the fingers may be when descending",
     "readings": {
@@ -37,6 +37,12 @@
       "short_edges_on_plate": 24.0,
       "empty_closed": -0.04,
       "_note": "value = finger gap: long-edge grip holds the 85 mm width (2.84), short-edge grip holds the 128 mm length (24.0)"
+    },
+    "tolerance_measured": {
+      "short_edges_sd": 0.0066,
+      "long_edges_sd": 0.0012,
+      "n": 985,
+      "_note": "from 492 cycles; 5-sigma bands 0.033 / 0.006"
     }
   },
   "speeds": {
@@ -60,6 +66,13 @@
       "contact": 0.08,
       "jaw_step": 0.5,
       "jaw_pause": 0.15
+    },
+    "stress": {
+      "travel": 0.5,
+      "approach": 0.25,
+      "contact": 0.1,
+      "jaw_step": 0.5,
+      "jaw_pause": 0.1
     }
   },
   "workspace_box": {
@@ -1586,6 +1599,7 @@
     "health_check_every_s": 30,
     "max_waypoint_pose_dev_mm": 6.0,
     "vision_retry_s": 300,
-    "slow_zone_mm": 10.0
-  }
+    "slow_zone_mm": 6.0
+  },
+  "_stress_profile_note": "stress = 50/25/10 %, grasp tolerance 0.08 (10x the measured sd), slow zone 6 mm; validate supervised before unattended"
 }
