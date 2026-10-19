@@ -151,4 +151,14 @@ QUEUE = [
         "decision": "supervised: travel 5%, approach 2%, contact 1%. unsupervised: travel 3%, approach 1.5%, "
                     "contact 1%. Both can be raised only after the acceptance tests.",
     },
+    {
+        "id": "Q12", "priority": "P1", "file": "nova_cell/cycle.py:_slot_view + lower_check.SlotCheck", "what": "slot gate references",
+        "decision": "The cell collects its own slot references from the same camera call at the same approach pose: "
+                    "place approach = empty, pick approach = occupied. First 5 per class on consecutive visits, then one "
+                    "per 30 min up to 24, so the set spans a day's lighting. A frame that confidently matches the "
+                    "opposite class is never stored. No decision below 5 references per class or below 0.75 match. "
+                    "Reason: references taken from the recorder on 10-18 (daylight) scored 0.56 on the same empty "
+                    "slot under the night LED and stopped the run twice on 10-19.",
+        "numbers": "min_refs 5, auto_refs 24, spacing_s 1800, min_match 0.75, enforce_pick false (pick side logs only)",
+    },
 ]

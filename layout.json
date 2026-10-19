@@ -29,6 +29,14 @@
       "auto_refs": 12,
       "enforce": false,
       "_note": "front camera at release, bottom band; shadow mode until the verdict statistics are reviewed"
+    },
+    "slot_check": {
+      "min_refs": 5,
+      "auto_refs": 24,
+      "spacing_s": 1800,
+      "min_match": 0.75,
+      "enforce_pick": false,
+      "_note": "references are collected live by the cell (place approach = empty, pick approach = occupied); 24 at 30 min spacing cover a day's lighting. Delete reference_images/slot_<S> to relearn a slot"
     }
   },
   "gripper": {

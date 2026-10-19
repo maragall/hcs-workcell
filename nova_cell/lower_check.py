@@ -131,24 +131,54 @@ class TwoClassVerdict:
 
 
 class SlotCheck:
-    """Two-class decision for a hotel slot from the front camera at the approach point."""
+    """Two-class decision for a hotel slot from the front camera at the approach point.
+
+    References are collected by the running cell itself, from the same camera call at the same pose: the
+    approach before a place sees the slot empty, the approach before a pick sees it occupied. References
+    taken from another pipeline (the video recorder, another day's lighting) do not transfer: on 2026-10-19
+    daylight references scored 0.56 against the same empty slot under the night LED and the gate fired."""
 
     def __init__(self, ref_root: str, min_refs: int = 5, margin: float = 0.0, min_match: float = 0.75):
         self.ref_root, self.min_refs, self.margin, self.min_match = ref_root, min_refs, margin, min_match
         self._cache = {}
 
+    def _dir(self, slot: str, state: str) -> str:
+        return os.path.join(self.ref_root, f"slot_{slot}", state)
+
+    def _files(self, slot: str, state: str) -> List[str]:
+        d = self._dir(slot, state)
+        if not os.path.isdir(d):
+            return []
+        return [os.path.join(d, n) for n in sorted(os.listdir(d)) if n.lower().endswith((".jpg", ".png"))]
+
     def _refs(self, slot: str, state: str):
         key = (slot, state)
         if key not in self._cache:
-            d = os.path.join(self.ref_root, f"slot_{slot}", state)
             refs = []
-            if os.path.isdir(d):
-                for n in sorted(os.listdir(d)):
-                    if n.lower().endswith((".jpg", ".png")):
-                        with open(os.path.join(d, n), "rb") as f:
-                            refs.append(_prep(f.read()))
+            for p in self._files(slot, state):
+                with open(p, "rb") as f:
+                    refs.append(_prep(f.read()))
             self._cache[key] = refs
         return self._cache[key]
+
+    def count(self, slot: str, state: str) -> int:
+        return len(self._files(slot, state))
+
+    def newest_age_s(self, slot: str, state: str) -> float:
+        files = self._files(slot, state)
+        if not files:
+            return float("inf")
+        import time
+        return time.time() - max(os.path.getmtime(p) for p in files)
+
+    def add_reference(self, slot: str, state: str, img_bytes: bytes) -> str:
+        d = self._dir(slot, state)
+        os.makedirs(d, exist_ok=True)
+        path = os.path.join(d, f"ref_{self.count(slot, state) + 1:03d}.jpg")
+        with open(path, "wb") as f:
+            f.write(img_bytes)
+        self._cache.pop((slot, state), None)
+        return path
 
     def verdict(self, slot: str, img_bytes: bytes) -> TwoClassVerdict:
         e, o = self._refs(slot, "empty"), self._refs(slot, "occupied")

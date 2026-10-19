@@ -44,7 +44,8 @@ class Cycle:
         self.polar = PolarStage(layout["polar"], robot, tele.log, self.supervised, store.s.polar_angle)
         lc = layout["vision"]["lower_check"]
         self.lower = LowerCheck(ref_dir, lc["min_refs"], lc["margin"], lc["floor"])
-        self.slots = SlotCheck(ref_dir)
+        self.slot_cfg = layout["vision"].get("slot_check", {})
+        self.slots = SlotCheck(ref_dir, self.slot_cfg.get("min_refs", 5), 0.0, self.slot_cfg.get("min_match", 0.75))
         self.g = layout["gripper"]
         self.lim = layout["limits"]
         self.down_cam = layout["vision"]["down_camera"]
@@ -443,6 +444,24 @@ class Cycle:
             if not self.corr.operator_or_stop(step, "front camera: plate does not look seated", "Plate is seated correctly?"):
                 raise StopSafe("plate not seated (front camera)")
 
+    def _slot_view(self, step: str, slot: str, expect: str):
+        """Front-camera view of the slot from the approach point, with the verdict of the two-class check.
+        The cell labels its own references: before a place the slot is empty, before a pick it is occupied.
+        The first `min_refs` of each class are taken on consecutive visits; later ones every `spacing_s`, so the
+        set spans the day's lighting. A frame that confidently contradicts its label is an alarm, never a lesson."""
+        img = self._frame(self.front_cam)
+        self.tele.image(f"{step}_slot_view", img)
+        if img is None:
+            return None
+        sv = self.slots.verdict(slot, img)
+        other = "occupied" if expect == "empty" else "empty"
+        n, cap = self.slots.count(slot, expect), self.slot_cfg.get("auto_refs", 24)
+        spaced = n < self.slots.min_refs or self.slots.newest_age_s(slot, expect) >= self.slot_cfg.get("spacing_s", 1800)
+        if n < cap and spaced and sv.decision != other:
+            self.slots.add_reference(slot, expect, img)
+            self.tele.log("vision", f"{step} slot_ref", f"{expect} reference {n + 1} collected", slot=slot)
+        return sv
+
     # ------------------------------------------------------------------ hotel
     def hotel_slot_pose(self, slot: str) -> List[float]:
         h = self.L["fixtures"]["hotel"]
@@ -479,9 +498,7 @@ class Cycle:
             self._move("J", approach, f"{step} approach", prof.approach)
         else:
             self.resuming = False
-        img = self._frame(self.front_cam)
-        self.tele.image(f"{step}_slot_view", img)
-        sv = self.slots.verdict(slot, img) if img else None
+        sv = self._slot_view(step, slot, "empty")
         try:
             ready, _ = self.vision.live_detection(self.front_cam, aruco=False, led=self.led)
         except Exception:
@@ -514,6 +531,15 @@ class Cycle:
         self.store.begin(step)
         self._health()
         self._move("J", approach, f"{step} approach", prof.approach)
+        sv = self._slot_view(step, slot, "occupied")
+        if sv:
+            self.tele.log("vision", f"{step} slot_view", sv.decision, score_empty=round(sv.score_empty, 3),
+                          score_occupied=round(sv.score_occupied, 3))
+        if sv and sv.decision == "empty":
+            self._fault(step, "slot_empty", f"empty {sv.score_empty:.3f} vs occupied {sv.score_occupied:.3f}")
+            if self.slot_cfg.get("enforce_pick", False) and not self.commission["no_gates"]:
+                if not self.corr.operator_or_stop(step, f"{slot} looks empty", "Plate is in the slot?"):
+                    raise StopSafe(f"{slot} looks empty")
         self._jaw_open("long_edges")
         self._slide(carry, f"{step} slide in")                        # same path as the place, reversed
         self._descend(p, f"{step} lower onto plate")

@@ -87,7 +87,8 @@ Level 2 trains on exactly these keys. Nothing else has to change for a trained m
 | controller lost enable | state check | one re-enable, no motion retry |
 | drag mode switched on by someone | health check | stop |
 | vision box down | status call fails | stop |
-| hotel slot occupied | live detection at approach | ask / stop |
+| hotel slot occupied | two-class correlation at the approach (references the cell collects itself: place approach = empty, pick approach = occupied, spread over the day), vendor live detection as fallback | ask / stop |
+| hotel slot empty before a pick | same check, opposite class | log (stop once enforced) |
 | wrong plate | barcode mismatch (when ids are used) | log, continue, flag |
 | power loss mid-step | state.json step_done false | refuses to resume until inspected |
 | lighting change | lower-check scores drift | warn, then stop |

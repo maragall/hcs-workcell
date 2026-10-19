@@ -1,3 +1,10 @@
+# STATUS 2026-10-19 05:55
+- 04:44 the slot gate stopped the run again ("A1 occupied", plate in gripper at the A1 approach point, no contact). Cause found: the room light went off between cycles 512 and 513; the gate's references were daylight recorder frames from 10-18, and under the night LED the empty slot scored 0.56 against "empty" and 0.81 against "occupied". Same-pipeline night frames agree with each other at 0.97.
+- Fix: the slot gate now collects its own references live, from the same camera call at the same approach pose (place approach = empty, pick approach = occupied), 5 quickly then one per 30 min up to 24, so the set covers a day's lighting. Old daylight references moved to D:\nova_cell_runs\refs_old_20261019. Pick side also logs a verdict (shadow). Simulator tests pass (26).
+- 05:48 relaunched: supervisor PID 17732, stress profile, resumed from the approach point; A1 place and pick completed, grasp 2.84.
+- Overnight jobs left running (both read-only, never touch the arm): the loop above, and overnight_report.py (PID 31156) writing runs/OVERNIGHT.md every 30 min: cycles, dt, stops, faults, grasp statistics, slot-gate scores, seated_front verdicts.
+- Seated_front shadow: 12 references per gate collected; first 5 verdicts per gate all safe, scores 0.994 to 0.997 against thresholds 0.58 to 0.84.
+
 # STATUS 2026-10-19 03:15
 - Stress run live on A1 at 50/25/10 % (supervisor PID 26708): full cycles 398 s and 394 s, zero stops. Lighting-robust edge gate in use; slot gate on A1; seated_front check collecting references in shadow mode; run lock prevents a second loop.
 - Earlier tonight: slot gate false 'occupied' traced to lighting (raw intensity NCC); release tolerance split from grasp tolerance (0.3 vs 0.08); a duplicate supervisor was killed before it reached the arm.
