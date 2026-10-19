@@ -647,6 +647,10 @@ def cmd_run(args):
     if args.speeds:
         tr, ap_, ct = (float(x) for x in args.speeds.split(","))
         layout["speeds"][args.mode].update({"travel": tr, "approach": ap_, "contact": ct})
+    if args.profile:
+        layout["speeds"][args.mode] = dict(layout["speeds"][args.profile])
+    if args.route_b:
+        layout["trajectories"]["microscope_to_polar"] = layout["trajectories"][args.route_b]
     run_dir = os.path.join(RUNS, time.strftime("%Y%m%d_%H%M%S") + ("_sim" if args.sim else ""))
     tele = Telemetry(run_dir)
     store = StateStore(os.path.join(HERE, "state.json" if not args.sim else "state_sim.json"))
@@ -753,6 +757,8 @@ def main():
     p.add_argument("--resume", action="store_true", help="continue an interrupted carry from the nearest route waypoint")
     p.add_argument("--speeds", help="override travel,approach,contact fractions for this run, e.g. 0.30,0.15,0.05")
     p.add_argument("--drift-warn-only", action="store_true", help="drift statistics log warnings but never stop the run")
+    p.add_argument("--profile", choices=("supervised", "unsupervised", "fast", "stress"), help="use this speed profile's numbers")
+    p.add_argument("--route-b", help="trajectory name to use for microscope<->stage, e.g. microscope_to_polar_fast")
     p.add_argument("--stop-file", default=os.path.join(HERE, "runs", "STOP"), help="create this file to end the loop between cycles")
     p.add_argument("--record-fps", type=float, default=0.5)
     p.add_argument("--record-max-gb", type=float, default=8.0, help="video ring buffer per run")
