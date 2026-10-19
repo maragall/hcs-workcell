@@ -398,6 +398,8 @@ class Cycle:
         self._gate_lower(gate, "empty", step)
         self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
         self._jaw_open(self.store.s.grip)
+        self.tele.image(f"{step}_released_front", self._frame(self.front_cam))   # does the front camera see the seat?
+        self.tele.image(f"{step}_released_down", self._frame(self.down_cam))
         self._move("L", hover, f"{step} lift", prof.approach)
         img = self._frame(self.down_cam)
         self.tele.image(f"{step}_placed", img)
