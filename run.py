@@ -590,6 +590,24 @@ def cmd_to_mp4(args):
     print(chr(10).join(files) if files else "ffmpeg not found or no video folders")
 
 
+def _acquire_run_lock():
+    """One live run per machine: the controller accepts one client and two loops would fight over the arm."""
+    import msvcrt
+    path = os.path.join(HERE, "runs", "run.lock")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    f = open(path, "a+")
+    try:
+        msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+    except OSError:
+        f.seek(0)
+        sys.exit(f"another run holds {path} (pid {f.read().strip() or '?'}); refusing to start a second loop")
+    f.seek(0)
+    f.truncate()
+    f.write(str(os.getpid()))
+    f.flush()
+    return f
+
+
 def _walk(node, path=""):
     if isinstance(node, dict):
         for k, v in node.items():
@@ -651,6 +669,7 @@ def cmd_run(args):
         layout["speeds"][args.mode] = dict(layout["speeds"][args.profile])
     if args.route_b:
         layout["trajectories"]["microscope_to_polar"] = layout["trajectories"][args.route_b]
+    lock = _acquire_run_lock() if not args.sim else None
     run_dir = os.path.join(RUNS, time.strftime("%Y%m%d_%H%M%S") + ("_sim" if args.sim else ""))
     tele = Telemetry(run_dir)
     store = StateStore(os.path.join(HERE, "state.json" if not args.sim else "state_sim.json"))
