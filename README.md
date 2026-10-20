@@ -72,6 +72,18 @@ tests/test_sim.py      offline tests against the simulator and a fake vision box
 6. `python run.py run --mode supervised --slot A1 --cycles 1`
 7. Only after the acceptance tests in DESIGN.md: `--mode unsupervised`
 
+## Teaching quickly
+
+`python teach_daemon.py` holds the one SDK connection and records a pose per word written to `runs/teach_cmd.txt`
+(`A1`, `polar.pose_at_90`, `microscope`, `drag`, `undrag`, `status`, `quit`); `python record_slot.py A3` does one
+hotel slot without the daemon. Both store pose, joints, jaw, stage reading and a frame from each camera under
+`reference_images/teach/`. Hotel rows above 1 are reached by retreating to `fixtures.hotel.climb_x`, climbing with
+the column only, and sliding in at carry height; `--slot random` draws from `fixtures.hotel.active_slots`.
+
+A pick that stalls wider than the plate starts a tactile centering search (`fixtures.<name>.grasp_search`): the seat
+is walked in small steps along z, yaw, x and y until the fingers meet the plate at its width, and the working pose
+is written back to `layout.json`.
+
 ## Tests
 
 `python tests/test_sim.py` runs the full cycle, a refused move, a missed grasp, a blocked lowering and a half-finished resume, all offline.

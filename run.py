@@ -719,6 +719,7 @@ def cmd_run(args):
         rec.start()
     try:
         cyc = Cycle(layout, robot, vision, tele, store, args.mode, run_dir, REFS)
+        cyc.layout_path = None if args.sim else LAYOUT
         cyc.commission = {"no_gates": bool(args.no_gates), "no_vision_correction": bool(args.no_vision_correction)}
         if args.drift_warn_only:
             cyc.drift.stop_z = float("inf")

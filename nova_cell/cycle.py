@@ -198,21 +198,148 @@ class Cycle:
         return jaw
 
     def _jaw_close(self, grip: str) -> float:
+        """Close in steps. A stall before the target is not a fault here: the fingers met the plate (or something)
+        at that width, and `grasp_ok` judges the width."""
         prof = self.safety.profile
         closed = self.g["closed"][grip]
         v = self.robot.jaw()
-        curve = []
+        curve, stall = [], None
         while v > closed + 1e-6:
             v = max(closed, v - prof.jaw_step)
-            self._jaw(v, "jaw close")
+            try:
+                self.robot.jaw_to(v)
+            except MotionRefused as e:
+                stall = str(e)
+                break
             time.sleep(prof.jaw_pause)
             curve.append(round(self.robot.jaw(), 3))
         self._wait_still("jaw close")
         time.sleep(0.5)
         jaw = self.robot.jaw()
-        self.tele.log("jaw", "close", jaw=round(jaw, 2), curve=curve, grip=grip)
+        self.tele.log("jaw", "close", "stalled" if stall else "", jaw=round(jaw, 2), curve=curve, grip=grip, stall=stall)
         self._observe(f"jaw:closed:{grip}", jaw)
         return jaw
+
+    def _center_search(self, step: str, fixture_name: str, fixture: dict, target: List[float], grip: str):
+        """Tactile centering. The jaw stalled wider than the plate: one pad touched first because the seat pose is a
+        few tenths of a millimetre off the plate along the closing axis (a hand-taught seat, a clamped holder).
+        Walk the seat sideways in small steps, re-closing each time, until the fingers meet the plate at its true
+        width. The offset that works is written back to the taught pose. Returns (jaw, target) on success, None
+        otherwise. Lateral moves stay far inside the no-swing allowance and the fingers are open throughout."""
+        cfg = fixture.get("grasp_search")
+        if not cfg:
+            return None
+        closed, tol = self.g["closed"][grip], self.checks.jaw_tol
+        s, m = float(cfg.get("step_mm", 0.2)), float(cfg.get("max_mm", 0.6))
+        sd, md = float(cfg.get("step_deg", 0.3)), float(cfg.get("max_deg", 0.6))
+        trials = []                                     # (pose index, offset, unit)
+        for axis in cfg.get("axes", ["x", "y"]):
+            if axis == "yaw":
+                k = 1
+                while k * sd <= md + 1e-9:
+                    for sign in (1, -1):
+                        trials.append((5, sign * k * sd, "deg"))
+                    k += 1
+            elif axis == "z":
+                for d in cfg.get("z_offsets_mm", [0.5, 1.0, -0.5]):
+                    trials.append((2, float(d), "mm"))
+            else:
+                i = {"x": 0, "y": 1}[axis]
+                k = 1
+                while k * s <= m + 1e-9:
+                    for sign in (1, -1):
+                        trials.append((i, sign * k * s, "mm"))
+                    k += 1
+        names = {0: "x", 1: "y", 2: "z", 5: "yaw"}
+        self._search_widths = []
+        for i, d, unit in trials:
+            cand = list(target)
+            cand[i] += d
+            label = f"{step} search {names[i]}{d:+.1f}{unit}"
+            self._jaw_open(grip)
+            here = self.robot.pose()
+            cap = 0.4                                   # yaw changes inside a no-swing zone are capped per move
+            while abs(cand[5] - here[5]) > cap:
+                mid = list(here)
+                mid[5] = here[5] + cap * (1 if cand[5] > here[5] else -1)
+                self._move("L", mid, label + " (yaw part)", self.safety.profile.contact, allow_floor=(fixture_name,))
+                here = self.robot.pose()
+            self._move("L", cand, label, self.safety.profile.contact, allow_floor=(fixture_name,))
+            jaw = self._jaw_close(grip)
+            self._search_widths.append(jaw)
+            self.tele.log("correct", f"{step} search", f"{names[i]}{d:+.1f}{unit} -> jaw {jaw:.2f}", jaw=round(jaw, 2),
+                          axis=names[i], offset=d)
+            if abs(jaw - closed) <= tol:
+                self._persist_pose(fixture_name, fixture, cand,
+                                   f"grasp search {names[i]}{d:+.1f}{unit} on {time.strftime('%Y-%m-%d %H:%M')}")
+                return jaw, cand
+        return None
+
+    def _adopt_grasp_width(self, step: str, fixture_name: str, fixture: dict, grip: str) -> Optional[float]:
+        """When the search finds the same width everywhere, the fixture itself presents the plate that wide (a holder
+        that clamps it, a plate that bulges under the clips). If that width is consistent and only a little above the
+        hand-measured grip, store it as this fixture's grasp signature and accept it. The held-plate camera check
+        after the lift remains the guard against a false grasp."""
+        cfg = fixture.get("grasp_search", {})
+        ws = sorted(getattr(self, "_search_widths", []))
+        closed = self.g["closed"][grip]
+        if len(ws) < 6:
+            return None
+        med = ws[len(ws) // 2]
+        spread = ws[-1] - ws[0]
+        over = med - closed
+        if spread > float(cfg.get("adopt_max_spread", 0.25)) or not (0 < over <= float(cfg.get("adopt_max_mm", 0.5))):
+            self.tele.log("correct", f"{step} grasp width", f"not adopted: median {med:.2f}, spread {spread:.2f}")
+            return None
+        width = round(med, 2)
+        fixture.setdefault("grasp_width", {})[grip] = width
+        fixture.setdefault("corrections", []).append({"grasp_width": {grip: width}, "why": f"search widths {ws} on {time.strftime('%Y-%m-%d %H:%M')}"})
+        self.tele.log("correct", f"{step} grasp width", f"adopted {width} for {grip} at {fixture_name} (nominal {closed})", widths=ws)
+        self._persist_fixture(fixture_name, fixture, ("grasp_width", "corrections"))
+        return width
+
+    def _persist_fixture(self, fixture_name: str, fixture: dict, keys):
+        path = getattr(self, "layout_path", None)
+        if not path:
+            return
+        try:
+            import json as _json
+            with open(path, encoding="utf-8") as f:
+                disk = _json.load(f)
+            node = disk["fixtures"]
+            for key in fixture_name.split("."):
+                node = node[key]
+            for k in keys:
+                node[k] = fixture[k]
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                _json.dump(disk, f, indent=2)
+            os.replace(tmp, path)
+        except Exception as e:
+            self.tele.log("correct", f"{fixture_name}", f"not persisted: {e}")
+
+    def _persist_pose(self, fixture_name: str, fixture: dict, pose: List[float], why: str):
+        fixture["pose"] = [round(v, 4) for v in pose]
+        fixture.setdefault("corrections", []).append({"pose": fixture["pose"], "why": why})
+        self.tele.log("correct", f"{fixture_name} pose", why, pose=fixture["pose"])
+        path = getattr(self, "layout_path", None)
+        if not path:
+            return
+        try:
+            import json as _json
+            with open(path, encoding="utf-8") as f:
+                disk = _json.load(f)
+            node = disk["fixtures"]
+            for key in fixture_name.split("."):
+                node = node[key]
+            node["pose"] = fixture["pose"]
+            node["corrections"] = fixture["corrections"]
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                _json.dump(disk, f, indent=2)
+            os.replace(tmp, path)
+        except Exception as e:
+            self.tele.log("correct", f"{fixture_name} pose", f"not persisted: {e}")
 
     def _health(self, force: bool = False):
         if not force and time.time() - self._last_health < self.lim["health_check_every_s"]:
@@ -368,7 +495,21 @@ class Cycle:
                 raise StopSafe(f"{step}: " + "; ".join(problems))
             self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
             jaw = self._jaw_close(grip)
-            err = self.checks.grasp_ok(jaw, grip)
+            expected = fixture.get("grasp_width", {}).get(grip)
+            err = self.checks.grasp_ok(jaw, grip, expected)
+            if err and jaw > self.g["closed"][grip]:          # wider than the plate: pads off-centre, not an empty grasp
+                found = self._center_search(step, fixture_name, fixture, target, grip)
+                if found:
+                    jaw, target = found
+                    hover = _add(target, [0, 0, fixture["hover_mm"]])
+                    err = None
+                else:
+                    adopted = self._adopt_grasp_width(step, fixture_name, fixture, grip)
+                    if adopted is not None:
+                        self._jaw_open(grip)
+                        self._move("L", target, f"{step} back to seat", self.safety.profile.contact, allow_floor=(fixture_name,))
+                        jaw = self._jaw_close(grip)
+                        err = self.checks.grasp_ok(jaw, grip, adopted)
             if not err:
                 break
             self._fault(step, "grasp", err)
@@ -705,11 +846,14 @@ class Cycle:
             return
         a = self.polar.read_angle()
         for deg in (0, 90):
-            if abs(a - deg) <= 0.5:
+            if abs(a - deg) <= 3.0:
                 if self.store.s.polar_angle != deg:
                     self.tele.log("polar", "sync", f"state said {self.store.s.polar_angle}, stage reads {a:.2f}")
                 self.store.s.polar_angle = self.polar.angle = deg
                 self.store.save()
+                if abs(a - deg) > 0.3:                   # settled off its mark while unpowered: re-drive it (the arm is at a seat, not above the stage)
+                    self.tele.log("polar", "sync", f"re-driving the stage from {a:.2f} to {deg}")
+                    self.polar.rotate_to(deg)
                 return
         raise StopSafe(f"rotating stage reads {a:.2f} deg, neither 0 nor 90; run.py polar goto 0 first")
 

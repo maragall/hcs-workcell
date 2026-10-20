@@ -175,7 +175,7 @@
       "pose": [
         124.033,
         399.213,
-        265.194,
+        264.694,
         0.0,
         -0.0,
         90.334
@@ -218,7 +218,43 @@
         -187.167,
         183.635
       ],
-      "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\microscope"
+      "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\microscope",
+      "grasp_search": {
+        "axes": [
+          "z",
+          "x",
+          "y"
+        ],
+        "step_mm": 0.2,
+        "max_mm": 0.4,
+        "_note": "tactile centering when the jaw stalls wider than the plate; the holder clamps the plate so the seat must match it within ~0.1 mm",
+        "z_offsets_mm": [
+          -0.3,
+          0.3,
+          -0.6
+        ],
+        "step_deg": 0.3,
+        "max_deg": 0.6
+      },
+      "grasp_width": {
+        "short_edges": 22.5
+      },
+      "corrections": [
+        {
+          "pose": [
+            124.033,
+            399.213,
+            264.694,
+            0.0,
+            -0.0,
+            90.334
+          ],
+          "grasp_width": {
+            "short_edges": 22.5
+          },
+          "why": "search 2026-10-19 22:05: z-0.5 gives 22.50 twice (groove), z 0 gives 22.64, z-1.0 gives 22.77; hand measure 22.40 with the plate free"
+        }
+      ]
     },
     "polar": {
       "pose_at_0": {
@@ -289,7 +325,23 @@
         "taught_at": "2026-10-15 00:48:45",
         "jaw_at_teach": -0.026
       },
-      "display_name": "rotating-stage"
+      "display_name": "rotating-stage",
+      "grasp_search": {
+        "axes": [
+          "z",
+          "x",
+          "y"
+        ],
+        "step_mm": 0.2,
+        "max_mm": 0.4,
+        "z_offsets_mm": [
+          -0.5,
+          -1.0,
+          0.5
+        ],
+        "step_deg": 0.3,
+        "max_deg": 0.6
+      }
     },
     "hotel": {
       "approach": {

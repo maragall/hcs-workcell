@@ -102,8 +102,10 @@ class PreChecks:
             p.append("robot not enabled")
         return p
 
-    def grasp_ok(self, jaw: float, grip: str) -> Optional[str]:
-        want = self.closed[grip]
+    def grasp_ok(self, jaw: float, grip: str, expected: Optional[float] = None) -> Optional[str]:
+        """`expected` overrides the nominal width: a fixture may present the plate a few tenths wider than the
+        hand-measured grip (a clamped holder), learned by the centering search and stored per fixture."""
+        want = self.closed[grip] if expected is None else expected
         if abs(jaw - want) <= self.jaw_tol:
             return None
         if jaw < want - self.jaw_tol:
