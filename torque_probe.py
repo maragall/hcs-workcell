@@ -40,8 +40,16 @@ def require_probe(b: Brcapi):
 
 
 def job(b: Brcapi, req: int, w_mm: float = 0.0, trq: float = 0.0, v: int = 50, timeout: float = 30.0):
-    code = b.run_job({0: req, 1: int(round(w_mm * 100)), 2: int(round(trq * 1000)), 3: int(v)}, timeout)
-    return code
+    """The SendSysOutVarI push is delivered to one client only; when BioyondWorks is connected it takes it. Then
+    the request variable going back to 0 is the completion signal and the detail is unavailable (None)."""
+    from nova_cell.brcapi import BrcapiError
+    try:
+        return b.run_job({0: req, 1: int(round(w_mm * 100)), 2: int(round(trq * 1000)), 3: int(v)}, timeout)
+    except BrcapiError as e:
+        if e.code != "no_push":
+            raise
+        b.last_detail = None
+        return "done (no push; BioyondWorks took it)"
 
 
 def main():
