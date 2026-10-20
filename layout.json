@@ -48,7 +48,8 @@
       "_note": "references are collected live by the cell (place approach = empty, pick approach = occupied); 24 at 30 min spacing cover a day's lighting. Delete reference_images/slot_<S> to relearn a slot"
     },
     "front_led": 100,
-    "_front_led_note": "front camera frames (slot view, seated check, plate in gripper) are lit by the camera LED so day and night match; validated 2026-10-19 21:15"
+    "_front_led_note": "front camera frames (slot view, seated check, plate in gripper) are lit by the camera LED so day and night match; validated 2026-10-19 21:15",
+    "held_plate_auto_refs": 12
   },
   "gripper": {
     "open": {
@@ -77,7 +78,18 @@
       "_note": "from 492 cycles; 5-sigma bands 0.033 / 0.006"
     },
     "release_tolerance": 0.3,
-    "_tolerances": "grasp 0.08 (fresh grasp, measured sd 0.007); release 0.3 (0.6 mm, a carried plate may settle)"
+    "_tolerances": "grasp 0.08 (fresh grasp, measured sd 0.007); release 0.3 (0.6 mm, a carried plate may settle)",
+    "accept_band": {
+      "short_edges": [
+        22.3,
+        22.9
+      ],
+      "long_edges": [
+        1.35,
+        2.5
+      ],
+      "_note": "2026-10-19: without a per-fixture signature a grasp is accepted anywhere in this band (plate between the pads). Nominal 22.40/1.45 by hand; the microscope presents 22.50, the stage at 90 presents 2.33 (12 trials, spread 0.09). Groove-or-wall is a camera question, not a width one"
+    }
   },
   "speeds": {
     "supervised": {
@@ -336,11 +348,12 @@
         "max_mm": 0.4,
         "z_offsets_mm": [
           -0.5,
-          -1.0,
           0.5
         ],
-        "step_deg": 0.3,
-        "max_deg": 0.6
+        "step_deg": 0.5,
+        "max_deg": 1.5,
+        "adopt_max_mm": 1.0,
+        "_note": "yaw removed: the wrist is near its limit at the stage seat and yaw moves were refused (22:27 loop, collision stop 22:57)"
       }
     },
     "hotel": {
@@ -1806,7 +1819,8 @@
     "health_check_every_s": 30,
     "max_waypoint_pose_dev_mm": 6.0,
     "vision_retry_s": 300,
-    "slow_zone_mm": 6.0
+    "slow_zone_mm": 6.0,
+    "max_yaw_deviation_deg": 0.5
   },
   "_stress_profile_note": "stress = 50/25/10 %, grasp tolerance 0.08 (10x the measured sd), slow zone 6 mm; validate supervised before unattended"
 }

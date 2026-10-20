@@ -81,6 +81,11 @@ class Cycle:
         if dev > self.lim["max_pose_deviation_mm"]:
             self._fault(label, "pose_deviation", f"{dev:.2f} mm")
             raise StopSafe(f"{label}: arm stopped {dev:.1f} mm from target; possible collision or stall")
+        if len(target_xyz) > 5:                       # a refused yaw is a refused move too (soft limit, collision)
+            dyaw = abs((after[5] - target_xyz[5] + 180.0) % 360.0 - 180.0)
+            if dyaw > self.lim.get("max_yaw_deviation_deg", 0.5):
+                self._fault(label, "yaw_deviation", f"{dyaw:.2f} deg")
+                raise StopSafe(f"{label}: yaw ended {dyaw:.1f} deg from target; wrist limit or contact")
         self.store.s.last_safe_pose = after
         return dev
 
@@ -259,11 +264,11 @@ class Cycle:
             self._jaw_open(grip)
             here = self.robot.pose()
             cap = 0.4                                   # yaw changes inside a no-swing zone are capped per move
-            while abs(cand[5] - here[5]) > cap:
-                mid = list(here)
-                mid[5] = here[5] + cap * (1 if cand[5] > here[5] else -1)
-                self._move("L", mid, label + " (yaw part)", self.safety.profile.contact, allow_floor=(fixture_name,))
-                here = self.robot.pose()
+            n = int(abs(cand[5] - here[5]) / cap) + 1   # fixed number of parts, targets taken from `cand`, never from readback
+            for k in range(1, n):
+                mid = list(cand)
+                mid[5] = here[5] + (cand[5] - here[5]) * k / n
+                self._move("L", mid, label + f" (yaw part {k}/{n})", self.safety.profile.contact, allow_floor=(fixture_name,))
             self._move("L", cand, label, self.safety.profile.contact, allow_floor=(fixture_name,))
             jaw = self._jaw_close(grip)
             self._search_widths.append(jaw)
@@ -452,12 +457,21 @@ class Cycle:
     def _check_plate_in_gripper(self, step: str, grip: str):
         img = self._frame(self.front_cam)
         self.tele.image(f"{step}_lifted", img)
-        if self.commission["no_gates"]:
-            return
         if img is None:
-            if self.supervised:
+            if self.supervised or self.commission["no_gates"]:
                 return
             raise StopSafe(f"{step}: front camera frame failed after lift")
+        n = self.lower.count("gripper", grip)
+        if n < int(self.L["vision"].get("held_plate_auto_refs", 12)):   # first lifts become the held-plate references
+            self.lower.add_reference("gripper", grip, img)
+            self.tele.log("vision", f"{step} plate_in_gripper", f"reference {n + 1} collected", grip=grip)
+            return
+        if self.commission["no_gates"]:
+            v = self.lower.verdict("gripper", grip, img)
+            self.tele.log("vision", f"{step} plate_in_gripper", v.reason, score=round(v.best, 3), safe=v.safe,
+                          refs=v.n_refs, shadow=True)
+            self._observe(f"gripper:{grip}", v.best)
+            return
         v = self.lower.verdict("gripper", grip, img)
         self.tele.log("vision", f"{step} plate_in_gripper", v.reason, score=round(v.best, 3), safe=v.safe, refs=v.n_refs)
         if v.n_refs < self.lower.min_refs:

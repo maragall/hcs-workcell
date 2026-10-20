@@ -108,6 +108,9 @@ class PreChecks:
         want = self.closed[grip] if expected is None else expected
         if abs(jaw - want) <= self.jaw_tol:
             return None
+        band = self.layout["gripper"].get("accept_band", {}).get(grip)
+        if expected is None and band and band[0] <= jaw <= band[1]:
+            return None                     # plate between the pads; which part of its wall is a camera question
         if jaw < want - self.jaw_tol:
             return f"jaw closed to {jaw:.2f}: nothing or too little between the fingers (plate missed / wrong edge)"
         return f"jaw stopped at {jaw:.2f}: obstruction or plate not seated"
