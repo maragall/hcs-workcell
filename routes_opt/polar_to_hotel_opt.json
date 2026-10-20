@@ -1,0 +1,122 @@
+{
+ "joints": [
+  [
+   61.3769,
+   32.1978,
+   -127.1234,
+   3.8323,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  [
+   61.3769,
+   23.2235,
+   -103.1234,
+   19.5974,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  [
+   61.3769,
+   18.7635,
+   -91.1958,
+   27.4323,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  [
+   61.199,
+   7.1198,
+   -67.1958,
+   37.8981,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  [
+   61.0339,
+   -3.6871,
+   -44.9205,
+   47.6117,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ]
+ ],
+ "poses": [
+  [
+   312.41,
+   305.828,
+   99.975,
+   0.0,
+   0.0,
+   -91.093
+  ],
+  [
+   274.716,
+   275.76,
+   99.975,
+   0.0,
+   0.0,
+   -60.302
+  ],
+  [
+   255.0,
+   255.0,
+   99.975,
+   0.0,
+   0.0,
+   -45.0
+  ],
+  [
+   224.684,
+   198.122,
+   99.797,
+   0.0,
+   0.0,
+   -22.178
+  ],
+  [
+   193.341,
+   137.174,
+   99.632,
+   0.0,
+   0.0,
+   -0.996
+  ]
+ ],
+ "spread_deg": 0.0,
+ "max_step_deg": 24.0,
+ "demos": 0,
+ "provenance": "Generated offline 2026-10-19 by routes_opt/route_gen.py from the fitted FK and layout.json (polar pose_at_90, hotel A1 + approach). NOT replayed. The plate stays inside the region swept by the current stage hover -> taught route A -> J approach leg (the route part: 984 traversals), dilated 5 mm; the rack geometry itself is not in layout.json. Ends exactly at the A1 approach point, so the cycle's J move there becomes a no-op.",
+ "note": "one-via; 11 sub-moves; modelled 11 s at 50 %",
+ "candidate": "one-via",
+ "via_points_joints": [
+  [
+   61.37687820268266,
+   32.197802667118964,
+   -127.12337939318786,
+   3.8322767260688977
+  ],
+  [
+   61.37687820268266,
+   18.763472742462227,
+   -91.19579475042974,
+   27.432322007967514
+  ],
+  [
+   61.03387497396987,
+   -3.687096856052449,
+   -44.92049504913405,
+   47.6116919051865
+  ]
+ ]
+}

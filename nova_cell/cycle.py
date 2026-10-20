@@ -51,6 +51,7 @@ class Cycle:
         self.down_cam = layout["vision"]["down_camera"]
         self.front_cam = layout["vision"]["front_camera"]
         self.led = layout["vision"]["led"]
+        self.front_led = int(layout["vision"].get("front_led", self.led))
         self._last_health = 0.0
         self.commission = {"no_gates": False, "no_vision_correction": False}
         self.resuming = False
@@ -266,10 +267,13 @@ class Cycle:
             return []
 
     # ------------------------------------------------------------ vision gates
-    def _frame(self, cam: str) -> Optional[bytes]:
-        # 1280x720: the camera's 1080p mode is a different sensor crop, and all gate references are 720p
+    def _frame(self, cam: str, led: Optional[int] = None) -> Optional[bytes]:
+        # 1280x720: the camera's 1080p mode is a different sensor crop, and all gate references are 720p.
+        # The front camera is lit by its own LED so day and night frames match (vision.front_led).
+        if led is None:
+            led = self.front_led if cam == self.front_cam else self.led
         try:
-            return self.vision.frame(cam, 1280, 720, 85, None, self.led)
+            return self.vision.frame(cam, 1280, 720, 85, None, led)
         except Exception as e:
             self.tele.log("vision", "frame", f"{cam}: {e}")
             return None
@@ -484,6 +488,52 @@ class Cycle:
         carry = _add(p, [0, 0, lift])
         return p, approach, align, carry
 
+    def _hotel_junction(self, slot: str) -> List[float]:
+        """Where route A ends: the approach point of the column's row-1 slot (taught and validated for A1)."""
+        return self._hotel_geometry(slot[0] + "1")[1]
+
+    def _hotel_climb(self, slot: str):
+        """For rows above 1 the arm may not climb at the approach x: the plate already overlaps the shelf depth there
+        (A3, 2026-10-15). It retreats to `climb_x`, a column in front of the rack the operator cleared, climbs there
+        with the column axis only, and slides in at carry height. Returns (foot, top): the retreat point at the
+        junction height and the point in front of the slot at carry height; both None for row 1."""
+        if slot[1:] == "1":
+            return None, None
+        h = self.L["fixtures"]["hotel"]
+        x = float(h["climb_x"])
+        junction = self._hotel_junction(slot)
+        _, approach, _, _ = self._hotel_geometry(slot)
+        foot = [x, junction[1], junction[2]] + list(junction[3:])
+        top = [x, approach[1], approach[2]] + list(approach[3:])
+        return foot, top
+
+    def _hotel_go_to_approach(self, slot: str, step: str):
+        """Route A end -> junction -> (retreat, climb) -> approach point of the slot, all at carry height."""
+        prof = self.safety.profile
+        _, approach, _, _ = self._hotel_geometry(slot)
+        foot, top = self._hotel_climb(slot)
+        junction = self._hotel_junction(slot)
+        here = self.robot.pose()
+        if max(abs(here[i] - approach[i]) for i in range(3)) <= 5.0:     # resuming at the approach point
+            self.resuming = False
+            return
+        if max(abs(here[i] - junction[i]) for i in range(3)) > 5.0:
+            self._waypoints("polar_to_hotel")
+            self._move("J", junction, f"{step} junction", prof.approach)
+        if foot is not None:
+            self._move("L", foot, f"{step} retreat", prof.approach)
+            self._move("L", top, f"{step} climb", prof.approach)
+            self._move("L", approach, f"{step} approach", prof.approach)
+
+    def _hotel_leave_approach(self, slot: str, step: str):
+        """Approach point -> (descend at the climb column) -> junction, ready for route A reversed."""
+        prof = self.safety.profile
+        foot, top = self._hotel_climb(slot)
+        if foot is not None:
+            self._move("L", top, f"{step} back to column", prof.approach)
+            self._move("L", foot, f"{step} descend", prof.approach)
+            self._move("L", self._hotel_junction(slot), f"{step} junction", prof.approach)
+
     def _hotel_place(self, slot: str):
         prof = self.safety.profile
         p, approach, _, carry = self._hotel_geometry(slot)
@@ -492,12 +542,7 @@ class Cycle:
             raise StopSafe(f"{step}: state says {slot} is occupied")
         self.store.begin(step)
         self._health()
-        here = self.robot.pose()
-        if max(abs(here[i] - approach[i]) for i in range(3)) > 5.0:      # resuming at the approach point skips the route
-            self._waypoints("polar_to_hotel")
-            self._move("J", approach, f"{step} approach", prof.approach)
-        else:
-            self.resuming = False
+        self._hotel_go_to_approach(slot, step)
         sv = self._slot_view(step, slot, "empty")
         try:
             ready, _ = self.vision.live_detection(self.front_cam, aruco=False, led=self.led)
@@ -519,10 +564,12 @@ class Cycle:
         self._slide(carry, f"{step} slide in")
         self._descend(p, f"{step} lower")
         self._jaw_open("long_edges")
+        self._seated_front(step, f"hotel_{slot}")
         self._move("L", carry, f"{step} lift off", prof.approach)
         self._move("L", approach, f"{step} slide out", prof.approach)
         self.store.s.hotel[slot] = self.store.s.plate_id
         self.store.done(plate_at=f"hotel:{slot}", grip="none")
+        self._hotel_leave_approach(slot, step)
 
     def _hotel_pick(self, slot: str):
         prof = self.safety.profile
@@ -530,7 +577,15 @@ class Cycle:
         step = f"pick:hotel:{slot}"
         self.store.begin(step)
         self._health()
-        self._move("J", approach, f"{step} approach", prof.approach)
+        junction = self._hotel_junction(slot)
+        here = self.robot.pose()
+        if max(abs(here[i] - junction[i]) for i in range(3)) > 5.0:
+            self._move("J", junction, f"{step} junction", prof.approach)
+        foot, top = self._hotel_climb(slot)
+        if foot is not None:
+            self._move("L", foot, f"{step} retreat", prof.approach)
+            self._move("L", top, f"{step} climb", prof.approach)
+            self._move("L", approach, f"{step} approach", prof.approach)
         sv = self._slot_view(step, slot, "occupied")
         if sv:
             self.tele.log("vision", f"{step} slot_view", sv.decision, score_empty=round(sv.score_empty, 3),
@@ -556,6 +611,7 @@ class Cycle:
             self.corr.alert(step, f"plate id mismatch: slot had {expected}, scanned {self.store.s.plate_id}")
         self.store.s.hotel.pop(slot, None)
         self.store.done(plate_at="gripper", grip="long_edges")
+        self._hotel_leave_approach(slot, step)
         self._waypoints("polar_to_hotel", reverse=True)
 
     # ------------------------------------------------------------------ polar
@@ -643,11 +699,45 @@ class Cycle:
             if far > self.lim["max_restart_offset_mm"]:
                 raise StopSafe(f"arm is {far:.0f} mm from where the last run left it; jog it back before restarting")
 
+    def _sync_stage(self):
+        """The stage is unpowered in drag mode and gets turned by hand: trust the readback, not the state file."""
+        if self.polar.driver != "ext_axis":
+            return
+        a = self.polar.read_angle()
+        for deg in (0, 90):
+            if abs(a - deg) <= 0.5:
+                if self.store.s.polar_angle != deg:
+                    self.tele.log("polar", "sync", f"state said {self.store.s.polar_angle}, stage reads {a:.2f}")
+                self.store.s.polar_angle = self.polar.angle = deg
+                self.store.save()
+                return
+        raise StopSafe(f"rotating stage reads {a:.2f} deg, neither 0 nor 90; run.py polar goto 0 first")
+
+    def _choose_slot(self, slot: str) -> str:
+        """`random` draws from fixtures.hotel.active_slots, never a slot the state says is occupied."""
+        if slot != "random":
+            return slot
+        h = self.L["fixtures"]["hotel"]
+        free = [x for x in h.get("active_slots", ["A1"]) if self.store.s.hotel.get(x) is None]
+        if not free:
+            raise StopSafe("no free active slot")
+        import random
+        pick = random.choice(free)
+        self.tele.log("run", "slot", f"random draw -> {pick}", free=free)
+        return pick
+
+    def _current_hotel_slot(self) -> Optional[str]:
+        at = self.store.s.plate_at
+        return at.split(":", 1)[1] if at.startswith("hotel:") else None
+
     def run(self, slot: str, cycles: int, resume: bool = False, stop_file: Optional[str] = None):
         s = self.store.s
-        self.hotel_slot_pose(slot)
-        self._check_resumable(slot, resume)
+        if slot != "random":
+            self.hotel_slot_pose(slot)
+        step_slot = s.step.split(":")[-1] if s.step.startswith(("place:hotel:", "pick:hotel:")) else None
+        self._check_resumable(self._current_hotel_slot() or step_slot or (slot if slot != "random" else "A1"), resume)
         self._health(force=True)
+        self._sync_stage()
         for _ in range(cycles):
             if stop_file and os.path.exists(stop_file):
                 self.tele.log("run", "stop_file", f"{stop_file} present; ending between cycles")
@@ -657,7 +747,8 @@ class Cycle:
             if resume and not s.step_done and s.grip == "none" and s.step.startswith("pick:"):
                 self.tele.cycle = s.cycle
                 self.tele.log("run", "resume", f"restarting step {s.step} (gripper empty)")
-                out, back = self._steps(slot)
+                cur = step_slot or self._choose_slot(slot)
+                out, back = self._steps(cur)
                 table = out if any(n == s.step for n, _ in out) else back
                 self._run_steps(table, from_step=s.step)
                 resume = False
@@ -665,23 +756,25 @@ class Cycle:
                 self.resuming = True
                 self.tele.cycle = s.cycle
                 self.tele.log("run", "resume", f"continuing step {s.step} with grip {s.grip}")
+                cur = step_slot or self._choose_slot(slot)
                 if s.grip == "short_edges" and s.step == "place:polar":
-                    self.outbound(slot, from_step="place:polar")
+                    self.outbound(cur, from_step="place:polar")
                 elif s.step.startswith("place:hotel"):
-                    self.outbound(slot, from_step=s.step)
+                    self.outbound(cur, from_step=s.step)
                 elif s.step in ("place:polar", "place:microscope") and s.grip == "long_edges":
-                    self.inbound(slot, from_step=s.step)
+                    self.inbound(cur, from_step=s.step)
                 elif s.step == "place:microscope":
-                    self.inbound(slot, from_step="place:microscope")
+                    self.inbound(cur, from_step="place:microscope")
                 resume = False
             else:
                 s.cycle += 1
                 self.tele.cycle = s.cycle
                 self.store.save()
                 if s.plate_at == "microscope":
-                    self.outbound(slot)
-            if s.plate_at == f"hotel:{slot}":
-                self.inbound(slot)
+                    self.outbound(self._choose_slot(slot))
+            cur = self._current_hotel_slot()
+            if cur:
+                self.inbound(cur)
             self.drift.save()
             dt = time.time() - t0
             self.tele.log("cycle", "done", dt=round(dt, 1), state=s.plate_at)

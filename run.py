@@ -95,15 +95,30 @@ def cmd_record_pose(args):
     layout = load_layout()
     tele = Telemetry(os.path.join(RUNS, "teach"))
     robot, st = connect_robot_readonly(layout, tele.log)
-    pose, jaw = robot.pose(), robot.jaw()
+    pose, jaw, joints = robot.pose(), robot.jaw(), robot.joints()
     robot.disconnect()
     node = layout["fixtures"]
     for key in args.name.split("."):
         node = node.setdefault(key, {})
     node["pose"] = [round(v, 4) for v in pose]
+    node["joints_at_teach"] = [round(v, 3) for v in joints[:4]]
     node["taught_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
     node["jaw_at_teach"] = round(jaw, 3)
     node.pop("_todo", None)
+    # both cameras at the taught point: the first references for this plate at this seat
+    try:
+        v = VisionClient(layout["vision"]["host"], layout["vision"]["port"], log=tele.log)
+        d = os.path.join(REFS, "teach", args.name.replace(".", "_"))
+        os.makedirs(d, exist_ok=True)
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        for label, cam in (("down", layout["vision"]["down_camera"]), ("front", layout["vision"]["front_camera"])):
+            img = v.frame(cam, 1280, 720, 85, None, layout["vision"]["led"])
+            with open(os.path.join(d, f"{stamp}_{label}.jpg"), "wb") as f:
+                f.write(img)
+        node["teach_frames"] = d
+        print(f"frames saved under {d}")
+    except Exception as e:
+        print(f"camera frames not saved: {e}")
     vendor = VENDOR_TEACH.get(args.name)
     if vendor and not args.local_only:
         name, pick = vendor

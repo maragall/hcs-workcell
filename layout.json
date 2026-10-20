@@ -1,5 +1,14 @@
 {
   "_units": "robot base frame, mm, radians; rz = gripper yaw",
+  "plate": {
+    "width_between_long_edges": 84.57,
+    "width_over_skirt": 85.14,
+    "length_between_short_edges": 125.03,
+    "length_over_skirt": 127.46,
+    "height": null,
+    "groove_offset_from_bottom": null,
+    "_note": "production plate measured with calipers 2026-10-19 (operator). Grip grooves are small: jaw width reads the same on the wall and in the groove (see gripper.readings). Height and groove position still to measure"
+  },
   "robot": {
     "ip": "192.168.1.220",
     "port": 52525,
@@ -37,7 +46,9 @@
       "min_match": 0.75,
       "enforce_pick": false,
       "_note": "references are collected live by the cell (place approach = empty, pick approach = occupied); 24 at 30 min spacing cover a day's lighting. Delete reference_images/slot_<S> to relearn a slot"
-    }
+    },
+    "front_led": 100,
+    "_front_led_note": "front camera frames (slot view, seated check, plate in gripper) are lit by the camera LED so day and night match; validated 2026-10-19 21:15"
   },
   "gripper": {
     "open": {
@@ -109,7 +120,7 @@
     ],
     "z": [
       45,
-      430
+      435.0
     ]
   },
   "regions": {
@@ -124,7 +135,7 @@
           450
         ]
       },
-      "z_floor": 266.4,
+      "z_floor": 262.5,
       "_note": "microscope at x 123 y 400; polar stage sits at x 317 y 305, same y band but 200 mm away in x and 200 mm lower, so the zone is bounded in x",
       "no_swing": true,
       "max_lateral_mm": 2.0,
@@ -142,8 +153,8 @@
           350
         ]
       },
-      "z_floor": 67.0,
-      "_note": "floor = polar0 seat z - 2.7, provisional"
+      "z_floor": 63.0,
+      "_note": "floor = polar90 seat z - 2.6 (seats re-taught 2026-10-19: 66.8 / 65.6)"
     },
     "hotel": {
       "box": {
@@ -162,12 +173,12 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        122.647,
-        399.902,
-        268.435,
+        124.033,
+        399.213,
+        265.194,
         0.0,
         -0.0,
-        90.2458
+        90.334
       ],
       "hover_mm": 66.7,
       "approach": {
@@ -181,12 +192,12 @@
       "grip": "short_edges",
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
-      "taught_at": "2026-10-15 02:01:02",
-      "jaw_at_teach": 24.091,
+      "taught_at": "2026-10-19 20:42:20",
+      "jaw_at_teach": 22.727,
       "vendor_teach": {
         "name": "microscope-short",
         "pick_method": "long",
-        "id": "230ca482-20ee-4797-a5c6-ac1547db5e13",
+        "id": "7f139742-9b01-4e9b-8f38-23b4ffa031b5",
         "workspace": "autoteach"
       },
       "hover": {
@@ -200,44 +211,67 @@
         ],
         "taught_at": "2026-10-14 23:28:37",
         "jaw_at_teach": 24.108
-      }
+      },
+      "joints_at_teach": [
+        226.596,
+        93.866,
+        -187.167,
+        183.635
+      ],
+      "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\microscope"
     },
     "polar": {
       "pose_at_0": {
         "pose": [
-          316.592,
-          305.224,
-          69.694,
+          312.512,
+          304.533,
+          66.807,
           0.0,
           -0.0,
-          -92.5114
+          -91.2625
         ],
-        "taught_at": "2026-10-15 00:33:56",
-        "jaw_at_teach": 24.096,
+        "taught_at": "2026-10-19 20:53:54",
+        "jaw_at_teach": 22.73,
         "vendor_teach": {
           "name": "polar0-short",
           "pick_method": "long",
-          "id": "09424700-faa5-4811-8ca6-d277253ad391",
+          "id": "a1584214-1eb2-49cb-bcfc-1fb74810fd51",
           "workspace": "autoteach"
-        }
+        },
+        "joints_at_teach": [
+          28.208,
+          31.738,
+          -126.448,
+          3.447
+        ],
+        "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\polar_pose_at_0",
+        "stage_axis_at_teach": 89.684
       },
       "pose_at_90": {
         "pose": [
-          317.316,
-          304.32,
-          68.965,
+          312.41,
+          305.828,
+          65.575,
           0.0,
           -0.0,
-          -92.6239
+          -91.0933
         ],
-        "taught_at": "2026-10-15 00:53:00",
-        "jaw_at_teach": 3.022,
+        "taught_at": "2026-10-19 21:21:58",
+        "jaw_at_teach": 1.805,
         "vendor_teach": {
           "name": "polar90-wide",
           "pick_method": "wide",
-          "id": "f609b418-5a8a-49d4-92f0-cfd1e849416f",
+          "id": "9e8d4a4a-3a25-4d1a-ab03-ed189c0e6be6",
           "workspace": "autoteach"
-        }
+        },
+        "joints_at_teach": [
+          26.976,
+          32.197,
+          -127.12,
+          3.83
+        ],
+        "stage_axis_at_teach": -0.099,
+        "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\polar_pose_at_90"
       },
       "hover_mm": 34.4,
       "clear_mm": 60,
@@ -283,20 +317,20 @@
       ],
       "taught": {
         "A1": [
-          292.983,
-          137.469,
-          73.942,
-          0,
-          0,
-          -1.0282
+          293.341,
+          137.174,
+          74.632,
+          0.0,
+          -0.0,
+          -0.9959
         ],
         "A9": [
-          292.979,
-          137.469,
-          373.974,
-          0,
-          0,
-          -1.0294
+          291.06,
+          136.889,
+          379.06,
+          0.0,
+          -0.0,
+          -0.6795
         ],
         "B1": [
           293.987,
@@ -313,6 +347,14 @@
           0,
           0,
           -1.0267
+        ],
+        "C9": [
+          293.503,
+          -128.356,
+          378.99,
+          0.0,
+          -0.0,
+          -1.5653
         ]
       },
       "row_vector_from": [
@@ -322,7 +364,97 @@
       ],
       "_a1_check": {
         "verified": "2026-10-15 placement test, A1 x corrected +2 mm by operator"
-      }
+      },
+      "taught_detail": {
+        "A1": {
+          "pose": [
+            293.341,
+            137.174,
+            74.632,
+            0.0,
+            -0.0,
+            -0.9959
+          ],
+          "joints_at_teach": [
+            36.033,
+            -17.91,
+            -65.496,
+            82.409
+          ],
+          "jaw_at_teach": 1.809,
+          "stage_axis_at_teach": -21.794,
+          "taught_at": "2026-10-19 21:09:45",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A1"
+        },
+        "A9": {
+          "pose": [
+            291.06,
+            136.889,
+            379.06,
+            0.0,
+            -0.0,
+            -0.6795
+          ],
+          "joints_at_teach": [
+            340.461,
+            -17.912,
+            -64.836,
+            82.069
+          ],
+          "jaw_at_teach": 1.803,
+          "stage_axis_at_teach": -21.791,
+          "taught_at": "2026-10-19 21:11:01",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A9"
+        },
+        "C9": {
+          "pose": [
+            293.503,
+            -128.356,
+            378.99,
+            0.0,
+            -0.0,
+            -1.5653
+          ],
+          "joints_at_teach": [
+            340.391,
+            20.696,
+            63.683,
+            -85.944
+          ],
+          "jaw_at_teach": 2.042,
+          "stage_axis_at_teach": -0.275,
+          "taught_at": "2026-10-19 21:17:53",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_C9"
+        }
+      },
+      "pre_slot": {
+        "pose": [
+          127.111,
+          -14.104,
+          431.458,
+          0.0,
+          -0.0,
+          -1.9035
+        ],
+        "joints_at_teach": [
+          392.859,
+          2.476,
+          4.054,
+          -8.434
+        ],
+        "taught_at": "2026-10-19 21:15:17",
+        "jaw_at_teach": 1.799,
+        "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_pre_slot"
+      },
+      "climb_x": 127.0,
+      "active_slots": [
+        "A1",
+        "A3",
+        "A5",
+        "A7",
+        "A9"
+      ],
+      "_climb_note": "rows above 1: retreat from the junction (row-1 approach point) to x=climb_x in free air in front of the rack, climb with the column only, slide in at carry height. climb_x = the operator via point x (2026-10-19). B and C columns wait for the FK-based planner: their approach points lie close to the shoulder axis at (126,0)"
     }
   },
   "polar": {

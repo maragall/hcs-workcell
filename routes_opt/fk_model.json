@@ -1,0 +1,126 @@
+{
+  "x0": 126.01186089180993,
+  "y0": 0.009938907117032159,
+  "l1": 199.99080797966448,
+  "a1_deg": -0.0011326012402997092,
+  "l2": 199.9951753257799,
+  "a2_deg": -179.99688549479407,
+  "lt": 0.0,
+  "at_deg": 0.0,
+  "z_scale": 0.9999905869317662,
+  "z_offset": 38.59869954205983,
+  "yaw_offset_deg": 0.0,
+  "_fit": {
+    "fit_sets": [
+      "trace_microscope_to_polar_01",
+      "discarded_trace_polar_to_hotel_01"
+    ],
+    "n_fit": 4056,
+    "outliers_dropped": 12,
+    "residuals": [
+      {
+        "set": "trace_microscope_to_polar_01",
+        "role": "FIT",
+        "n": 884,
+        "xy_rms": 0.08692594713409997,
+        "xy_p95": 0.009185926760168129,
+        "xy_max": 0.9301886473394618,
+        "z_rms": 0.03882667288849215,
+        "z_max": 0.6699522036166456,
+        "yaw_rms": 0.03325309685166481,
+        "yaw_max": 0.4995999999999867
+      },
+      {
+        "set": "discarded_trace_polar_to_hotel_01",
+        "role": "FIT",
+        "n": 3184,
+        "xy_rms": 0.26310985822026256,
+        "xy_p95": 0.0117535532941204,
+        "xy_max": 13.545680503256355,
+        "z_rms": 0.0728161507732455,
+        "z_max": 3.896090130609309,
+        "yaw_rms": 0.07500232569677158,
+        "yaw_max": 3.8825999999999965
+      },
+      {
+        "set": "trace_polar_to_hotel_01",
+        "role": "held-out",
+        "n": 941,
+        "xy_rms": 0.040312383555458235,
+        "xy_p95": 0.009024245505443207,
+        "xy_max": 0.4150800704610418,
+        "z_rms": 0.022033644717251832,
+        "z_max": 0.4211525957301063,
+        "yaw_rms": 0.011761829236668957,
+        "yaw_max": 0.17969999999999686
+      },
+      {
+        "set": "layout.microscope_to_polar",
+        "role": "held-out",
+        "n": 39,
+        "xy_rms": 0.5284598127991555,
+        "xy_p95": 0.8704894884279339,
+        "xy_max": 2.028824519137721,
+        "z_rms": 0.07371222394088006,
+        "z_max": 0.3388925492587873,
+        "yaw_rms": 0.02912436787676807,
+        "yaw_max": 0.08865585338631377
+      },
+      {
+        "set": "layout.polar_to_hotel",
+        "role": "held-out",
+        "n": 5,
+        "xy_rms": 0.04237865224345709,
+        "xy_p95": 0.06834511930380922,
+        "xy_max": 0.0722049640777977,
+        "z_rms": 0.05094560210952436,
+        "z_max": 0.11360098639268301,
+        "yaw_rms": 0.0008113576802736282,
+        "yaw_max": 0.0017785441588955564
+      },
+      {
+        "set": "layout.polar_to_hotel_demo_full",
+        "role": "held-out",
+        "n": 11,
+        "xy_rms": 0.061675623868608316,
+        "xy_p95": 0.12547773284749913,
+        "xy_max": 0.14531738170552636,
+        "z_rms": 0.03435206926963011,
+        "z_max": 0.11360098639268301,
+        "yaw_rms": 0.003116911655981261,
+        "yaw_max": 0.009928911472769641
+      },
+      {
+        "set": "layout.microscope_to_polar_fast",
+        "role": "held-out",
+        "n": 13,
+        "xy_rms": 0.6656152660275264,
+        "xy_p95": 1.3133535049006182,
+        "xy_max": 2.028824519137721,
+        "z_rms": 0.09402469805880763,
+        "z_max": 0.3388925492587873,
+        "yaw_rms": 0.016095206327803757,
+        "yaw_max": 0.04493924584630804
+      },
+      {
+        "set": "layout.microscope.joints_at_teach",
+        "role": "held-out",
+        "n": 1,
+        "xy_rms": 0.005010991030863558,
+        "xy_p95": 0.005010991030863558,
+        "xy_max": 0.005010991030863558,
+        "z_rms": 0.001433421549677405,
+        "z_max": 0.001433421549677405,
+        "yaw_rms": 0.0,
+        "yaw_max": 0.0
+      }
+    ],
+    "joint_order": [
+      "j1 column mm",
+      "j2 shoulder deg",
+      "j3 elbow deg",
+      "j4 wrist deg"
+    ],
+    "note": "x = x0 + l1 cos(j2+a1) + l2 cos(j2+j3+a2); y likewise with sin; z = z_scale*j1 + z_offset; rz = j2+j3+j4+yaw_offset. Fitted 2026-10-19 from drag traces; validated on the held-out route-A trace, the layout waypoints and the teach pose."
+  }
+}

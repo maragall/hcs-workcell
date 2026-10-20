@@ -117,6 +117,7 @@ class Rig:
         start = list(self.L["fixtures"]["microscope"]["pose"]); start[2] += self.L["fixtures"]["microscope"]["hover_mm"]
         self.robot = SimRobot(start, faults or SimFaults(), self.tele.log, jaw=10.0)
         self.robot.dis = {"P0": 1, "P90": 1}
+        self.robot._ext[1] = self.L["polar"]["ext_axis"]["zero_reading"]      # stage at 0, as the readback would say
         for wp in self.L["trajectories"].values():
             for j, pose in zip(wp["joints"], wp["poses"]):
                 self.robot.joint_pose_map[tuple(round(v, 3) for v in j[:4])] = pose
