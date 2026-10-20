@@ -1,5 +1,29 @@
 # nova_cell Lua modules for the Bioyond S4 (BioyondWorks V3.9 template)
 
+## Gripper force probe (`torque_probe/`, 2026-10-20) — load this first
+
+The PC cannot read the gripper servo's torque: the .NET SDK and the JSON port report positions only. The controller
+can (manual A.4.18 `GetCJointsTrq`, A.4.19 `GetCJointsNormTrq`, A.10.5 `GripperEmptyDet`). `torque_probe/` is a
+stand-alone two-file program that publishes the E1 width and torque through the integer system variables ten times a
+second and executes jaw-only requests; the arm never moves. PC side: `python torque_probe.py watch|close|open|burst`.
+
+Import (pendant PC, BioyondWorks): open the V3.9 template project, Program library > Import `mod_TorqueProbe.lua`,
+overwrite `main.lua` with `torque_probe/main.lua` (keep every other template file), Publish, switch to auto, enable,
+Run. On the PC `python torque_probe.py watch` must show the heartbeat counting; if `lua_ready` stays false the program
+is not running. Restore the template `main.lua` when done with the probe.
+
+What the manual says about force (Appendix B.1, page 57-58): the gripper module has a config file with
+`<ctrl_mode>` (torque mode or position mode), `<default_trq>` 0.7 (70 % clamp force) and `<trq_thr>` 0.35. In position
+mode the clamp force is fixed at the default and `SetGripperTorqueLimit` is refused; in torque mode it can be changed
+live with `SetGripperTorqueLimit(1, 1, 0..1)` and the close target should be "fully closed". Which mode our unit is in
+is read from the pendant (gripper configuration), not from the PC. Also available: `SetExtJTrqLimit(ForceArray)` and
+`MoveExtJWithForce(NumArray, V, ForceArray)` (A.10.3-4), a force-limited external-axis move; probe request 23 wraps it
+and is marked experimental because the torque sign convention is undocumented.
+
+Requests (`torque_probe.py` writes SYSINVAR0..3, reads the `SendSysOutVarI(1/2)` push): 21 close to W mm then
+`GripperEmptyDet` verdict + holding torque; 22 open to W; 23 force close (experimental); 24 set clamp force (torque
+mode only); 25 one-second torque burst, peak returned.
+
 ## Files
 | file | role |
 |---|---|
