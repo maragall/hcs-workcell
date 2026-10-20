@@ -4,7 +4,8 @@
   python torque_probe.py close 1.45 [--trq 0.2] [--v 50]   one close command to 1.45 mm, then the vendor's
                                                GripperEmptyDet verdict and the holding torque
   python torque_probe.py open 6.0 [--v 50]
-  python torque_probe.py force 0.10 [--v 20]   EXPERIMENTAL: MoveExtJWithForce, operator at the e-stop
+  python torque_probe.py force 1.45 --trq 0.10 [--v 20]   close to 1.45 mm under a 10 % torque limit
+                                               (MoveExtJWithForce), operator at the e-stop
   python torque_probe.py limit 0.5             SetGripperTorqueLimit (torque control mode only)
   python torque_probe.py burst                 1 s of torque samples on the controller; prints the peak
 
@@ -19,13 +20,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import run as R                                   # noqa: E402
 from nova_cell.brcapi import Brcapi               # noqa: E402
 
-IDX_RAW, IDX_W, IDX_NORM, IDX_BEAT = 4, 5, 6, 7
+IDX_RAW, IDX_W, IDX_NORM, IDX_BEAT, IDX_REF = 4, 5, 6, 7, 8
 
 
 def read(b: Brcapi):
-    v = b.sysvars(range(0, 8))
+    v = b.sysvars(range(0, 9))
     return {"w": v.get(IDX_W, 0) / 100.0, "norm": v.get(IDX_NORM, 0) / 1000.0, "raw": v.get(IDX_RAW, 0) / 1000.0,
-            "beat": v.get(IDX_BEAT, 0), "req": v.get(0, 0)}
+            "beat": v.get(IDX_BEAT, 0), "req": v.get(0, 0), "ref": v.get(IDX_REF, 0) / 100.0}
 
 
 def require_probe(b: Brcapi):
@@ -56,10 +57,11 @@ def main():
     try:
         require_probe(b)
         if args.what == "watch":
-            print("time      width   norm_trq  raw_trq  beat")
+            print("time      width  cmd_w   norm_trq  raw_trq  beat")
             while True:
                 r = read(b)
-                print(f"{time.strftime('%H:%M:%S')}  {r['w']:6.2f}  {r['norm']:8.3f}  {r['raw']:7.3f}  {r['beat']:5d}")
+                print(f"{time.strftime('%H:%M:%S')}  {r['w']:6.2f} {r['ref']:6.2f}  {r['norm']:8.3f}  "
+                      f"{r['raw']:7.3f}  {r['beat']:5d}")
                 time.sleep(0.1)
         before = read(b)
         if args.what == "close":
@@ -67,8 +69,8 @@ def main():
         elif args.what == "open":
             code = job(b, 22, args.value, 0.0, args.v)
         elif args.what == "force":
-            print("EXPERIMENTAL force move; hand on the e-stop")
-            code = job(b, 23, 0.0, args.value, args.v)
+            print("force-limited close; hand on the e-stop")
+            code = job(b, 23, args.value, args.trq, args.v)
         elif args.what == "limit":
             code = job(b, 24, 0.0, args.value, args.v)
         else:

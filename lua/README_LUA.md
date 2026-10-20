@@ -7,7 +7,12 @@ can (manual A.4.18 `GetCJointsTrq`, A.4.19 `GetCJointsNormTrq`, A.10.5 `GripperE
 stand-alone two-file program that publishes the E1 width and torque through the integer system variables ten times a
 second and executes jaw-only requests; the arm never moves. PC side: `python torque_probe.py watch|close|open|burst`.
 
-Import (pendant PC, BioyondWorks): open the V3.9 template project, Program library > Import `mod_TorqueProbe.lua`,
+BioyondWorks 1.1.20251009 is installed on the cell PC (`C:\Bioyond\RobStudio\BR.PC.App.RobStudio.exe`, 2026-10-20).
+Default login per manual 3.3: admin / Admin@123. Its `Odin/user/__lif.lua` is the vendor Lua library the controller
+runs; function shapes in the probe were checked against it. Its `Odin/config/gripper.conf` shows the shipped gripper
+defaults: ctrl_mode 0, trq_thr 0.25, pos_thr 0.0005, default_trq 0.75.
+
+Import (BioyondWorks): open the V3.9 template project, Program library > Import `mod_TorqueProbe.lua`,
 overwrite `main.lua` with `torque_probe/main.lua` (keep every other template file), Publish, switch to auto, enable,
 Run. On the PC `python torque_probe.py watch` must show the heartbeat counting; if `lua_ready` stays false the program
 is not running. Restore the template `main.lua` when done with the probe.
