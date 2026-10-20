@@ -118,4 +118,9 @@ class PreChecks:
     def before_release(self, jaw: float, grip: str) -> List[str]:
         """Looser than the grasp check: a plate carried for minutes may sit a few tenths of a unit wider."""
         want = self.closed[grip]
-        return [] if abs(jaw - want) <= self.release_tol else [f"not holding a plate on {grip} ({jaw:.2f})"]
+        band = self.layout["gripper"].get("accept_band", {}).get(grip)
+        if abs(jaw - want) <= self.release_tol:
+            return []
+        if band and band[0] - self.release_tol <= jaw <= band[1] + self.release_tol:
+            return []
+        return [f"not holding a plate on {grip} ({jaw:.2f})"]
