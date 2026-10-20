@@ -1,3 +1,19 @@
+# STATUS 2026-10-20 04:10 (operator present, no cycle running)
+- 02:50 operator back: suspected the long-edge grip too wide and too soft. Jaw close changed to one command from
+  open to the taught value (vendor behaviour, 3 s instead of 10). First hand test on the table: 1.64, "much tighter".
+- 03:30 to 04:05 the controller's gripper torque readout is working: BioyondWorks 1.1 installed on this PC
+  (`C:\Bioyond\RobStudio`), a stand-alone Lua probe (`lua/torque_probe/`, importable `TorqueProbe.bin`) published to
+  the controller (the vendor's project exported first by the operator as "original-bioyond"), `torque_probe.py` reads
+  width and torque at 10 Hz over the JSON port.
+- Result: holding torque is 70 % of rated after EVERY close method (one command, stepped, SDK or Lua, target 1.45 or
+  0.8): the servo pushes at its configured cap. Stepping never weakened the grip; the soft feel was the drag-mode
+  re-hold. The remaining problem is where the pads land: 1.62 to 1.67 on a free plate, 2.21 to 2.46 in the stage nest
+  and at A1. Next: torque and width at the stage and A1 after a real pick, and a look at the pads vs the groove.
+- Constraint learned: SDK motion is refused while a Lua program runs; BioyondWorks holds the one SDK session.
+  Program stop/start costs ~3 s. Details in lua/README_LUA.md.
+- Arm: moved by hand by the operator (pose ~97, 127, 143), stage hand-turned to ~103 deg; plate on the table in the
+  fingers at 1.66. Lua probe running, servos enabled, auto.
+
 # STATUS 2026-10-19 22:00 (operator away until late evening)
 - Evening: new gripper fingers and the production plate. Grips measured: short edges 22.40, long edges 1.45; the fingers on the wall above the groove read 22.37 / 1.50, so jaw width cannot prove the groove. Plate: 84.57 x 125.03 between the grip edges, 85.14 x 127.46 over the skirt; height and groove height not given.
 - Seats re-taught by drag with the new plate: microscope (124.0, 399.2, 265.2), polar0 (312.5, 304.5, 66.8), polar90 (312.4, 305.8, 65.6, stage at exactly 90), A1 (293.3, 137.2, 74.6), A9 (291.1, 136.9, 379.1), C9 (293.5, -128.4, 379.0). Row pitch 38.1 mm, column pitch 132.7, rack level. Via point in front of the hotel (127.1, -14.1, 431.5). Region floors lowered to the new seats; workspace ceiling 435.

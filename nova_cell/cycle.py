@@ -203,25 +203,27 @@ class Cycle:
         return jaw
 
     def _jaw_close(self, grip: str) -> float:
-        """Close in steps. A stall before the target is not a fault here: the fingers met the plate (or something)
-        at that width, and `grasp_ok` judges the width."""
-        prof = self.safety.profile
+        """One close command from open to the taught value, as the vendor's own software does (2026-10-20).
+
+        Measured with the controller's torque readout (lua/torque_probe) on the production plate: the holding torque
+        is 70 % of rated (the gripper's configured cap) after a one-command close AND after the old 0.5 mm stepping,
+        through the SDK or through Lua, whatever the target below the plate. So stepping never weakened the grip;
+        one command is kept because it is the vendor path and takes 3 s instead of 10. A stall before the target is
+        still not a fault here: the fingers met the plate (or something) at that width, and `grasp_ok` judges it.
+        What differs between fixtures is where the pads land (1.62 to 1.67 on a free plate, 2.2 to 2.5 in the stage
+        nest and the hotel), which is geometry, not force."""
         closed = self.g["closed"][grip]
-        v = self.robot.jaw()
-        curve, stall = [], None
-        while v > closed + 1e-6:
-            v = max(closed, v - prof.jaw_step)
-            try:
-                self.robot.jaw_to(v)
-            except MotionRefused as e:
-                stall = str(e)
-                break
-            time.sleep(prof.jaw_pause)
-            curve.append(round(self.robot.jaw(), 3))
+        start = self.robot.jaw()
+        stall = None
+        try:
+            self.robot.jaw_to(closed)
+        except MotionRefused as e:
+            stall = str(e)
         self._wait_still("jaw close")
         time.sleep(0.5)
         jaw = self.robot.jaw()
-        self.tele.log("jaw", "close", "stalled" if stall else "", jaw=round(jaw, 2), curve=curve, grip=grip, stall=stall)
+        self.tele.log("jaw", "close", "stalled" if stall else "", jaw=round(jaw, 2), start=round(start, 2), grip=grip,
+                      stall=stall)
         self._observe(f"jaw:closed:{grip}", jaw)
         return jaw
 

@@ -25,6 +25,19 @@ is read from the pendant (gripper configuration), not from the PC. Also availabl
 `MoveExtJWithForce(NumArray, V, ForceArray)` (A.10.3-4), a force-limited external-axis move; probe request 23 wraps it
 and is marked experimental because the torque sign convention is undocumented.
 
+Measured 2026-10-20 04:00 with the probe published and running (production plate on long edges, free on a table):
+- Holding torque after a close is **70 % of rated** (normalised -0.70, raw -186) for every method tried: one command
+  to 1.45, one command to 0.8, 0.5 mm steps, through Lua or through the SDK. The commanded target stays below the plate
+  and the servo pushes at its cap (gripper.conf default_trq 0.75 on the shipped config). Width at the stall 1.62-1.67.
+- With nothing between the fingers the servo holds **+40 to +50 %** at every opening tried (3, 4, 6, 8, 10): a preload
+  in the mechanism. "Empty" is not zero torque; `GripperEmptyDet` relies on the position gap as well.
+- **SDK motion is refused while any Lua program runs** (jaw commands return False and nothing moves; arm commands
+  presumably the same). The SDK connection itself is fine. So the cycle and the probe cannot run together: stop the
+  program (remoteStop), move with the SDK, start it again (switchToAuto, remoteEnable, remoteStart, ~3 s) to read.
+- BioyondWorks holds the single SDK session while it is open: close it before running anything on port 52525.
+- The `SendSysOutVarI` push reaches one client only; with BioyondWorks connected the PC sees none, and
+  `torque_probe.py` falls back to the request variable returning to 0.
+
 Requests (`torque_probe.py` writes SYSINVAR0..3, reads the `SendSysOutVarI(1/2)` push): 21 close to W mm then
 `GripperEmptyDet` verdict + holding torque; 22 open to W; 23 force close (experimental); 24 set clamp force (torque
 mode only); 25 one-second torque burst, peak returned.
