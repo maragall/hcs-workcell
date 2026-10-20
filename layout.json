@@ -45,17 +45,19 @@
       "long_edges": 6.0
     },
     "closed": {
-      "short_edges": 24.0,
-      "long_edges": 2.84
+      "short_edges": 22.4,
+      "long_edges": 1.45
     },
     "tolerance": 0.08,
     "stall_lag": 0.3,
     "_note": "open is per grip: the microscope holder limits how wide the fingers may be when descending",
     "readings": {
-      "long_edges_on_plate": 2.84,
-      "short_edges_on_plate": 24.0,
+      "long_edges_on_plate": 1.45,
+      "short_edges_on_plate": 22.4,
       "empty_closed": -0.04,
-      "_note": "value = finger gap: long-edge grip holds the 85 mm width (2.84), short-edge grip holds the 128 mm length (24.0)"
+      "short_edges_on_wall": 22.37,
+      "long_edges_on_wall": 1.5,
+      "_note": "value = finger gap. 2026-10-19 new fingers + production plate (small grooves): long edges 1.45, short edges 22.40, both measured in 0.1 mm steps with a clean stall. Fingers clamped on the wall ABOVE the groove read 22.37 (short) and 1.50 (long): 0.03 and 0.05 mm from the groove values, so the jaw width cannot tell groove from wall on either side; groove validation needs the cameras or controller torque detection. Old teaching plate with old fingers read 2.84 / 24.0 (sd 0.001 / 0.007 over 985 grasps)"
     },
     "tolerance_measured": {
       "short_edges_sd": 0.0066,

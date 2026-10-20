@@ -560,6 +560,10 @@ def cmd_measure_grip(args):
     width = round(contact, 2)
     final = robot.jaw()
     robot.disconnect()
+    if args.dry_run:
+        print(f"{args.grip}: contact at {contact:.2f} (dry run, nothing stored; stored value is "
+              f"{layout['gripper']['closed'].get(args.grip)})")
+        return
     layout["gripper"]["closed"][args.grip] = width
     if not layout["gripper"]["open"].get(args.grip):
         layout["gripper"]["open"][args.grip] = round(width + 2.0, 2)
@@ -760,7 +764,9 @@ def main():
     p.set_defaults(fn=cmd_scope_place_test)
     p = sub.add_parser("measure-grip"); p.add_argument("grip", choices=("short_edges", "long_edges"))
     p.add_argument("--step", type=float, default=0.25); p.add_argument("--pause", type=float, default=0.3)
-    p.add_argument("--backoff", type=float, default=0.1); p.set_defaults(fn=cmd_measure_grip)
+    p.add_argument("--backoff", type=float, default=0.1)
+    p.add_argument("--dry-run", action="store_true", help="measure and print only; keep the stored width")
+    p.set_defaults(fn=cmd_measure_grip)
     p = sub.add_parser("record-ref"); p.add_argument("fixture"); p.add_argument("state"); p.set_defaults(fn=cmd_record_ref)
     p = sub.add_parser("check-lower"); p.add_argument("fixture"); p.add_argument("state"); p.set_defaults(fn=cmd_check_lower)
     p = sub.add_parser("run")
