@@ -191,8 +191,11 @@ class Cycle:
             self._fault(label, "jaw_refused", str(e))
             raise StopSafe(f"{label}: {e}")
 
-    def _jaw_open(self, grip: str) -> float:
-        want = self.g["open"][grip]
+    def _jaw_open(self, grip: str, fixture: Optional[dict] = None) -> float:
+        """Opening width: the grip's default, or the fixture's `open_width[grip]` when it has one (the stage opens
+        29 for the short edges since 2026-10-20: the plate's position at 0 after a robot place at 90 and the turn is
+        not known to better than the old 1.8 mm per side, see docs/INCIDENTS.md; the jaw's end stop is 29.3)."""
+        want = (fixture or {}).get("open_width", {}).get(grip) or self.g["open"][grip]
         self._jaw(want, "jaw open")
         self._wait_still("jaw open")
         time.sleep(0.5)
@@ -236,7 +239,10 @@ class Cycle:
         cfg = fixture.get("grasp_search")
         if not cfg:
             return None
-        closed, tol = self.g["closed"][grip], self.checks.jaw_tol
+        # Judge against the fixture's learned signature when it has one (microscope 22.50), not the free-plate width:
+        # on 2026-10-20 17:07 y+0.2 read 22.54 twice and was rejected against 22.40, then the attempt failed.
+        closed = fixture.get("grasp_width", {}).get(grip) or self.g["closed"][grip]
+        tol = self.checks.jaw_tol
         s, m = float(cfg.get("step_mm", 0.2)), float(cfg.get("max_mm", 0.6))
         sd, md = float(cfg.get("step_deg", 0.3)), float(cfg.get("max_deg", 0.6))
         trials = []                                     # (pose index, offset, unit)
@@ -263,7 +269,7 @@ class Cycle:
             cand = list(target)
             cand[i] += d
             label = f"{step} search {names[i]}{d:+.1f}{unit}"
-            self._jaw_open(grip)
+            self._jaw_open(grip, fixture)
             here = self.robot.pose()
             cap = 0.4                                   # yaw changes inside a no-swing zone are capped per move
             n = int(abs(cand[5] - here[5]) / cap) + 1   # fixed number of parts, targets taken from `cand`, never from readback
@@ -497,7 +503,7 @@ class Cycle:
             self._waypoints(trajectory_in)
         hover = _add(pose, [0, 0, fixture["hover_mm"]])
         self._arrive(hover, f"{step} hover", prof.approach)
-        self._jaw_open(grip)
+        self._jaw_open(grip, fixture)
         corr = self._vision_correction(fixture, step)
         target = _add(pose, corr)
         hover = _add(target, [0, 0, fixture["hover_mm"]])
@@ -522,14 +528,14 @@ class Cycle:
                 else:
                     adopted = self._adopt_grasp_width(step, fixture_name, fixture, grip)
                     if adopted is not None:
-                        self._jaw_open(grip)
+                        self._jaw_open(grip, fixture)
                         self._move("L", target, f"{step} back to seat", self.safety.profile.contact, allow_floor=(fixture_name,))
                         jaw = self._jaw_close(grip)
                         err = self.checks.grasp_ok(jaw, grip, adopted)
             if not err:
                 break
             self._fault(step, "grasp", err)
-            self._jaw_open(grip)
+            self._jaw_open(grip, fixture)
             self._move("L", hover, f"{step} lift(empty)", prof.approach)
             self.corr.on_grasp_failed(fixture_name, attempt, err)
             target = _add(pose, self._vision_correction(fixture, step))
@@ -561,7 +567,7 @@ class Cycle:
             raise StopSafe(f"{step}: " + "; ".join(problems))
         self._gate_lower(gate, "empty", step)
         self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
-        self._jaw_open(self.store.s.grip)
+        self._jaw_open(self.store.s.grip, fixture)
         self._seated_front(step, gate)
         self._move("L", hover, f"{step} lift", prof.approach)
         img = self._frame(self.down_cam)

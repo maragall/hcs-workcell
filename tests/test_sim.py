@@ -207,6 +207,7 @@ def test_lower_gate_never_falls_through():
 
 def test_plate_not_held_stops():
     r = Rig()
+    r.L["vision"]["held_plate_auto_refs"] = 0        # the first lifts normally only collect references
     r.vis.scene["scan_camera"] = BAD
     r.expect_stop("plate in gripper")
     assert any(f["kind"] == "not_held" for f in r.store.s.faults)

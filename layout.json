@@ -238,8 +238,8 @@
           "y"
         ],
         "step_mm": 0.2,
-        "max_mm": 0.4,
-        "_note": "tactile centering when the jaw stalls wider than the plate; the holder clamps the plate so the seat must match it within ~0.1 mm",
+        "max_mm": 0.8,
+        "_note": "tactile centering when the jaw stalls wider than the plate; the holder clamps the plate so the seat must match it within ~0.1 mm. 2026-10-20 17:05: a hand-placed plate needed y+0.4 (22.59) and more; max raised from 0.4 to 0.8",
         "z_offsets_mm": [
           -0.3,
           0.3,
@@ -338,14 +338,18 @@
         "jaw_at_teach": -0.026
       },
       "display_name": "rotating-stage",
+      "open_width": {
+        "short_edges": 29.0,
+        "_note": "2026-10-20: jaw end stop 29.3; 3.3 mm per side around the 125 mm plate at 0 instead of 1.8 (collision stop 10-19 23:08)"
+      },
       "grasp_search": {
         "axes": [
           "z",
           "x",
           "y"
         ],
-        "step_mm": 0.2,
-        "max_mm": 0.4,
+        "step_mm": 0.3,
+        "max_mm": 1.2,
         "z_offsets_mm": [
           -0.5,
           0.5
