@@ -36,6 +36,11 @@ Every contact or near-contact, what the software did, root cause, fix. Newest fi
 
 ## Plan for the stage pick at 0
 
+Status 2026-10-20 17:20: the jaw's end stop is 29.28, so the stage's short-edge pick and place now open 29
+(`fixtures.polar.open_width`), 3.3 mm of clearance per side instead of 1.8. First full cycle after that: descent at 0
+clean, grasp 22.61 (nominal 22.40, band 22.3 to 22.9). The measurement below is still worth doing if the widths at 0
+drift toward the band edge in OVERNIGHT.md; a 22.9 reading means the plate is 0.25 mm off along the closing axis.
+
 1. Measure where the plate actually sits at 0 after a robot place at 90 and a stage turn: top view with the down
    camera (camera over the nest needs the TCP about 90 mm toward +y, which is outside reach at this x; turn the
    gripper 180 deg at the clear height instead, or use the front camera at a known offset), or by touch: close the

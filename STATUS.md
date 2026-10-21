@@ -1,3 +1,25 @@
+# STATUS 2026-10-20 17:20 (loop running, operator in the building)
+- 16:45 operator: with the plate held free on the table the pads sat on the skirt (which protrudes past the plate wall
+  at the corners; the two grooves are in the wall). Hand-adjusted into the grooves at the same z (46.5), so the skirt
+  landing is lateral placement, not height. Plate then hand-placed at the microscope.
+- 16:58 arm brought from the table to the microscope hover: straight lift to z 331, then a stepped joint move. The
+  seat's drag-taught joints (elbow -187.2) sit past the elbow soft limit (-180): error 3571 4 mm short. Cleared and
+  finished on the route's own first-waypoint joints (elbow -177.6, j4 178.6). Jaw end stop measured: 29.28.
+- 17:04 first supervised cycle (gates and vision correction off as last night). Microscope pick stalled 22.87-22.89
+  at every z and x; y+0.4 gave 22.59. The search was judging trials against the free-plate width 22.40 instead of the
+  holder signature 22.50, so its 22.54 hits were rejected and the attempt failed twice (safe stop at the hover).
+  Fixed (commit b5c0a0e), microscope search range 0.8 mm, stage short-edge opening 29 (per-fixture open_width).
+- 17:07 to 17:17 FIRST CLEAN FULL CYCLE with the production plate (run 20261020_170741, 592 s incl. restart):
+  microscope pick 22.54 first close, place at 0, turn, long-edge pick at 90 **1.61** (was 2.21 to 2.46 last night),
+  A1 place and pick **1.61**, place at 90, turn to 0, short-edge pick at 0 **22.61** with the 29 opening (the descent
+  that collided at 23:08 yesterday went clean), place at the microscope. No faults.
+- 17:18 LOOP LAUNCHED: `run_forever.py random --profile fast` (40/20/8 %), random A-column slots, recording 1 fps,
+  overnight_report.py still writing runs/OVERNIGHT.md. Stop with runs/STOP. Stress profile (50/25/10) only after a
+  clean block of cycles at fast.
+- Open: sim tests read the real controller's error list (not hermetic; one test failed on the live 3571 at 17:03), rerun
+  when the arm is idle; plate position at 0 is now covered by the 3.3 mm clearance, the 22.6x widths at 0 will show
+  the drift cycle by cycle in OVERNIGHT.md.
+
 # STATUS 2026-10-20 04:10 (operator present, no cycle running)
 - 02:50 operator back: suspected the long-edge grip too wide and too soft. Jaw close changed to one command from
   open to the taught value (vendor behaviour, 3 s instead of 10). First hand test on the table: 1.64, "much tighter".
