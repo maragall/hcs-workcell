@@ -16,6 +16,11 @@
 - 17:18 LOOP LAUNCHED: `run_forever.py random --profile fast` (40/20/8 %), random A-column slots, recording 1 fps,
   overnight_report.py still writing runs/OVERNIGHT.md. Stop with runs/STOP. Stress profile (50/25/10) only after a
   clean block of cycles at fast.
+- 17:18 to 17:52 five clean loop cycles (A1, A5, A7, A7, A5; 393 to 425 s). Widths: microscope 22.42 to 22.55,
+  stage at 90 1.55 to 1.61, hotel 1.56 to 1.61, stage at 0 22.33 to 22.74. A borderline 22.42 had sent the search
+  down 0.3 mm (seat now 264.39); grasp_ok now accepts anything between the plate width and the signature, and the
+  microscope search is lateral only (commit 89ea085). Stopped at a boundary, 22/22 sim tests pass, relaunched 17:59
+  detached (Start-Process, PID 28692, log D:\nova_cell_runs\forever_stdout.log) so no tool timeout can kill it.
 - Open: sim tests read the real controller's error list (not hermetic; one test failed on the live 3571 at 17:03), rerun
   when the arm is idle; plate position at 0 is now covered by the 3.3 mm clearance, the 22.6x widths at 0 will show
   the drift cycle by cycle in OVERNIGHT.md.
