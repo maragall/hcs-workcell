@@ -68,8 +68,31 @@ def state():
         return {}
 
 
+def controller_errors():
+    """The controller's own error list (collision 3873, soft limit 3571, servo faults). A stop with any of these is
+    never relaunched: on 2026-10-20 22:25 a wrist collision surfaced as 'abs joint move did not reach' and the text
+    matched RECOVERABLE. Empty when the controller cannot be asked (the run's own health check still guards)."""
+    try:
+        sys.path.insert(0, HERE)
+        from nova_cell.brcapi import Brcapi
+        ip = json.load(open(os.path.join(HERE, "layout.json"), encoding="utf-8"))["robot"]["ip"]
+        b = Brcapi(ip, log=None)
+        b.connect()
+        try:
+            errs = [e for e in (b.state().errors or []) if e.get("errCode")]
+        finally:
+            b.close()
+        return errs
+    except Exception as e:
+        log(f"controller error query failed: {e}")
+        return []
+
+
 def relaunch_allowed(rc, reason, st):
     text = reason.lower()
+    errs = controller_errors()
+    if errs:
+        return False, f"controller errors {[(e.get('errCode'), e.get('errMsg')) for e in errs]}"
     if any(k in text for k in FATAL):
         return False, "fatal reason"
     if st.get("plate_at") in ("microscope",) or str(st.get("plate_at", "")).startswith("hotel:"):

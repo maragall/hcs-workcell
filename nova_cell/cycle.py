@@ -125,15 +125,26 @@ class Cycle:
         try:
             (self.robot.move_linear if kind == "L" else self.robot.move_joint)(target)
         except MotionRefused as e:
-            self._fault(label, "motion_refused", str(e))
-            if not self.robot.state().enabled:
-                self.corr.on_disabled(label)
-            raise StopSafe(f"{label}: {e}")
+            self._refused(label, e)
         dev = self._settle(label, target)
         dt = time.time() - t0
         self.tele.log("move", label, kind, target=[round(v, 2) for v in target],
                       actual=[round(v, 2) for v in self.robot.pose()], dt=round(dt, 2), speed=speed, dev=round(dev, 2))
         self._observe(f"dt:{label}", dt)
+
+    def _refused(self, label: str, e: Exception):
+        """A move that did not reach its target. Ask the controller why before naming the fault: on 2026-10-20 22:25 a
+        wrist collision (3873) surfaced only as 'abs joint move did not reach', the supervisor read that as
+        recoverable and would have relaunched into a cell with the plate somewhere unknown."""
+        errs = self._controller_errors()
+        if errs:
+            self._fault(label, "controller_error", f"{errs} after: {e}")
+            self.corr.alert("collision" if "3873" in str(errs) else "controller", f"{label}: {errs}")
+            raise StopSafe(f"{label}: controller error {errs} (possible collision); move stopped: {e}")
+        self._fault(label, "motion_refused", str(e))
+        if not self.robot.state().enabled:
+            self.corr.on_disabled(label)
+        raise StopSafe(f"{label}: {e}")
 
     def _arrive(self, hover: List[float], label: str, speed: float):
         """Reach a fixture hover. In a no-swing zone the trajectory must already end there: no joint move."""
@@ -173,8 +184,7 @@ class Cycle:
             try:
                 self.robot.move_abs_joints_stepped(list(j[:4]) + list(ext))     # external axes are never driven here
             except MotionRefused as e:
-                self._fault(label, "motion_refused", str(e))
-                raise StopSafe(f"{label}: {e}")
+                self._refused(label, e)
             self._wait_still(label)
             after = self.robot.pose()
             dev = max(abs(after[k] - p[k]) for k in range(3))

@@ -2,6 +2,25 @@
 
 Every contact or near-contact, what the software did, root cause, fix. Newest first.
 
+## 2026-10-20 22:25 wrist collision stop on route B back to the microscope, plate held
+
+- Sequence: cycle 682 of the fast-profile loop (40/20/8 %), 42nd cycle of the day, slot A9. Microscope pick 22.48,
+  stage 90 pick 1.64, A9 place and pick 1.55 (held-plate front check scored 0.33 against the references, the first
+  miss of the day, shadow only), place at 90, turn, pick at 0 22.61 (held-plate check 0.95), reverse route B. At
+  point 36 of 39 (the segment from (183, 321) to (186, 353) at z 335, yaw 114 to 105) the controller reported
+  "axis 4 collision detected" twice within 15 ms and dropped all servos. The arm stopped 4 mm into the segment at
+  (181.4, 324.9, 334.9) yaw 114.0; the wrist readback 179.2 against a target of 178.59, i.e. pushed past the target.
+  Jaw 23.0 with the servo off (closed at 22.61). Same segment had run clean 41 times today.
+- Software behaviour: the route replay raised MotionRefused ("abs joint move did not reach"); the supervisor
+  classified that text as recoverable and scheduled a relaunch in 60 s. Killed by hand within the minute. Fixes: the
+  cycle now asks the controller for its error list before naming a refused move (`_refused`), and the supervisor
+  refuses to relaunch while the controller holds any error (`controller_errors()` in run_forever.py).
+- Cause (operator, 22:40): the microscope's brightfield illumination had been set from the top, so the transmitted-
+  light illuminator arm stood in the route B corridor above the stage. The plate hit it. Nothing in the software
+  could have seen it: the route is a fixed joint replay and both gripper cameras look away from the plate at that
+  pose. Logged as tech debt (docs/TECH_DEBT.md): a brightfield mode needs its own approach to the microscope.
+- Arm left where it stopped, servos off, STOP file set, supervisor dead, until the operator confirms the plate.
+
 ## 2026-10-19 23:08 wrist collision stop at the stage, short-edge pick at 0
 
 - Sequence: first full cycle with the production plate. Microscope pick 22.51, route B, place at polar 0, rotate to
