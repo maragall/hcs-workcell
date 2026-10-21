@@ -60,7 +60,7 @@
       "short_edges": 22.4,
       "long_edges": 1.45
     },
-    "tolerance": 0.08,
+    "tolerance": 0.1,
     "stall_lag": 0.3,
     "_note": "open is per grip: the microscope holder limits how wide the fingers may be when descending",
     "readings": {
@@ -185,7 +185,7 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        123.433,
+        124.033,
         399.213,
         264.394,
         0.0,
@@ -249,7 +249,7 @@
         "max_deg": 0.6
       },
       "grasp_width": {
-        "short_edges": 22.5
+        "short_edges": 22.69
       },
       "corrections": [
         {
@@ -287,6 +287,12 @@
             90.334
           ],
           "why": "grasp search x-0.6mm on 2026-10-20 22:47"
+        },
+        {
+          "grasp_width": {
+            "short_edges": 22.69
+          },
+          "why": "search widths [22.637, 22.639, 22.639, 22.667, 22.677, 22.688, 22.69, 22.691, 22.693, 22.696, 22.7, 22.703, 22.705, 22.706, 22.716, 22.721] on 2026-10-20 22:55"
         }
       ]
     },
