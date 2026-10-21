@@ -108,6 +108,9 @@ class PreChecks:
         want = self.closed[grip] if expected is None else expected
         if abs(jaw - want) <= self.jaw_tol:
             return None
+        if expected is not None and self.closed[grip] - self.jaw_tol <= jaw <= want + self.jaw_tol:
+            return None                     # tighter than the fixture's signature but not below the plate's own width:
+                                            # the pads are in the groove (microscope 22.42 vs signature 22.50, 10-20 17:24)
         band = self.layout["gripper"].get("accept_band", {}).get(grip)
         if expected is None and band and band[0] <= jaw <= band[1]:
             return None                     # plate between the pads; which part of its wall is a camera question
