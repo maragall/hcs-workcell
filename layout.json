@@ -202,6 +202,10 @@
         "mm": 0
       },
       "grip": "short_edges",
+      "regrip_above": {
+        "short_edges": 22.6,
+        "_note": "2026-10-20 23:30: first close wider than this -> open and close again (up to regrip_max, default 2) to square a robot-placed plate in the clips"
+      },
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
       "taught_at": "2026-10-19 20:42:20",

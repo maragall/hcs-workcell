@@ -527,6 +527,17 @@ class Cycle:
                 raise StopSafe(f"{step}: " + "; ".join(problems))
             self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
             jaw = self._jaw_close(grip)
+            regrip = fixture.get("regrip_above", {}).get(grip)
+            for k in range(int(fixture.get("regrip_max", 2))):
+                # A wide first close at the microscope means the plate sits skewed in the holder's clips (robot-placed
+                # plates read 22.6 to 22.7, hand-placed 22.4 to 22.55). Opening and closing again squares it up: the
+                # 17:05 search saw 22.89 -> 22.64 -> 22.54 from the re-closes alone. A skewed plate carried to the
+                # stage does not drop into the nest at 0 (wrist collision 2026-10-20 23:25).
+                if regrip is None or jaw <= regrip + 1e-6:
+                    break
+                self.tele.log("jaw", "regrip", f"{jaw:.2f} above {regrip}: open and close again ({k + 1})", jaw=round(jaw, 2))
+                self._jaw_open(grip, fixture)
+                jaw = self._jaw_close(grip)
             expected = fixture.get("grasp_width", {}).get(grip)
             err = self.checks.grasp_ok(jaw, grip, expected)
             if err and jaw > self.g["closed"][grip]:          # wider than the plate: pads off-centre, not an empty grasp
