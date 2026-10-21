@@ -21,6 +21,10 @@
   down 0.3 mm (seat now 264.39); grasp_ok now accepts anything between the plate width and the signature, and the
   microscope search is lateral only (commit 89ea085). Stopped at a boundary, 22/22 sim tests pass, relaunched 17:59
   detached (Start-Process, PID 28692, log D:\nova_cell_runs\forever_stdout.log) so no tool timeout can kill it.
+- 19:13 pushed 87 commits to github.com/maragall/workcell (operator will rename it squid-workcell; remote to follow).
+  By 20:54 thirty clean cycles today (cycles 640-669, 393 to 439 s, A1/A3/A5/A7). Widths at the stage at 0 have
+  settled at 22.64 to 22.69. The stage turn is 31.5 s per 90 deg (polar.ext_axis.speed 0.02), 63 s per cycle;
+  8 % proposed, awaiting the operator.
 - Open: sim tests read the real controller's error list (not hermetic; one test failed on the live 3571 at 17:03), rerun
   when the arm is idle; plate position at 0 is now covered by the 3.3 mm clearance, the 22.6x widths at 0 will show
   the drift cycle by cycle in OVERNIGHT.md.
