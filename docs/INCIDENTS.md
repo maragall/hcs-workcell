@@ -2,6 +2,22 @@
 
 Every contact or near-contact, what the software did, root cause, fix. Newest first.
 
+## 2026-10-20 23:25 wrist collision stop at the stage seat at 0, plate held, cause open
+
+- Sequence: cycle 688 (fast profile, relaunched 23:02 with the 22.69 microscope signature). Microscope pick 22.72,
+  held-plate front check 0.40 (below 0.55; every microscope pick since the 22:45 resume scored 0.40-0.41 where the
+  morning's scored 0.73-0.95). Route B, hover, lower to the seat at 0 reached with dev 0.00 at 23:25:34.29; axis 4
+  collision at 23:25:34.75, i.e. as the jaw started to open; servos dropped, jaw stopped at 23.03 on its way to 29.
+  Arm at the seat (312.47, 304.54, 66.80) yaw -91.27, plate in the nest between the fingers.
+- Supervisor: refused to relaunch on the controller error (new rule from 22:25). Cleared, enabled, jaw re-closed
+  to 22.63 by hand command. Frames: front camera shows the plate held normally above the nest; a person is in the
+  chair at the right edge of the frame.
+- Hypothesis: since the 22:45 resume the plate sits skewed in the microscope clips (picks 22.61 to 22.72 with a
+  failing held-plate check); a skewed plate does not drop square into the nest at 0 and the wrist takes a yaw
+  moment at the bottom of the descent. Mitigation in code: re-grip at the microscope when the first close is above
+  22.6 (`fixtures.microscope.regrip_above`, commit 7fe619b). Hand reseat of the plate in the holder is the clean fix.
+- Fault behaviour was correct this time: stop, no relaunch, arm left in place.
+
 ## 2026-10-20 22:25 wrist collision stop on route B back to the microscope, plate held
 
 - Sequence: cycle 682 of the fast-profile loop (40/20/8 %), 42nd cycle of the day, slot A9. Microscope pick 22.48,
