@@ -292,7 +292,7 @@ class Cycle:
             self._search_widths.append(jaw)
             self.tele.log("correct", f"{step} search", f"{names[i]}{d:+.1f}{unit} -> jaw {jaw:.2f}", jaw=round(jaw, 2),
                           axis=names[i], offset=d)
-            if abs(jaw - closed) <= tol:
+            if abs(round(jaw, 2) - closed) <= tol + 1e-6:
                 self._persist_pose(fixture_name, fixture, cand,
                                    f"grasp search {names[i]}{d:+.1f}{unit} on {time.strftime('%Y-%m-%d %H:%M')}")
                 return jaw, cand

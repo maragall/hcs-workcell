@@ -106,9 +106,10 @@ class PreChecks:
         """`expected` overrides the nominal width: a fixture may present the plate a few tenths wider than the
         hand-measured grip (a clamped holder), learned by the centering search and stored per fixture."""
         want = self.closed[grip] if expected is None else expected
-        if abs(jaw - want) <= self.jaw_tol:
+        jaw = round(jaw, 2)                 # the readout is quoted to 0.01; 22.58 vs 22.50 +- 0.08 must pass
+        if abs(jaw - want) <= self.jaw_tol + 1e-6:
             return None
-        if expected is not None and self.closed[grip] - self.jaw_tol <= jaw <= want + self.jaw_tol:
+        if expected is not None and self.closed[grip] - self.jaw_tol - 1e-6 <= jaw <= want + self.jaw_tol + 1e-6:
             return None                     # tighter than the fixture's signature but not below the plate's own width:
                                             # the pads are in the groove (microscope 22.42 vs signature 22.50, 10-20 17:24)
         band = self.layout["gripper"].get("accept_band", {}).get(grip)
