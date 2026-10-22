@@ -22,6 +22,7 @@ class CellState:
     cycle: int = 0
     hotel: Dict[str, str] = field(default_factory=dict)     # slot -> plate id ("" if unknown)
     plate_id: str = ""                    # barcode if scanned
+    home_slot: str = ""                   # the hotel slot the plate on the microscope came from
     faults: List[dict] = field(default_factory=list)
     last_safe_pose: Optional[List[float]] = None
     updated: float = 0.0
@@ -31,6 +32,7 @@ class StateStore:
     def __init__(self, path: str):
         self.path = path
         self.s = self.load()
+        self.on_done = None                   # callable(step) run when a step completes (hub outcome rows)
 
     def load(self) -> CellState:
         if os.path.exists(self.path):
@@ -54,6 +56,8 @@ class StateStore:
             setattr(self.s, k, v)
         self.s.step_done = True
         self.save()
+        if self.on_done:
+            self.on_done(self.s.step)
 
     def fault(self, step: str, kind: str, detail: str):
         self.s.faults.append({"t": time.time(), "cycle": self.s.cycle, "step": step, "kind": kind, "detail": detail})

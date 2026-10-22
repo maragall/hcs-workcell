@@ -8,6 +8,21 @@ from procedures.motion import offset
 from procedures.safety import SafetyViolation
 
 
+def interleave(*columns):
+    """Round-robin over the columns' slots: A1, C2, A3, C4, ... so consecutive plates come from different
+    columns and the arm alternates sides. Shorter columns simply run out first."""
+    order = []
+    for i in range(max((len(c) for c in columns), default=0)):
+        order += [c[i] for c in columns if i < len(c)]
+    return order
+
+
+def plate_order(layout: dict):
+    """The slots that hold plates, interleaved across columns: fixtures.hotel.loaded = {"A": [1, 3], "C": [2, 4]}."""
+    loaded = layout["fixtures"]["hotel"].get("loaded", {})
+    return interleave(*([f"{col}{row}" for row in rows] for col, rows in loaded.items()))
+
+
 class Hotel:
     """The plate hotel: slot geometry, the climb and slide in, pick and place in a slot."""
 
@@ -15,7 +30,7 @@ class Hotel:
     def hotel_slot_pose(self, slot: str) -> List[float]:
         h = self.L["fixtures"]["hotel"]
         col, row = slot[:1], slot[1:]
-        if col not in h["columns"] or not row.isdigit() or int(row) not in h["odd_rows"]:
+        if col not in h["columns"] or not row.isdigit() or int(row) not in h["rows"]:
             raise SafetyViolation(f"slot {slot} does not exist")
         if slot in h["taught"]:
             return list(h["taught"][slot])
@@ -110,7 +125,7 @@ class Hotel:
         self._move("L", carry, f"{step} lift off", prof.approach)
         self._move("L", approach, f"{step} slide out", prof.approach)
         self.store.s.hotel[slot] = self.store.s.plate_id
-        self.store.done(plate_at=f"hotel:{slot}", grip="none")
+        self.store.done(plate_at=f"hotel:{slot}", grip="none", home_slot=slot)
         self._hotel_leave_approach(slot, step)
 
     def _hotel_pick(self, slot: str):
@@ -149,7 +164,7 @@ class Hotel:
         if expected and self.store.s.plate_id and expected != self.store.s.plate_id:
             self.corr.alert(step, f"plate id mismatch: slot had {expected}, scanned {self.store.s.plate_id}")
         self.store.s.hotel.pop(slot, None)
-        self.store.done(plate_at="gripper", grip="long_edges")
+        self.store.done(plate_at="gripper", grip="long_edges", home_slot=slot)
         self._hotel_leave_approach(slot, step)
         self._waypoints("polar_to_hotel", reverse=True)
 

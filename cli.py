@@ -712,6 +712,30 @@ def cmd_goto(args):
     return 0
 
 
+def cmd_positions(args):
+    """Every position the arm can be sent to, taught or not, and the hotel plate order."""
+    from procedures.hotel import plate_order
+    layout = load_layout()
+    F = layout["fixtures"]
+    def show(name, node):
+        pose = node.get("pose")
+        where = " ".join(f"{v:8.2f}" for v in pose[:3]) + f"  yaw {pose[5]:7.2f}" if pose else "NOT TAUGHT"
+        print(f"{name:20s} {where}   hover {node.get('hover_mm', '-')}  route {node.get('trajectory', '-')}")
+    for name, node in F.items():
+        if name == "hotel" or name.startswith("_"):
+            continue
+        if "pose" in node:
+            show(name, node)
+        for sub, child in node.items():
+            if isinstance(child, dict) and "pose" in child:
+                show(f"{name}.{sub}", child)
+    h = F["hotel"]
+    print(f"hotel: columns {h['columns']} rows {h['rows'][0]}..{h['rows'][-1]}, taught {sorted(h['taught'])}, "
+          f"lift {h['lift_mm']} mm, headroom {h.get('headroom_mm', '-')} mm")
+    print("plate order:", " ".join(plate_order(layout)) or "(fixtures.hotel.loaded is empty)")
+    return 0
+
+
 def cmd_occupancy(args):
     """Per slot: reference counts, leave-one-out self-test, whether the detector may block a move."""
     from perception.occupancy import Occupancy
@@ -784,6 +808,7 @@ def main():
     p.set_defaults(fn=cmd_run)
     p = sub.add_parser("goto", help="move to a position's hover (taught route, or lift/travel/lower at routes.safe_z_mm)")
     p.add_argument("name"); p.set_defaults(fn=cmd_goto)
+    sub.add_parser("positions", help="every position, taught or not, and the hotel plate order").set_defaults(fn=cmd_positions)
     sub.add_parser("occupancy", help="slot occupancy detector: references, self-test, ready").set_defaults(fn=cmd_occupancy)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
     p.add_argument("run_dir"); p.add_argument("--fps", type=float, default=2.0)

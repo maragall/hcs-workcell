@@ -218,7 +218,7 @@ def test_joint_move_inside_microscope_zone_refused():
 
 def test_invalid_slot_rejected():
     r = Rig()
-    r.expect_stop("does not exist", slot="A2")
+    r.expect_stop("does not exist", slot="A11")       # 30-slot hotel: rows 1..10, so A11 is not a slot
     assert r.robot._moves == 0
     r.close()
 

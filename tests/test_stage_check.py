@@ -49,3 +49,13 @@ def test_preflight_refuses_a_hotel_lift_at_or_above_the_headroom():
     assert any("headroom" in p for p in preflight(L, "/nonexistent"))
     L["fixtures"]["hotel"]["lift_mm"] = 8.0
     assert not any("headroom" in p for p in preflight(L, "/nonexistent"))
+
+
+def test_front_camera_blocks_the_lowering_once_trained():
+    r = Rig(refs=GATES + [("microscope_front", "plate_present")])
+    r.cyc.L["vision"]["lower_check"]["front"]["auto_refs"] = 3
+    r.vis.scene["scan_camera"] = BAD                   # the down camera still looks fine, the front view does not
+    try:
+        r.expect_stop("front camera")
+    finally:
+        r.close()

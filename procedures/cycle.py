@@ -18,6 +18,7 @@ from typing import List, Optional
 from devices.arm import Robot
 from devices.stage import PolarError, PolarStage
 from devices.vision_box import VisionClient
+from perception import hub
 from perception.lower_check import LowerCheck
 from perception.occupancy import Occupancy
 from perception.predictor import DriftMonitor, PreChecks
@@ -67,11 +68,16 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.commission = {"no_gates": False, "no_vision_correction": False}
         self.resuming = False
         self._search_widths: List[float] = []        # jaw widths seen during a centering search
+        self.hub_cfg = layout["vision"].get("hub", {})   # record: every gate verdict and outcome go to the outbox
+        if self.hub_cfg.get("record"):
+            store.on_done = lambda step: hub.outcome(step, True, self.hub_cfg.get("outbox", hub.OUTBOX))
 
     # --------------------------------------------------------------- recording
     def _fault(self, step: str, kind: str, detail: str):
         self.store.fault(step, kind, detail)
         self.tele.log("fault", step, kind, detail=detail)
+        if self.hub_cfg.get("record"):
+            hub.outcome(step, False, self.hub_cfg.get("outbox", hub.OUTBOX))
 
     def _observe(self, feature: str, value: float):
         w = self.drift.observe(feature, value)
@@ -254,7 +260,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         if not s.step_done:
             raise StopSafe(f"last step '{s.step}' did not finish; plate_at={s.plate_at} grip={s.grip}. "
                            "Inspect the cell, fix state.json, or rerun with --resume if the arm is still on its route.")
-        if s.plate_at not in (scope, f"hotel:{slot}"):
+        if s.plate_at != scope and not s.plate_at.startswith("hotel:"):
             raise StopSafe(f"plate_at={s.plate_at}: no automatic resume from here; move the plate by hand "
                            "and edit state.json")
         if s.last_safe_pose:
@@ -281,8 +287,9 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         raise StopSafe(f"rotating stage reads {a:.2f} deg, neither 0 nor 90; cli.py polar goto 0 first")
 
     def run(self, slot: str, cycles: int, resume: bool = False, stop_file: Optional[str] = None):
-        """`cycles` plate changes on this microscope: out to hotel slot `slot` (if a plate is there) and back in.
-        Today the same plate comes back; choosing the next plate is the plate list's job (run.py, open item)."""
+        """`cycles` plate changes on this microscope. Each change returns the plate on the microscope to the slot it
+        came from (its home; a plate with no known home goes to `slot`), then brings the plate in `slot` to the
+        microscope. `random` draws a free slot. So run(A1) then run(C2) is: load A1, then A1 home and C2 in."""
         s, scope = self.store.s, self.scope
         if slot != "random":
             self.hotel_slot_pose(slot)
@@ -323,10 +330,10 @@ class Cycle(Motion, Grasp, Gates, Hotel):
                 self.tele.cycle = s.cycle
                 self.store.save()
                 if s.plate_at == scope:
-                    self.outbound(self._choose_slot(slot))
-            cur = self._current_hotel_slot()
-            if cur:
-                self.inbound(cur)
+                    self.outbound(s.home_slot or self._choose_slot(slot))
+            nxt = self._current_hotel_slot() if slot == "random" else slot
+            if nxt and (s.plate_at.startswith("hotel:") or s.plate_at == "gripper" and not s.step_done):
+                self.inbound(nxt)
             self.drift.save()
             dt = time.time() - t0
             self.tele.log("cycle", "done", dt=round(dt, 1), state=s.plate_at)

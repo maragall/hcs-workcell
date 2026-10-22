@@ -50,13 +50,13 @@ Each box calls only the boxes below it. The figure and the reasoning live in AI-
 
 ```
 run.py                     the main loop, asyncio: one task per microscope, one arm shared, a list of where every plate is
-cli.py                     teaching, references, tests and one-microscope runs from the command line
+cli.py                     teaching, references, tests and one-microscope runs; positions, occupancy, goto
 layout.json                the positions file: every pose, floor, speed, limit, route and plate type. Data, not code.
 
 procedures/                the arm moves, with the checks between them
   cycle.py                 Cycle: pick, place, the step tables, outbound, inbound, run (one plate change on one microscope)
   motion.py                its arm moves, each checked; move_to(position)   grasp.py   its jaw: open, close, judge, centre
-  gates.py                 its camera and health checks      hotel.py       its hotel slots: climb, slide, pick, place
+  gates.py                 its camera and health checks      hotel.py       its hotel slots: climb, slide, pick, place; plate_order
   corrector.py             bounded recovery actions        safety.py      speed profiles, workspace box, z floors
   state.py                 where the plate is (ledger)     telemetry.py   JSONL events + images per cycle
   recorder.py              camera video per run            plates.py      plate types: jaw widths, grab height
@@ -66,7 +66,7 @@ perception/                photo in, verdict out. No device imports.
   lower_check.py           clear_to_lower, seating, grip: correlation against reference photos, enforced once trained
   occupancy.py             slot occupancy detector: two classes per slot, self-tested, enforced once ready
   predictor.py             pre-step checks and drift statistics
-  hub.py                   serve a pinned model / record a frame for cephla-hub (stub, optional)
+  hub.py                   cephla-hub: serve a pinned model; record every gate's photo, verdict and the step's outcome (opt-in)
 
 devices/                   one thin file per machine, plus a fake for each
   nova.py                  the arm and the vision box, one import; arm(layout, sim=True) gives the fake

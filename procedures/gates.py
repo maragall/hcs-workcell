@@ -7,6 +7,7 @@ import time
 from typing import List, Optional
 
 from devices.vision_box import VisionError
+from perception import hub
 from procedures.corrector import StopSafe
 
 
@@ -86,7 +87,40 @@ class Gates:
             self.corr.on_vision_too_far(label, mag)
         return [off.d[0], off.d[1], 0.0, 0.0, 0.0, 0.0]
 
+    def _record(self, check: str, frame_path: str, verdict: str, step: str) -> None:
+        """Opt-in (vision.hub.record): the photo, the verdict and the step, for training later."""
+        if self.hub_cfg.get("record") and frame_path:
+            hub.record(check, frame_path, verdict, step, self.hub_cfg.get("outbox", hub.OUTBOX))
+
+    def _learned_gate(self, step: str, name: str, state: str, cam: str, cfg: dict, fault: str, question: str,
+                      roi=None) -> Optional[bool]:
+        """A gate that trains itself: the first cfg.auto_refs frames at (name, state) become its references, then
+        every frame is judged against them. Returns None while training or without a frame, else whether the
+        view looks right. Blocks (through the corrector) only when enforced: cfg.enforce "auto" = once trained."""
+        img = self._frame(cam)
+        path = self.tele.image(f"{step}_{name}", img)
+        if img is None:
+            return None
+        n = self.lower.count(name, state)
+        if n < cfg.get("auto_refs", 12):
+            self.lower.add_reference(name, state, img)
+            self.tele.log("vision", f"{step} {name}", f"reference {n + 1} collected", state=state)
+            return None
+        v = self.lower.verdict(name, state, img, roi=roi)
+        self._observe(f"{name}:{state}", v.best)
+        enforce = self._enforce(cfg, trained=True)
+        self.tele.log("vision", f"{step} {name}", v.reason, score=round(v.best, 3), thr=round(v.threshold, 3),
+                      safe=v.safe, state=state, enforce=enforce)
+        self._record(name, path, "ok" if v.safe else "not_ok", step)
+        if enforce and not v.safe:
+            self._fault(step, fault, v.reason)
+            if not self.corr.operator_or_stop(step, question, question.split(":")[-1].strip() + "?"):
+                raise StopSafe(f"{step}: {question}")
+        return v.safe
+
     def _gate_lower(self, gate: str, state: str, label: str):
+        """Before lowering: the down camera must match the references for this gate and state. With
+        lower_check.front set, the front camera is a second view that trains itself and blocks once trained."""
         if self.commission["no_gates"]:
             img = self._frame(self.down_cam)
             self.tele.image(f"{label}_lower_nogate", img)
@@ -98,11 +132,16 @@ class Gates:
             if img is None:
                 raise StopSafe(f"{label}: no frame from {self.down_cam} for the lower gate")
             v = self.lower.verdict(gate, state, img)
-            self.tele.image(f"{label}_lower_{attempt}", img)
+            path = self.tele.image(f"{label}_lower_{attempt}", img)
             self.tele.log("vision", f"{label} lower_check", v.reason, score=round(v.best, 3), thr=round(v.threshold, 3),
                           refs=v.n_refs, safe=v.safe, gate=gate)
             self._observe(f"lower:{gate}:{state}", v.best)
+            self._record("clear_to_lower", path, "ok" if v.safe else "not_ok", label)
             if v.safe:
+                front = self.L["vision"]["lower_check"].get("front")
+                if front:
+                    self._learned_gate(label, f"{gate}_front", state, self.front_cam, front, "lower_front",
+                                       "front camera: not clear to lower")
                 return
             self.corr.on_lower_blocked(gate, attempt, attempts, v)
         raise StopSafe(f"{label}: lower gate exhausted {attempts} attempts without a safe verdict")
@@ -112,53 +151,17 @@ class Gates:
         Uses the bottom band of the frame, where the plate's top edge and the holder sit. The first
         `seated_front.auto_refs` releases at each gate become its references; until then the verdict is only
         logged. Blocks once trained (seated_front.enforce "auto"), or as the config says."""
-        img = self._frame(self.front_cam)
-        self.tele.image(f"{step}_released_front", img)
         self.tele.image(f"{step}_released_down", self._frame(self.down_cam))
-        if img is None:
-            return
         cfg = self.L["vision"].get("seated_front", {})
-        roi = tuple(cfg.get("roi", [0.0, 0.55, 1.0, 1.0]))
-        name = "seated_front"
-        n = self.lower.count(name, gate)
-        if n < cfg.get("auto_refs", 12):
-            self.lower.add_reference(name, gate, img)
-            self.tele.log("vision", f"{step} seated_front", f"reference {n + 1} collected", gate=gate)
-            return
-        v = self.lower.verdict(name, gate, img, roi=roi)
-        self._observe(f"seated_front:{gate}", v.best)
-        enforce = self._enforce(cfg, trained=True)        # trained: the references above are complete
-        self.tele.log("vision", f"{step} seated_front", v.reason, score=round(v.best, 3), thr=round(v.threshold, 3),
-                      safe=v.safe, gate=gate, enforce=enforce)
-        if enforce and not v.safe:
-            self._fault(step, "not_seated_front", v.reason)
-            if not self.corr.operator_or_stop(step, "front camera: plate does not look seated", "Plate is seated correctly?"):
-                raise StopSafe("plate not seated (front camera)")
+        self._learned_gate(step, "seated_front", gate, self.front_cam, cfg, "not_seated_front",
+                           "front camera: plate does not look seated", roi=tuple(cfg.get("roi", [0.0, 0.55, 1.0, 1.0])))
 
     def _stage_clear(self, step: str, deg: int):
         """Down camera at the clear pose above the stage, before it rotates: the plate seated, nothing else in view.
         The first `stage_check.auto_refs` rotations in each direction become its references; blocks once trained
         (stage_check.enforce "auto"), or as the config says."""
-        img = self._frame(self.down_cam)
-        self.tele.image(f"{step}_stage_clear", img)
-        if img is None:
-            return
-        cfg = self.L["vision"].get("stage_check", {})
-        name, state = "stage", f"to_{deg}"
-        n = self.lower.count(name, state)
-        if n < cfg.get("auto_refs", 12):
-            self.lower.add_reference(name, state, img)
-            self.tele.log("vision", f"{step} stage_clear", f"reference {n + 1} collected", state=state)
-            return
-        v = self.lower.verdict(name, state, img)
-        self._observe(f"stage_clear:{state}", v.best)
-        enforce = self._enforce(cfg, trained=True)
-        self.tele.log("vision", f"{step} stage_clear", v.reason, score=round(v.best, 3), thr=round(v.threshold, 3),
-                      safe=v.safe, enforce=enforce)
-        if enforce and not v.safe:
-            self._fault(step, "stage_not_clear", v.reason)
-            if not self.corr.operator_or_stop(step, "camera: stage does not look clear to rotate", "Stage is clear to rotate?"):
-                raise StopSafe(f"{step}: stage not clear to rotate (camera)")
+        self._learned_gate(step, "stage", f"to_{deg}", self.down_cam, self.L["vision"].get("stage_check", {}),
+                           "stage_not_clear", "camera: stage does not look clear to rotate")
 
     def _slot_view(self, step: str, slot: str, expect: str):
         """Front-camera view of the slot from the approach point, with the verdict of the two-class check.
@@ -166,11 +169,12 @@ class Gates:
         The first `min_refs` of each class are taken on consecutive visits; later ones every `spacing_s`, so the
         set spans the day's lighting. A frame that confidently contradicts its label is an alarm, never a lesson."""
         img = self._frame(self.front_cam)
-        self.tele.image(f"{step}_slot_view", img)
+        path = self.tele.image(f"{step}_slot_view", img)
         if img is None:
             return None
         sv = self.slots.verdict(slot, img)
         other = "occupied" if expect == "empty" else "empty"
+        self._record("occupancy", path, sv.decision, step)
         self.tele.log("vision", f"{step} slot_view", sv.reason, decision=sv.decision, confidence=round(sv.confidence, 3),
                       score_empty=round(sv.score_empty, 3), score_occupied=round(sv.score_occupied, 3),
                       ready=self.slots.ready(slot))
@@ -192,7 +196,7 @@ class Gates:
 
     def _check_plate_in_gripper(self, step: str, grip: str):
         img = self._frame(self.front_cam)
-        self.tele.image(f"{step}_lifted", img)
+        path = self.tele.image(f"{step}_lifted", img)
         if img is None:
             if self.supervised or self.commission["no_gates"]:
                 return
@@ -210,6 +214,7 @@ class Gates:
             return
         v = self.lower.verdict("gripper", grip, img)
         self.tele.log("vision", f"{step} plate_in_gripper", v.reason, score=round(v.best, 3), safe=v.safe, refs=v.n_refs)
+        self._record("grip", path, "ok" if v.safe else "not_ok", step)
         if v.n_refs < self.lower.min_refs:
             return
         self._observe(f"gripper:{grip}", v.best)

@@ -39,7 +39,17 @@
       "min_refs": 3,
       "margin": 0.08,
       "floor": 0.55,
-      "retries": 3
+      "retries": 3,
+      "front": {
+        "auto_refs": 12,
+        "enforce": "auto",
+        "_note": "second view of the seat from the front camera before lowering: a tilted plate or something tall that the down camera misses. Trains itself per gate and state (<gate>_front), blocks once trained"
+      }
+    },
+    "hub": {
+      "record": false,
+      "outbox": "hub_outbox",
+      "_note": "true: every gate writes its photo path, verdict and step to <outbox>/<check>.jsonl and every step its outcome to outcomes.jsonl, the training data for cephla-hub (perception/hub.py). Off by default; the data never leaves this machine without the opt-in upload job"
     },
     "seated_front": {
       "roi": [
@@ -429,13 +439,6 @@
         "B",
         "C"
       ],
-      "odd_rows": [
-        1,
-        3,
-        5,
-        7,
-        9
-      ],
       "taught": {
         "A1": [
           293.341,
@@ -570,12 +573,53 @@
       "climb_x": 127.0,
       "active_slots": [
         "A1",
+        "C2",
         "A3",
+        "C4",
         "A5",
+        "C6",
         "A7",
-        "A9"
+        "C8",
+        "A9",
+        "C10"
       ],
-      "_climb_note": "rows above 1: retreat from the junction (row-1 approach point) to x=climb_x in free air in front of the rack, climb with the column only, slide in at carry height. climb_x = the operator via point x (2026-10-19). B and C columns wait for the FK-based planner: their approach points lie close to the shoulder axis at (126,0)"
+      "_climb_note": "rows above 1: retreat from the junction (row-1 approach point) to x=climb_x in free air in front of the rack, climb with the column only, slide in at carry height. climb_x = the operator via point x (2026-10-19). B and C columns wait for the FK-based planner: their approach points lie close to the shoulder axis at (126,0)",
+      "rows": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "loaded": {
+        "A": [
+          1,
+          3,
+          5,
+          7,
+          9
+        ],
+        "C": [
+          2,
+          4,
+          6,
+          8,
+          10
+        ]
+      },
+      "_loaded_note": "2026-10-22: 30-slot hotel, 10 real plates (colour and weight vary, grip position the same): odd rows in A, even rows in C. procedures.hotel.plate_order interleaves them: A1, C2, A3, C4, ... (run.py --order interleave). Row poses are interpolated from the taught row-1 and row-9 points per column (row_vector_from); re-teach them on this hotel"
+    },
+    "microscope_2": {
+      "pose": null,
+      "hover_mm": 66.7,
+      "grip": "short_edges",
+      "trajectory": "microscope_2_to_polar",
+      "_note": "second microscope (the dead one on the test rig). Teach: cli.py record-pose microscope_2, then regions.microscope_2 (box, z_floor), then trace + normalise microscope_2_to_polar. preflight lists what is missing: cli.py preflight"
     }
   },
   "polar": {
@@ -604,7 +648,12 @@
   },
   "routes": {
     "safe_z_mm": null,
-    "positions": ["microscope", "polar.pose_at_0", "polar.pose_at_90"],
+    "positions": [
+      "microscope",
+      "microscope_2",
+      "polar.pose_at_0",
+      "polar.pose_at_90"
+    ],
     "_note": "routes.plan: a taught trajectory <a>_to_<b> wins; otherwise lift to safe_z_mm, travel, lower. null = refuse. positions: the named places move_to knows, used to pick the taught route from wherever the arm is"
   },
   "trajectories": {

@@ -30,6 +30,7 @@ from devices.squid import Squid  # noqa: E402
 from procedures import positions  # noqa: E402
 from procedures.corrector import StopSafe  # noqa: E402
 from procedures.cycle import Cycle  # noqa: E402
+from procedures.hotel import plate_order  # noqa: E402
 from procedures.preflight import preflight  # noqa: E402
 from procedures.safety import SafetyViolation  # noqa: E402
 from procedures.state import StateStore  # noqa: E402
@@ -69,10 +70,16 @@ class Workcell:
             cyc.tele.close()
 
     async def run_scope(self, name: str, slot: str, cycles: int, resume: bool = False,
-                        stop_file: Optional[str] = None) -> None:
+                        stop_file: Optional[str] = None, order: Optional[list] = None) -> None:
+        """`order`: a shared list of slots; each change takes the next one, so the microscopes walk the hotel
+        together. Without it every change uses `slot`."""
         cyc, scope = self.cycles[name], self.scopes[name]
         try:
             for _ in range(cycles):
+                if order is not None:
+                    if not order:
+                        return                       # no plates left
+                    slot = order.pop(0)
                 if stop_file and os.path.exists(stop_file):
                     return
                 async with self.arm_lock:                # queued: one task moves the arm at a time
@@ -95,10 +102,10 @@ class Workcell:
             raise
 
     async def run(self, slots: Dict[str, str], cycles: int, resume: bool = False,
-                  stop_file: Optional[str] = None) -> None:
+                  stop_file: Optional[str] = None, order: Optional[list] = None) -> None:
         """Waits for every task, so no arm thread is left running when the caller disconnects the robot,
         then raises the first fault. (A cancelled task cannot stop its thread; it finishes its current step.)"""
-        await asyncio.gather(*(self.run_scope(n, slots[n], cycles, resume, stop_file) for n in self.scopes),
+        await asyncio.gather(*(self.run_scope(n, slots[n], cycles, resume, stop_file, order) for n in self.scopes),
                              return_exceptions=True)
         if self.fault is not None:
             raise self.fault
@@ -122,6 +129,7 @@ def main(argv=None) -> int:
     ap.add_argument("--fake-scopes", default="", help="which of them wait and do nothing")
     ap.add_argument("--slots", default="", help="one hotel slot per microscope (default: active_slots in order)")
     ap.add_argument("--cycles", type=int, default=1, help="plate changes per microscope")
+    ap.add_argument("--order", choices=("interleave",), help="walk fixtures.hotel.loaded, columns interleaved, all microscopes sharing the list")
     ap.add_argument("--acquisition-s", type=float, default=5.0, help="how long a fake microscope pretends to image")
     ap.add_argument("--mode", choices=("supervised", "unsupervised"), default="supervised")
     ap.add_argument("--sim", action="store_true", help="fake arm and fake microscopes; the vision box is still real")
@@ -170,7 +178,8 @@ def main(argv=None) -> int:
             input(f"Plates: {cell.plates()}. Arm clear, hands away. Start? type YES: ") != "YES":
         sys.exit("not started")
     try:
-        asyncio.run(cell.run(slot_of, args.cycles, args.resume, args.stop_file))
+        order = plate_order(layout) if args.order else None
+        asyncio.run(cell.run(slot_of, args.cycles, args.resume, args.stop_file, order))
         tele.log("run", "finished", plates=cell.plates())
         return 0
     except (StopSafe, SafetyViolation) as e:

@@ -7,7 +7,8 @@ microscopes. Design docs, figures and plans live in `~/CEPHLA/AI-docs/hcs-workce
 
 Four packages plus the main loop. Each box calls only the boxes below it; `perception` imports no device.
 
-- `run.py`: the main loop, asyncio. One task per microscope (`run_scope`), one arm shared (`Workcell.arm_lock`),
+- `run.py`: the main loop, asyncio. Each plate change returns the microscope's plate to its home slot and fetches the
+  next (`--order interleave` walks `fixtures.hotel.loaded`). One task per microscope (`run_scope`), one arm shared (`Workcell.arm_lock`),
   one ledger per microscope (`state_<scope>.json`), one telemetry folder per microscope (`runs/<run>/<scope>/`).
   The blocking arm procedures run in threads. A fault in one task stops the others at their next step.
 - `cli.py`: teaching (`record-pose NAME` stores where the arm is now), references, tests, one-microscope runs.
@@ -16,8 +17,10 @@ Four packages plus the main loop. Each box calls only the boxes below it; `perce
   grouped by file: `motion.py` (moves), `grasp.py` (jaw), `gates.py` (camera and health checks), `hotel.py` (slots);
   `cycle.py` keeps the constructor, pick, place, the step tables and `run`. Plus recovery, safety, ledger, telemetry,
   plate types (`plates.py`, mirrored by `lua/data_plate.lua`, chosen by SYSINVAR8), preflight.
-- `perception/`: photo in, verdict out. `lower_check.py` is the correlation gate before every lowering; `occupancy.py`
-  the slot detector. Gates with `enforce: "auto"` in `layout.json` block only once trained (`Gates._enforce`).
+- `perception/`: photo in, verdict out. `lower_check.py` is the correlation gate before every lowering (down camera,
+  plus the front camera as a second view); `occupancy.py` the slot detector. Self-training gates share `Gates._learned_gate`
+  and block only once trained (`enforce: "auto"`). With `vision.hub.record` on, every verdict and every step outcome go
+  to `hub_outbox/` for cephla-hub; the drift statistics (`predictor.py`) are the live prediction that runs today.
 - `devices/`: one thin file per machine and a fake for each. `nova.py` is the one import for arm + vision box.
 - `routes/`: `plan.py` picks a taught trajectory or lift / travel at `routes.safe_z_mm` / lower, every leg checked;
   `Motion.move_to(position)` executes it, to the hover only. `cli.py goto NAME` drives it by hand.
@@ -30,9 +33,16 @@ step cheap to back out of:
 1. `python cli.py status`, then `python cli.py preflight`: the moved imports and the vendor SDK load on Windows.
 2. `python cli.py run --mode supervised --slot A1 --cycles 1`: the one-microscope cycle through the new packages.
    If this passes, the refactor broke nothing.
-3. Measure and write into `layout.json`: `plate.height`, the finger stand-off above a gripped plate, and from those
-   the hotel lift for the 30-plate hotel (17 mm headroom; today's `fixtures.hotel.lift_mm` 25 is wrong for it).
-   Re-teach the hotel rows; every row is live now, not only the odd ones.
+3. The fingers changed (2026-10-22): `python cli.py measure-grip short_edges` and `long_edges` rewrite `gripper.closed`;
+   delete `reference_images/gripper/` so the held-plate references are collected again; re-teach the `PLATE_*` values
+   in `lua/data_plate.lua`. Then measure and write into `layout.json`: `plate.height`, the finger stand-off above a
+   gripped plate, and from those the hotel lift for the 30-slot hotel (17 mm headroom; today's `fixtures.hotel.lift_mm`
+   25 is wrong for it). Re-teach the row-1 and row-9 points per column; rows 1..10 are interpolated from them.
+   `fixtures.hotel.loaded` lists the 10 plates (odd rows in A, even in C); `python cli.py positions` shows the order.
+   The plates differ in colour and weight: the occupancy detector is per slot and only enforces after a clean
+   self-test, so watch `python cli.py occupancy` before trusting it.
+3b. The second microscope: `python cli.py record-pose microscope_2`, then `regions.microscope_2` (box, z floor), then
+   `trace` + `normalise microscope_2_to_polar`. `python cli.py positions` lists what is still NOT TAUGHT.
 4. Measure `routes.safe_z_mm` (a height that clears the hotel, the stage and the holder) and try `python cli.py goto`
    between two taught positions.
 5. Import `lua/data_plate.lua` into the BioyondWorks project, teach the four `PLATE_*` values, run one pick and place
