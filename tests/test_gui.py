@@ -278,3 +278,16 @@ def test_arm_rests_loose_and_a_moving_step_locks_it_then_loosens_again():
     assert seen == [False]                                   # locked while it ran
     assert cell.robot.state().drag                           # loose again afterwards
     cell.stop()
+
+
+def test_the_page_video_is_the_whole_field_not_the_cropped_check_frame(gui):
+    cell, url = gui
+    seen = []
+    real = cell.vision.frame
+    cell.vision.frame = lambda cam, w=0, h=0, *a, **k: (seen.append((w, h)), real(cam, w, h, *a, **k))[1]
+    try:
+        server._VIEW.clear()
+        code, _, body = get(url, "/view/down")
+    finally:
+        cell.vision.frame = real
+    assert code == 200 and body and (1280, 960) in seen

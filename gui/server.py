@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -88,6 +89,32 @@ def act(cell, name: str, body: dict) -> dict:
     return {"ok": False, "error": f"unknown action {name}"}
 
 
+_VIEW = {}                                                   # label -> (time, bytes)
+_VIEW_LOCK = threading.Lock()
+VIEW_SIZE, VIEW_EVERY_S = (1280, 960), 0.4
+
+
+def view(cell, label: str):
+    """The page's picture of a camera. The box's 1280x720 frame (what the checks and the recorder use) cuts the top
+    and bottom off the sensor's 4:3 field; this asks for 1280x960, the whole field. One request per camera per
+    VIEW_EVERY_S however many pages are open; the buffer's frame stands in when the box does not answer."""
+    cam = cell.frames.cameras.get(label)
+    if not cam:
+        return None
+    with _VIEW_LOCK:
+        t, data = _VIEW.get(label, (0.0, None))
+        if data and time.time() - t < VIEW_EVERY_S:
+            return data
+        try:
+            data = cell.vision.frame(cam, VIEW_SIZE[0], VIEW_SIZE[1], 80, None, cell.frames.leds.get(cam, 0))
+        except Exception:
+            got = cell.frames.latest(cam)
+            data = got[1] if got else data
+        if data:
+            _VIEW[label] = (time.time(), data)
+        return data
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "hcs-workcell-gui"
 
@@ -118,6 +145,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._file(os.path.basename(u.path))
         if u.path == "/api/state":
             return self._json(full_state(self.cell))
+        if u.path.startswith("/view/"):                 # the page's video: the whole sensor field, 4:3
+            data = view(self.cell, u.path.split("/", 2)[2])
+            return self._send(200, data, "image/jpeg") if data else self._send(503, b"no frame yet", "text/plain")
         if u.path.startswith("/frame/"):
             got = self.cell.frames.by_label(u.path.split("/", 2)[2])
             return self._send(200, got[1], "image/jpeg") if got else self._send(503, b"no frame yet", "text/plain")
