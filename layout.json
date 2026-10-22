@@ -236,12 +236,12 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        124.033,
-        399.213,
-        264.394,
+        117.182,
+        399.493,
+        267.101,
         0.0,
         -0.0,
-        90.334
+        86.88
       ],
       "hover_mm": 66.7,
       "approach": {
@@ -259,8 +259,8 @@
       },
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
-      "taught_at": "2026-10-19 20:42:20",
-      "jaw_at_teach": 22.727,
+      "taught_at": "2026-10-22 04:39:19",
+      "jaw_at_teach": 25.01,
       "vendor_teach": {
         "name": "microscope-short",
         "pick_method": "long",
@@ -280,10 +280,10 @@
         "jaw_at_teach": 24.108
       },
       "joints_at_teach": [
-        226.596,
-        93.866,
-        -187.167,
-        183.635
+        228.503,
+        93.858,
+        174.814,
+        -181.791
       ],
       "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\microscope",
       "grasp_search": {
@@ -346,7 +346,25 @@
           },
           "why": "search widths [22.637, 22.639, 22.639, 22.667, 22.677, 22.688, 22.69, 22.691, 22.693, 22.696, 22.7, 22.703, 22.705, 22.706, 22.716, 22.721] on 2026-10-20 22:55"
         }
-      ]
+      ],
+      "previous_pose_2026_10_22": {
+        "pose": [
+          124.033,
+          399.213,
+          264.394,
+          0.0,
+          -0.0,
+          90.334
+        ],
+        "joints_at_teach": [
+          226.596,
+          93.866,
+          -187.167,
+          183.635
+        ],
+        "taught_at": "2026-10-19 20:42:20"
+      },
+      "_taught_note_2026_10_22": "new plate: seat taught by hand in drag mode (operator), fingers around the plate in the clips. Elbow reads +174.8 / wrist -181.8 here, the other side of the fold from the route's hover joints (elbow -177.6, wrist 178.6): the first descent and the route replay from this branch are untested."
     },
     "polar": {
       "pose_at_0": {
