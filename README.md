@@ -55,7 +55,7 @@ layout.json                the positions file: every pose, floor, speed, limit, 
 
 procedures/                the arm moves, with the checks between them
   cycle.py                 Cycle: pick, place, the step tables, outbound, inbound, run (one plate change on one microscope)
-  motion.py                its arm moves, each checked       grasp.py       its jaw: open, close, judge, centre
+  motion.py                its arm moves, each checked; move_to(position)   grasp.py   its jaw: open, close, judge, centre
   gates.py                 its camera and health checks      hotel.py       its hotel slots: climb, slide, pick, place
   corrector.py             bounded recovery actions        safety.py      speed profiles, workspace box, z floors
   state.py                 where the plate is (ledger)     telemetry.py   JSONL events + images per cycle
@@ -63,7 +63,8 @@ procedures/                the arm moves, with the checks between them
   positions.py             load/save the positions file    preflight.py   what must be taught before a run
 
 perception/                photo in, verdict out. No device imports.
-  lower_check.py           clear_to_lower and occupancy: cross-correlation against reference photos
+  lower_check.py           clear_to_lower, seating, grip: correlation against reference photos, enforced once trained
+  occupancy.py             slot occupancy detector: two classes per slot, self-tested, enforced once ready
   predictor.py             pre-step checks and drift statistics
   hub.py                   serve a pinned model / record a frame for cephla-hub (stub, optional)
 
@@ -75,10 +76,12 @@ devices/                   one thin file per machine, plus a fake for each
   fake_squid.py            waits and does nothing                            rail.py        stub for a future farm
 
 routes/                    waypoints between two positions
+  plan.py                  plan(from, to): a taught route, else lift / travel at routes.safe_z_mm / lower, checked
   trajectory.py            hand-guided capture, multi-demo normalisation
 
 lua/                       the program on the arm's controller (Bioyond template + our mod_Cell, data_cell, data_plate)
-tests/                     rig.py (fake vision box, simulator layout), test_sim.py (one microscope), test_run.py (two microscopes, one arm), test_plates.py, test_hub.py
+tests/                     rig.py (fake vision box, simulator layout), test_sim.py (one microscope), test_run.py (two microscopes, one arm),
+                           test_routes.py, test_occupancy.py, test_plates.py, test_hub.py
 ```
 
 ## Commissioning order

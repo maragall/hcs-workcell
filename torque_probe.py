@@ -17,8 +17,8 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import cli as R                                   # noqa: E402
-from devices.controller import Brcapi               # noqa: E402
+import cli as R  # noqa: E402
+from devices.controller import Brcapi  # noqa: E402
 
 IDX_RAW, IDX_W, IDX_NORM, IDX_BEAT, IDX_REF = 4, 5, 6, 7, 8
 

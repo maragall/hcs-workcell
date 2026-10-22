@@ -16,9 +16,11 @@ Four packages plus the main loop. Each box calls only the boxes below it; `perce
   grouped by file: `motion.py` (moves), `grasp.py` (jaw), `gates.py` (camera and health checks), `hotel.py` (slots);
   `cycle.py` keeps the constructor, pick, place, the step tables and `run`. Plus recovery, safety, ledger, telemetry,
   plate types (`plates.py`, mirrored by `lua/data_plate.lua`, chosen by SYSINVAR8), preflight.
-- `perception/`: photo in, verdict out. `lower_check.py` is the correlation gate before every lowering.
+- `perception/`: photo in, verdict out. `lower_check.py` is the correlation gate before every lowering; `occupancy.py`
+  the slot detector. Gates with `enforce: "auto"` in `layout.json` block only once trained (`Gates._enforce`).
 - `devices/`: one thin file per machine and a fake for each. `nova.py` is the one import for arm + vision box.
-- `routes/`: waypoints between two positions.
+- `routes/`: `plan.py` picks a taught trajectory or lift / travel at `routes.safe_z_mm` / lower, every leg checked;
+  `Motion.move_to(position)` executes it, to the hover only. `cli.py goto NAME` drives it by hand.
 
 ## Rules that hold
 

@@ -18,7 +18,8 @@ from typing import List, Optional
 from devices.arm import Robot
 from devices.stage import PolarError, PolarStage
 from devices.vision_box import VisionClient
-from perception.lower_check import LowerCheck, SlotCheck
+from perception.lower_check import LowerCheck
+from perception.occupancy import Occupancy
 from perception.predictor import DriftMonitor, PreChecks
 from procedures import plates
 from procedures.corrector import Corrector, StopSafe
@@ -56,7 +57,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         lc = layout["vision"]["lower_check"]
         self.lower = LowerCheck(ref_dir, lc["min_refs"], lc["margin"], lc["floor"])
         self.slot_cfg = layout["vision"].get("slot_check", {})
-        self.slots = SlotCheck(ref_dir, self.slot_cfg.get("min_refs", 5), 0.0, self.slot_cfg.get("min_match", 0.75))
+        self.slots = Occupancy(ref_dir, self.slot_cfg.get("min_refs", 5), self.slot_cfg.get("min_match", 0.75))
         self.lim = layout["limits"]
         self.down_cam = layout["vision"]["down_camera"]
         self.front_cam = layout["vision"]["front_camera"]

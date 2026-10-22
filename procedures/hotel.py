@@ -93,10 +93,7 @@ class Hotel:
             ready, _ = self.vision.live_detection(self.front_cam, aruco=False, led=self.led)
         except Exception:
             ready = None
-        self.tele.log("vision", f"{step} slot_view", sv.decision if sv else "no frame",
-                      score_empty=round(sv.score_empty, 3) if sv else None,
-                      score_occupied=round(sv.score_occupied, 3) if sv else None, vendor_live=ready)
-        if sv and sv.decision == "occupied":
+        if sv and sv.decision == "occupied":                 # placing onto a plate: always blocks
             self._fault(step, "slot_occupied", f"empty {sv.score_empty:.3f} vs occupied {sv.score_occupied:.3f}")
             if not self.corr.operator_or_stop(step, f"{slot} looks occupied", "Slot is actually empty?"):
                 raise StopSafe(f"{slot} occupied")
@@ -132,12 +129,9 @@ class Hotel:
             self._move("L", top, f"{step} climb", prof.approach)
             self._move("L", approach, f"{step} approach", prof.approach)
         sv = self._slot_view(step, slot, "occupied")
-        if sv:
-            self.tele.log("vision", f"{step} slot_view", sv.decision, score_empty=round(sv.score_empty, 3),
-                          score_occupied=round(sv.score_occupied, 3))
         if sv and sv.decision == "empty":
             self._fault(step, "slot_empty", f"empty {sv.score_empty:.3f} vs occupied {sv.score_occupied:.3f}")
-            if self.slot_cfg.get("enforce_pick", False) and not self.commission["no_gates"]:
+            if self._enforce(self.slot_cfg, self.slots.ready(slot)):
                 if not self.corr.operator_or_stop(step, f"{slot} looks empty", "Plate is in the slot?"):
                     raise StopSafe(f"{slot} looks empty")
         self._jaw_open("long_edges")

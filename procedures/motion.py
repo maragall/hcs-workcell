@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import math
 import time
-from typing import List
+from typing import List, Optional
 
 from devices.arm import MotionRefused
 from procedures.corrector import StopSafe
 from procedures.safety import SafetyViolation
+from routes.plan import plan
 
 
 def offset(p: List[float], d: List[float]) -> List[float]:
@@ -170,3 +171,40 @@ class Motion:
             return [e for e in ret if e.get("errCode") is not None]
         except Exception:
             return []
+
+    # ------------------------------------------------------------- go somewhere
+    def _position(self, name: str) -> List[float]:
+        """The taught pose of a position (microscope, polar.pose_at_0, ...), at its hover height."""
+        node, hover = self.L["fixtures"], 0.0
+        for part in name.split("."):
+            node = node[part]
+            hover = node.get("hover_mm", hover)
+        pose = node.get("pose")
+        if not pose:
+            raise SafetyViolation(f"{name}: no taught pose")
+        return offset(list(pose), [0.0, 0.0, hover])
+
+    def _position_here(self, tol_mm: float = 5.0) -> Optional[str]:
+        """The position the arm is at now, if any; names the taught route to use."""
+        here = self.robot.pose()
+        for name in self.L.get("routes", {}).get("positions", []):
+            try:
+                p = self._position(name)
+            except (KeyError, SafetyViolation):
+                continue
+            if max(abs(here[i] - p[i]) for i in range(3)) <= tol_mm:
+                return name
+        return None
+
+    def move_to(self, name: str) -> None:
+        """Go to a position's hover: a taught route when one exists, else lift, travel at the safe height, lower.
+        Never to the seat itself; the seat is the job of pick and place, behind their gates."""
+        target = self._position(name)
+        route = plan(self.L, self.safety, self.robot.pose(), target, self._position_here(), name)
+        self.tele.log("move", f"move_to {name}", route.name, taught=route.taught, waypoints=len(route.poses))
+        if route.taught:
+            self._waypoints(route.name, route.reverse)
+            self._arrive(target, f"move_to {name} arrive", self.safety.profile.approach)
+            return
+        for i, p in enumerate(route.poses, 1):
+            self._move("L", p, f"move_to {name} [{i}/{len(route.poses)}]", self.safety.profile.travel)

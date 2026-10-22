@@ -20,18 +20,18 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from routes import trajectory  # noqa: E402
-from procedures.corrector import StopSafe  # noqa: E402
-from procedures.cycle import Cycle  # noqa: E402
-from perception.lower_check import LowerCheck  # noqa: E402
-from procedures.recorder import Recorder  # noqa: E402
 from devices import nova  # noqa: E402
 from devices.arm import MotionRefused  # noqa: E402
+from perception.lower_check import LowerCheck  # noqa: E402
 from procedures import positions  # noqa: E402
+from procedures.corrector import StopSafe  # noqa: E402
+from procedures.cycle import Cycle  # noqa: E402
 from procedures.preflight import preflight  # noqa: E402
+from procedures.recorder import Recorder  # noqa: E402
 from procedures.safety import SafetyViolation  # noqa: E402
 from procedures.state import StateStore  # noqa: E402
 from procedures.telemetry import Telemetry  # noqa: E402
+from routes import trajectory  # noqa: E402
 
 LAYOUT, RUNS, REFS = positions.PATH, positions.RUNS, positions.REFS
 load_layout, save_layout = positions.load, positions.save
@@ -690,6 +690,42 @@ def cmd_run(args):
         tele.close()
 
 
+def cmd_goto(args):
+    """Move to a position's hover: a taught route if there is one, else lift / travel at routes.safe_z_mm / lower."""
+    layout = load_layout()
+    tele = Telemetry(os.path.join(RUNS, "teach"))
+    robot, st = connect_robot_readonly(layout, tele.log)
+    if st.drag:
+        sys.exit("drag mode is on; turn it off first")
+    if not st.enabled and not robot.enable():
+        sys.exit("robot could not be enabled")
+    store = StateStore(os.path.join(RUNS, "teach", "state_goto.json"))
+    cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", os.path.join(RUNS, "teach"), REFS)
+    try:
+        cyc.move_to(args.name)
+    except (StopSafe, SafetyViolation) as e:
+        tele.log("stop", "safe", str(e))
+        return 2
+    finally:
+        robot.disconnect()
+        tele.close()
+    return 0
+
+
+def cmd_occupancy(args):
+    """Per slot: reference counts, leave-one-out self-test, whether the detector may block a move."""
+    from perception.occupancy import Occupancy
+    cfg = load_layout()["vision"].get("slot_check", {})
+    rows = Occupancy(REFS, cfg.get("min_refs", 5), cfg.get("min_match", 0.75)).report()
+    if not rows:
+        print("no slot references yet (they are collected by the running cell)")
+        return 0
+    print(f"{'slot':6s} {'empty':>5s} {'occupied':>8s} {'tested':>6s} {'wrong':>5s} {'min_gap':>8s}  ready")
+    for r in rows:
+        print(f"{r['slot']:6s} {r['empty']:5d} {r['occupied']:8d} {r['tested']:6d} {r['wrong']:5d} {r['min_gap']:8.3f}  {r['ready']}")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -746,6 +782,9 @@ def main():
     p.add_argument("--record-fps", type=float, default=0.5)
     p.add_argument("--record-max-gb", type=float, default=8.0, help="video ring buffer per run")
     p.set_defaults(fn=cmd_run)
+    p = sub.add_parser("goto", help="move to a position's hover (taught route, or lift/travel/lower at routes.safe_z_mm)")
+    p.add_argument("name"); p.set_defaults(fn=cmd_goto)
+    sub.add_parser("occupancy", help="slot occupancy detector: references, self-test, ready").set_defaults(fn=cmd_occupancy)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
     p.add_argument("run_dir"); p.add_argument("--fps", type=float, default=2.0)
     p.set_defaults(fn=cmd_to_mp4)

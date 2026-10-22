@@ -46,6 +46,13 @@ class Gates:
             raise StopSafe(f"disk nearly full ({free_gb:.1f} GB free)")
 
     # ------------------------------------------------------------ vision gates
+    def _enforce(self, cfg: dict, trained: bool) -> bool:
+        """Whether a gate may block a move: its config says true or false, or "auto": once it is trained."""
+        if self.commission["no_gates"]:
+            return False
+        mode = cfg.get("enforce", "auto")
+        return trained if mode == "auto" else bool(mode)
+
     def _frame(self, cam: str, led: Optional[int] = None) -> Optional[bytes]:
         # 1280x720: the camera's 1080p mode is a different sensor crop, and all gate references are 720p.
         # The front camera is lit by its own LED so day and night frames match (vision.front_led).
@@ -103,8 +110,8 @@ class Gates:
     def _seated_front(self, step: str, gate: str):
         """Seated check from the front camera at the release moment, fingers open, before lifting.
         Uses the bottom band of the frame, where the plate's top edge and the holder sit. The first
-        `seated_front.auto_refs` releases at each gate become its references; until then, and while gates are
-        off, the verdict is only logged (shadow mode)."""
+        `seated_front.auto_refs` releases at each gate become its references; until then the verdict is only
+        logged. Blocks once trained (seated_front.enforce "auto"), or as the config says."""
         img = self._frame(self.front_cam)
         self.tele.image(f"{step}_released_front", img)
         self.tele.image(f"{step}_released_down", self._frame(self.down_cam))
@@ -120,7 +127,7 @@ class Gates:
             return
         v = self.lower.verdict(name, gate, img, roi=roi)
         self._observe(f"seated_front:{gate}", v.best)
-        enforce = cfg.get("enforce", False) and not self.commission["no_gates"]
+        enforce = self._enforce(cfg, trained=True)        # trained: the references above are complete
         self.tele.log("vision", f"{step} seated_front", v.reason, score=round(v.best, 3), thr=round(v.threshold, 3),
                       safe=v.safe, gate=gate, enforce=enforce)
         if enforce and not v.safe:
@@ -139,6 +146,9 @@ class Gates:
             return None
         sv = self.slots.verdict(slot, img)
         other = "occupied" if expect == "empty" else "empty"
+        self.tele.log("vision", f"{step} slot_view", sv.reason, decision=sv.decision, confidence=round(sv.confidence, 3),
+                      score_empty=round(sv.score_empty, 3), score_occupied=round(sv.score_occupied, 3),
+                      ready=self.slots.ready(slot))
         n, cap = self.slots.count(slot, expect), self.slot_cfg.get("auto_refs", 24)
         spaced = n < self.slots.min_refs or self.slots.newest_age_s(slot, expect) >= self.slot_cfg.get("spacing_s", 1800)
         if n < cap and spaced and sv.decision != other:

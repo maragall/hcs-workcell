@@ -49,15 +49,15 @@
         1.0
       ],
       "auto_refs": 12,
-      "enforce": false,
-      "_note": "front camera at release, bottom band; shadow mode until the verdict statistics are reviewed"
+      "enforce": "auto",
+      "_note": "front camera at release, bottom band. auto: blocks once auto_refs references are collected; true/false override"
     },
     "slot_check": {
       "min_refs": 5,
       "auto_refs": 24,
       "spacing_s": 1800,
       "min_match": 0.75,
-      "enforce_pick": false,
+      "enforce": "auto",
       "_note": "references are collected live by the cell (place approach = empty, pick approach = occupied); 24 at 30 min spacing cover a day's lighting. Delete reference_images/slot_<S> to relearn a slot"
     },
     "front_led": 100,
@@ -594,6 +594,11 @@
       "ok": "OK"
     },
     "di": null
+  },
+  "routes": {
+    "safe_z_mm": null,
+    "positions": ["microscope", "polar.pose_at_0", "polar.pose_at_90"],
+    "_note": "routes.plan: a taught trajectory <a>_to_<b> wins; otherwise lift to safe_z_mm, travel, lower. null = refuse. positions: the named places move_to knows, used to pick the taught route from wherever the arm is"
   },
   "trajectories": {
     "microscope_to_polar": {
