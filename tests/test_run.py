@@ -72,9 +72,10 @@ def test_two_microscopes_share_the_arm_and_image_while_the_other_moves():
         msgs = [e["msg"] for e in events(tmp) if e["step"] in ("arm", "scope")]
         arm = [m for m in msgs if "the arm" in m]
         assert arm == [f"{A} takes the arm", f"{A} returns the arm", f"{B} takes the arm", f"{B} returns the arm"]
-        # A images while B has the arm: that is the point of the loop
+        # A images while B has the arm: that is the point of the loop. A's acquisition starts the moment it returns
+        # the arm and is still running when B takes it (a fake plate change is quicker than the 0.2 s fake acquisition)
         done_a = next(i for i, m in enumerate(msgs) if m.startswith(f"{A}: acquisition done"))
-        assert msgs.index(f"{B} takes the arm") < done_a < msgs.index(f"{B} returns the arm")
+        assert msgs.index(f"{B} takes the arm") < done_a
         for n in (A, B):                                      # each microscope ran its own route, in its own folder
             steps = {e["step"] for e in events(tmp, n)}
             assert {f"pick:{n} lower", f"place:{n} lower", f"place:hotel:{SLOTS[n]} lower"} <= steps
