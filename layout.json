@@ -62,7 +62,12 @@
     },
     "front_led": 100,
     "_front_led_note": "front camera frames (slot view, seated check, plate in gripper) are lit by the camera LED so day and night match; validated 2026-10-19 21:15",
-    "held_plate_auto_refs": 12
+    "held_plate_auto_refs": 12,
+    "stage_check": {
+      "auto_refs": 12,
+      "enforce": "auto",
+      "_note": "down camera at the clear pose above the stage, before it rotates: the plate must look seated and nothing else in view. References collected by the cell per direction (to_0, to_90); auto: blocks once auto_refs are collected"
+    }
   },
   "gripper": {
     "open": {
@@ -417,6 +422,8 @@
       },
       "lift_mm": 25.0,
       "max_lift_mm": 30,
+      "headroom_mm": 17,
+      "_headroom_note": "30-plate hotel, 2026-10-22: 17 mm above a seated plate. preflight refuses a run while lift_mm is not below it; lift_mm 25 predates this hotel and must be re-taught from the plate height and the finger stand-off",
       "columns": [
         "A",
         "B",

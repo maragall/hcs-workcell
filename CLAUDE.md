@@ -41,7 +41,12 @@ step cheap to back out of:
    `enforce: "auto"` start blocking on their own once trained; set `enforce: false` on any gate that blocks wrongly.
 7. `python run.py --scopes microscope --slots A1 --mode supervised`: the asyncio loop on the real arm with fake imaging.
    Then two nests: `--scopes microscope,microscope_2 --fake-scopes microscope_2 --slots A1,A3`, once `microscope_2`
-   has its own fixture entry.
+   has its own fixture entry. The dead microscope always pretends for a short fixed time (`--acquisition-s`), never
+   the real acquisition time.
+8. Real imaging: build the Squid `Microscope` and `MultiPointController` where Squid runs and pass them to
+   `devices.squid.Squid(...)` (call names confirmed, see that file's docstring); `layout.json squid.<name>.base_path`.
+9. The stage camera check (`Gates._stage_clear`, references `stage/to_0` and `stage/to_90`) and the hotel headroom
+   rule (`fixtures.hotel.headroom_mm`) are new: expect preflight to refuse until the hotel lift is re-taught.
 
 Anything that fails in 1 or 2 is a refactor mistake: report it with the run folder's `events.jsonl`.
 

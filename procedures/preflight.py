@@ -23,6 +23,9 @@ def preflight(layout: dict, ref_dir: str, scopes: Iterable[str] = ("microscope",
     problems += [f"pose not taught: {name}" for name, pose in poses if not pose]
     problems += [f"grip width not measured: {g}" for g, w in layout["gripper"]["closed"].items() if not w]
     problems += [f"open width not set: {g}" for g, w in layout["gripper"]["open"].items() if not w]
+    hotel = F["hotel"]
+    if hotel.get("headroom_mm") is not None and hotel["lift_mm"] >= hotel["headroom_mm"]:
+        problems.append(f"hotel lift {hotel['lift_mm']} mm is not below the headroom {hotel['headroom_mm']} mm")
     if layout["polar"]["ext_axis"].get("zero_reading") is None:
         problems.append("polar zero reference not set")
     problems += [f"trajectory not taught: {name}" for name, t in layout["trajectories"].items() if not t]

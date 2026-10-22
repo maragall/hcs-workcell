@@ -186,6 +186,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.store.begin(f"polar:{deg}")
         clear = offset(from_pose, [0, 0, F["hover_mm"] + F["clear_mm"]])
         self._move("L", clear, "polar clear", self.safety.profile.approach)
+        self._stage_clear(f"polar:{deg}", deg)
         while True:
             try:
                 self.polar.rotate_to(deg)

@@ -135,6 +135,31 @@ class Gates:
             if not self.corr.operator_or_stop(step, "front camera: plate does not look seated", "Plate is seated correctly?"):
                 raise StopSafe("plate not seated (front camera)")
 
+    def _stage_clear(self, step: str, deg: int):
+        """Down camera at the clear pose above the stage, before it rotates: the plate seated, nothing else in view.
+        The first `stage_check.auto_refs` rotations in each direction become its references; blocks once trained
+        (stage_check.enforce "auto"), or as the config says."""
+        img = self._frame(self.down_cam)
+        self.tele.image(f"{step}_stage_clear", img)
+        if img is None:
+            return
+        cfg = self.L["vision"].get("stage_check", {})
+        name, state = "stage", f"to_{deg}"
+        n = self.lower.count(name, state)
+        if n < cfg.get("auto_refs", 12):
+            self.lower.add_reference(name, state, img)
+            self.tele.log("vision", f"{step} stage_clear", f"reference {n + 1} collected", state=state)
+            return
+        v = self.lower.verdict(name, state, img)
+        self._observe(f"stage_clear:{state}", v.best)
+        enforce = self._enforce(cfg, trained=True)
+        self.tele.log("vision", f"{step} stage_clear", v.reason, score=round(v.best, 3), thr=round(v.threshold, 3),
+                      safe=v.safe, enforce=enforce)
+        if enforce and not v.safe:
+            self._fault(step, "stage_not_clear", v.reason)
+            if not self.corr.operator_or_stop(step, "camera: stage does not look clear to rotate", "Stage is clear to rotate?"):
+                raise StopSafe(f"{step}: stage not clear to rotate (camera)")
+
     def _slot_view(self, step: str, slot: str, expect: str):
         """Front-camera view of the slot from the approach point, with the verdict of the two-class check.
         The cell labels its own references: before a place the slot is empty, before a pick it is occupied.
