@@ -45,6 +45,8 @@ class Motion:
     def _descend(self, target: List[float], label: str, allow_floor=()):
         """Lower onto a seat: approach speed until slow_zone_mm above it, contact speed for the rest."""
         prof = self.safety.profile
+        if self.ask_before_lower and not self.ask_before_lower(label):
+            raise StopSafe(f"{label}: the operator said no")
         here = self.robot.pose()
         slow = self.lim.get("slow_zone_mm", 10.0)
         if here[2] - target[2] > slow + 1.0:

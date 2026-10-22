@@ -60,7 +60,7 @@ class Gates:
         if led is None:
             led = self.front_led if cam == self.front_cam else self.led
         try:
-            return self.vision.frame(cam, 1280, 720, 85, None, led)
+            return self.frames.frame(cam, 1280, 720, 85, None, led)
         except Exception as e:
             self.tele.log("vision", "frame", f"{cam}: {e}")
             return None

@@ -127,6 +127,9 @@ class SimRobot:
             return
         self._jaw = value
 
+    def drag(self, on: bool):
+        self.faults.drag_on = bool(on)
+
     def ext_axis(self, index):
         return self._jaw if index == 0 else self._ext.get(index, 0.0)
 

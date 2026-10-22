@@ -14,8 +14,8 @@ class StopSafe(Exception):
     """Cycle cannot continue without an operator. State on disk says where the plate is."""
 
 
-def ask_with_timeout(prompt: str, timeout_s: float) -> str:
-    """Operator question that defaults to 'n' when nobody answers or stdin is not a terminal."""
+def ask_with_timeout(question: str, timeout_s: float) -> str:
+    """Operator question on the terminal; 'n' when nobody answers or stdin is not a terminal."""
     import sys
     import threading
     if not sys.stdin or not sys.stdin.isatty():
@@ -24,7 +24,7 @@ def ask_with_timeout(prompt: str, timeout_s: float) -> str:
 
     def _read():
         try:
-            answer.append(input(prompt).strip().lower())
+            answer.append(input(f"  >>> {question} [y/N]: ").strip().lower())
         except EOFError:
             answer.append("n")
 
@@ -50,6 +50,7 @@ class Corrector:
         self.led_levels = [layout["vision"]["led"], 30, 60, 90]
         self.enables_this_run = 0
         self.operator_timeout_s = layout["limits"].get("operator_timeout_s", 600)
+        self.ask = ask_with_timeout          # (question, timeout_s) -> "y" | "n"; a GUI puts the question on its page
 
     def alert(self, step: str, reason: str):
         self.tele.log("alert", step, reason)
@@ -60,7 +61,7 @@ class Corrector:
         self.alert(step, reason)
         if not self.supervised:
             raise StopSafe(reason)
-        return ask_with_timeout(f"  >>> {question} [y/N]: ", self.operator_timeout_s) == "y"
+        return self.ask(question, self.operator_timeout_s) == "y"
 
     def on_lower_blocked(self, fixture: str, attempt: int, attempts: int, verdict) -> int:
         """Returns the LED level to use for the next image, or raises StopSafe."""

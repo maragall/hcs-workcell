@@ -4,7 +4,8 @@ Robot adapter. The ONLY module that touches the vendor .NET SDK (BR.PC.BYSDK via
 Everything else talks to the `Robot` interface below, so the simulator and the real arm are
 interchangeable.  Rules from the controller quirk list are enforced here, not in the cycle:
 
-  * never toggles drag mode or robot mode (both snap the gripper)
+  * drag mode is toggled only by `drag()`, and only with the jaw closed or empty (the toggle snaps the gripper);
+    robot mode is never toggled
   * refuses to run with drag mode on
   * gripper is moved with MoveSingleExtJoint (MoveExtJoint faults the controller)
   * close slowly in steps, open fast
@@ -48,6 +49,7 @@ class Robot(Protocol):
     def move_abs_joints(self, joints: List[float]) -> None: ...
     def move_abs_joints_stepped(self, joints: List[float], max_step: float = 8.0) -> None: ...
     def jaw_to(self, value: float) -> None: ...
+    def drag(self, on: bool) -> None: ...
     def ext_axis(self, index: int) -> float: ...
     def ext_axis_to(self, index: int, value: float) -> None: ...
     def write_do(self, signal: str, value: int) -> None: ...
@@ -190,6 +192,14 @@ class VendorRobot:
 
     def jaw_to(self, value: float):
         self.ext_axis_to(self.grip_axis, value)
+
+    def drag(self, on: bool):
+        """Hand-guiding on or off, the teach_daemon sequence: toggle, let the controller settle, re-enable after.
+        The caller closes the jaw first; the toggle snaps the gripper."""
+        self._r.EnableDragModeAsync(bool(on))
+        time.sleep(1.5)
+        if not on and not self.state().enabled:
+            self.enable()
 
     def ext_axis(self, index: int) -> float:
         return float(list(self._r.GetCurExtJointAsync())[index])
