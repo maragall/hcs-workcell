@@ -38,6 +38,27 @@ def act(cell, name: str, body: dict) -> dict:
     if name == "loaded":
         cell.edit(lambda L: bench.set_loaded(L, list(body.get("slots", []))))
         return {"ok": True}
+    if name == "squid_folder":                     # typed or chosen: remember where Squid's software is
+        say = cell.set_squid_folder(str(body.get("folder", "")))
+        cell.note(say)
+        return {"ok": say.startswith("Squid software found"), "message": say}
+    if name == "browse_squid":                     # a folder picker on this PC; the program runs where Squid does
+        def pick():
+            try:
+                import tkinter
+                from tkinter import filedialog
+                root = tkinter.Tk()
+                root.withdraw()
+                root.attributes("-topmost", True)
+                folder = filedialog.askdirectory(title="Squid software folder", parent=root)
+                root.destroy()
+            except Exception as e:
+                cell.note(f"no folder picker here ({e}); type the folder instead")
+                return
+            if folder:
+                cell.note(cell.set_squid_folder(os.path.normpath(folder)))
+        threading.Thread(target=pick, daemon=True, name="browse").start()
+        return {"ok": True}
     if not cell.arm.get("ok"):
         return {"ok": False, "error": f"arm not connected: {cell.arm.get('error')}"}
     if name == "read_marker":

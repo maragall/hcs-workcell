@@ -151,7 +151,7 @@ function render(s){
   for (const b of document.querySelectorAll('[data-busy]')) b.disabled = (!!s.busy && !(b.id==='dragbtn' && s.busy==='hand-guiding')) || !a.ok;
   for (const b of document.querySelectorAll('[data-move]')) if (!a.ok || a.drag) b.disabled = true;
   // setup
-  $('devices').innerHTML = s.devices.map(d => `<tr><td>${esc(d.name)}</td><td class="${d.found==='not found'?'warn':''}">${esc(d.found)}</td><td class="${d.ok?'ok':'warn'}">${esc(d.state)}</td></tr>`).join('')
+  $('devices').innerHTML = s.devices.map(d => `<tr><td>${esc(d.name)}</td><td class="${d.found==='not found'?'warn':''}">${esc(d.found)}</td><td class="${d.ok?'ok':'warn'}">${esc(d.state)}${d.browse ? ` &nbsp; <button class="btn" onclick="post('browse_squid')" title="Choose the Squid software folder">&#128193; Browse</button>` : ''}</td></tr>`).join('')
       + `<tr><td></td><td></td><td><button class="btn" onclick="post('discover')" ${s.busy?'disabled':''}>Search again</button></td></tr>`;
   const bench = s.test.bench;
   $('scopes').textContent = bench.microscopes.length === 1 ? '1' : bench.microscopes.join(', ');

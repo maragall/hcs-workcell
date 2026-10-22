@@ -159,7 +159,7 @@ class Cell:
                 {"name": "Rotation module", "found": "through the arm", "state": self._stage_words(L), "ok": True},
                 {"name": "Microscope", "found": "simulator", "state": "pretends to image", "ok": True}]
             return
-        arm, box, squid = discover.arm(L, connected=self.arm_error is None), discover.vision_box(L), discover.squid()
+        arm, box, squid = discover.arm(L, connected=self.arm_error is None), discover.vision_box(L), discover.squid(L)
         if "ip" in arm and (arm["ip"] != L["robot"]["ip"] or arm["port"] != L["robot"]["port"]):
             self.edit(lambda L: L["robot"].update(ip=arm["ip"], port=arm["port"]))
         if "cameras" in box and box["host"] != L["vision"]["host"]:       # only a host that answered as a vision box
@@ -182,9 +182,18 @@ class Cell:
              "state": box.get("error") or f"{box['cameras']} cameras, video above"},
             {"name": "Rotation module", "found": "through the arm", "ok": a.get("ok", False),
              "state": self._stage_words(L) if a.get("ok") else "needs the arm"},
-            {"name": "Microscope", "found": squid.get("module", "not found"), "ok": "module" in squid,
+            {"name": "Microscope", "found": squid.get("folder", "not found"), "ok": "module" in squid, "browse": bool(squid.get("browse")),
              "state": squid.get("error", "software present") if "error" in squid else
              "software present; the arm pretends to image until Squid is wired in"}]
+
+    def set_squid_folder(self, folder: str) -> str:
+        """Remember where the Squid software is (the Browse button); returns a plain line saying what was found."""
+        root = discover.squid_root(folder)
+        if not root:
+            return f"{folder} has no Squid software in it (looking for control/microscope.py, here or in software/)"
+        self.edit(lambda L: L.setdefault("squid_software", {}).update(folder=folder))
+        self.discover()
+        return f"Squid software found in {root}"
 
     def connect_arm_again(self) -> None:
         try:

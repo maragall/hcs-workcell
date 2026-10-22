@@ -7,6 +7,7 @@ Squid is found when its software is importable on this PC.
 from __future__ import annotations
 
 import importlib.util
+import os
 import ipaddress
 import socket
 import subprocess
@@ -87,10 +88,28 @@ def arm(layout: dict, connected: bool = False) -> Dict[str, str]:
     return {"error": "no controller answers on ports 52525 or 56788"}
 
 
-def squid() -> Dict[str, str]:
-    """Squid's software, if this PC has it. Driving it needs the objects the Squid GUI builds (devices/squid.py)."""
+SQUID_FALLBACKS = ("C:/Users/ASUS/Desktop/Squid",)      # where this cell's PC keeps it, tried after the saved folder
+
+
+def squid_root(folder: str) -> Optional[str]:
+    """The folder that holds Squid's `control` package: `folder` itself or its `software` subfolder, or None."""
+    for base in (folder, os.path.join(folder, "software")):
+        if base and os.path.isfile(os.path.join(base, "control", "microscope.py")):
+            return os.path.normpath(base)
+    return None
+
+
+def squid(L: Optional[dict] = None) -> Dict[str, str]:
+    """Squid's software, if this PC has it: the folder saved in the positions file, then the fallbacks, then an
+    installed `control` package. Driving it needs the objects the Squid GUI builds (devices/squid.py)."""
+    saved = ((L or {}).get("squid_software") or {}).get("folder")
+    for folder in [f for f in (saved, *SQUID_FALLBACKS) if f]:
+        root = squid_root(folder)
+        if root:
+            return {"module": "control.microscope", "folder": root}
     try:
-        found = importlib.util.find_spec("control.microscope") is not None
+        if importlib.util.find_spec("control.microscope") is not None:
+            return {"module": "control.microscope", "folder": "installed"}
     except Exception:
-        found = False
-    return {"module": "control.microscope"} if found else {"error": "Squid software not installed on this PC"}
+        pass
+    return {"error": "can't find the Squid software folder", "browse": True}

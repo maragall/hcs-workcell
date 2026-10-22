@@ -151,3 +151,17 @@ def test_the_page_comes_up_before_the_arm_connects(monkeypatch):
             break
         time.sleep(0.05)
     assert order == ["serve", "connect"]
+
+
+def test_squid_is_found_in_the_saved_folder_then_the_fallback_and_else_asks_for_a_folder(tmp_path, monkeypatch):
+    from gui import discover
+    ctl = tmp_path / "software" / "control"
+    ctl.mkdir(parents=True)
+    (ctl / "microscope.py").write_text("")
+    monkeypatch.setattr(discover, "SQUID_FALLBACKS", ())
+    monkeypatch.setattr(discover.importlib.util, "find_spec", lambda name: None)
+    assert discover.squid({"squid_software": {"folder": str(tmp_path)}})["folder"] == str(tmp_path / "software")
+    out = discover.squid({})
+    assert out["error"] == "can't find the Squid software folder" and out["browse"]
+    monkeypatch.setattr(discover, "SQUID_FALLBACKS", (str(tmp_path),))
+    assert "module" in discover.squid({})
