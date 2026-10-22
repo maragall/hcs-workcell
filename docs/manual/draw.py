@@ -1,5 +1,5 @@
 """The manual's drawings, one per step. `python3 draw.py` writes every PNG into png/."""
-from matplotlib.patches import Polygon, Rectangle
+from matplotlib.patches import Rectangle
 
 from drawlib import (C_GREY, C_INK, C_MUTE, C_OK, C_POLAR, C_RED, C_SQUID, C_VISION, aruco, arrow, bench, box,
                      button, captions, circle, cross, figure, hand_glyph, hand_side, holder_side, line, mark,

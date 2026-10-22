@@ -111,7 +111,7 @@ def rows(cell) -> dict:
                        needs=(f"reference images polar@{deg}/empty:",)))
     out.append(row("marker:polar", "Rotation module, marker", "marker tab on the module, hover so the down camera sees it whole",
                    "marker seen" if P.get("aruco_reference") else "no marker yet", "ok" if P.get("aruco_reference") else "warn"))
-    for slot in (f"A1", f"A{top}", "C1", f"C{top}"):
+    for slot in ("A1", f"A{top}", "C1", f"C{top}"):
         taught = slot in h["taught"]
         extra = ", route from the rotation module" if slot == "A1" and L["trajectories"].get("polar_to_hotel") else ""
         out.append(row(f"slot:{slot}", f"Hotel {slot}", f"drag to the hotel, plate seated in {slot}",
