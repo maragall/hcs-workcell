@@ -45,7 +45,7 @@ def test_a_host_that_is_not_a_vision_box_is_not_saved(monkeypatch):
     before = cell.layout()
     monkeypatch.setattr(discover, "arm", lambda L, connected=False: {"error": "none"})
     monkeypatch.setattr(discover, "vision_box", lambda L: {"host": "10.9.9.9", "error": "10.9.9.9 answers but not as a vision box: x"})
-    monkeypatch.setattr(discover, "squid", lambda: {"error": "no"})
+    monkeypatch.setattr(discover, "squid", lambda *a: {"error": "no"})
     cell.vision_error = None
     cell.discover()
     assert cell.layout()["vision"]["host"] == before["vision"]["host"]
