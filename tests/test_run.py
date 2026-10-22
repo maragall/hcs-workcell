@@ -72,6 +72,8 @@ def test_two_microscopes_share_the_arm_and_image_while_the_other_moves():
         msgs = [e["msg"] for e in events(tmp) if e["step"] in ("arm", "scope")]
         arm = [m for m in msgs if "the arm" in m]
         assert arm == [f"{A} takes the arm", f"{A} returns the arm", f"{B} takes the arm", f"{B} returns the arm"]
+        for n in (A, B):                                      # the interlock: parked reported before the arm moves
+            assert msgs.index(f"{n}: stage parked") < msgs.index(f"{n} takes the arm")
         # A images while B has the arm: that is the point of the loop
         done_a = next(i for i, m in enumerate(msgs) if m.startswith(f"{A}: acquisition done"))
         assert msgs.index(f"{B} takes the arm") < done_a < msgs.index(f"{B} returns the arm")
@@ -92,5 +94,19 @@ def test_a_fault_in_one_task_stops_the_other_before_it_moves():
         assert isinstance(cell.fault, StopSafe) and cell.stop.is_set()
         assert cell.scopes[B].acquisitions == 0               # B was queued on the arm and never took it
         assert not any(e["msg"].startswith(B) for e in events(tmp) if e["step"] == "arm")
+    finally:
+        close(cell, tmp)
+
+
+def test_a_stage_that_never_parks_keeps_the_arm_out_and_stops():
+    cell, tmp = make_cell()
+    cell.scopes[A].stage_parked = False
+    cell.park_timeout_s = 0.05
+    try:
+        with pytest.raises(StopSafe, match=f"{A}: stage not parked .* the arm stays out"):
+            asyncio.run(cell.run(SLOTS, cycles=1))
+        assert cell.cycles[A].robot._moves == 0               # the shared arm never moved, for either microscope
+        assert not any(e["step"] == "arm" for e in events(tmp))
+        assert all(cell.scopes[n].acquisitions == 0 for n in (A, B))
     finally:
         close(cell, tmp)

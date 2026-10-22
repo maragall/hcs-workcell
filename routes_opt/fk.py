@@ -81,6 +81,13 @@ def fk_xy_from_angles(j2: float, j3: float, m: dict = None):
             m["y0"] + m["l1"] * math.sin(t1) + m["l2"] * math.sin(t12))
 
 
+def elbow_xy(joints: Sequence[float], m: dict = None):
+    """The elbow axis (end of link 1) in the robot frame."""
+    m = m or MODEL
+    t1 = math.radians(float(joints[1]) + m["a1_deg"])
+    return (m["x0"] + m["l1"] * math.cos(t1), m["y0"] + m["l1"] * math.sin(t1))
+
+
 def elbow_sign(joints: Sequence[float]) -> int:
     """+1 for the taught branch (j3 wrapped into (-180, 0)), -1 for the mirror branch (wrapped j3 in (0, 180))."""
     return 1 if -180.0 < wrap180(float(joints[2])) < 0.0 else -1

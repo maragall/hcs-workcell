@@ -24,6 +24,11 @@ Four packages plus the main loop. Each box calls only the boxes below it; `perce
 - `devices/`: one thin file per machine and a fake for each. `nova.py` is the one import for arm + vision box.
 - `routes/`: `plan.py` picks a taught trajectory or lift / travel at `routes.safe_z_mm` / lower, every leg checked;
   `Motion.move_to(position)` executes it, to the hover only. `cli.py goto NAME` drives it by hand.
+- Stage safety, two layers, no clocks. Keep-out: `regions.stage_sweep` (`keep_out: true`), the stage's travel envelope at
+  its closest approach to the arm; `Safety` refuses any target, segment or joint move whose tool point, elbow or links
+  (elbow via `routes_opt/fk`) enter it. Interlock: `run.py` homes the stage and waits for `parked()` inside the arm lock;
+  `Motion` enters a `needs_parked` region only while `parked()` is True; `acquire()` runs after the lock is released.
+  To measure on the cell (null = refused): `regions.stage_sweep.box`, `squid.<name>.park_xy_mm`, `park_tolerance_mm`.
 
 ## Hardware handoff (for the session on the cell PC, 2026-10-22)
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 import threading
 import time
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from devices.arm import Robot
 from devices.stage import PolarError, PolarStage
@@ -40,16 +40,20 @@ class Cycle(Motion, Grasp, Gates, Hotel):
     scope:       this cycle's microscope, a fixture name in the positions file
     layout_path: where learned poses and grasp widths are written back; None keeps them in memory
     stop_event:  set by another task (run.py) when the cell must stop at the next step
+    parked:      the microscope's stage-parked report; the arm enters a `needs_parked` region only while it is True.
+                 None: no microscope device to ask (cli runs, exercise), the region is entered as before
     """
 
     def __init__(self, layout: dict, robot: Robot, vision: VisionClient, tele: Telemetry, store: StateStore,
                  mode: str, run_dir: str, ref_dir: str, scope: str = "microscope",
-                 layout_path: Optional[str] = None, stop_event: Optional[threading.Event] = None):
+                 layout_path: Optional[str] = None, stop_event: Optional[threading.Event] = None,
+                 parked: Optional[Callable[[], bool]] = None):
         self.L, self.robot, self.vision, self.tele, self.store = layout, robot, vision, tele, store
         self.scope, self.run_dir, self.layout_path = scope, run_dir, layout_path
         self.stop_event = stop_event or threading.Event()
+        self.parked = parked or (lambda: True)
         self.supervised = mode == "supervised"
-        self.safety = Safety(layout, mode)
+        self.safety = Safety(layout, mode, robot.joints)
         self.plate = plates.default(layout)      # jaw widths and seat Z offset of the plate being handled
         self.checks = PreChecks(layout, self.plate.jaw_open, self.plate.jaw_closed)
         self.drift = DriftMonitor(os.path.join(run_dir, f"drift_{scope}.json"))
