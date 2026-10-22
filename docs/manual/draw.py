@@ -217,10 +217,10 @@ def fig_replay():
 
 
 # ------------------------------------------------------------------ 4 test
-def fig_test_slots():
+def fig_test():
     fig, ax = figure(9, 5.6, (0, 14), (-1.9, 7.0))
-    text(ax, 1.0, 6.5, "Does the camera see the plates?", size=12, bold=True, ha="left")
-    button(ax, 1.0, 4.8, 4.0, 0.8, "Check every slot", size=10)
+    text(ax, 1.0, 6.5, "Does the bench match your clicks?", size=12, bold=True, ha="left")
+    button(ax, 1.0, 4.8, 4.0, 0.8, "Test everything", size=10)
     mark(ax, 5.5, 5.2, 2)
     pts = matrix(ax, 10.2, 0.0, cell=0.52, gap=0.07, plates=LOADED, learned=("A1", "A3", "C2", "C4"),
                  match=("A1", "A3", "C4"), miss=("C2",), size=6)
@@ -233,84 +233,37 @@ def fig_test_slots():
         rbox(ax, 1.0, y - 0.22, 0.44, 0.44, fc=C_POLAR, ec=col or "#9aa3ae", lw=2.4 if col else 1.0, r=0.06)
         text(ax, 1.7, y, lab, size=9.5, ha="left")
     captions(ax, ("1  click the slots that really hold a plate",
-                  "2  the arm looks into each slot",
+                  "2  one button. The arm does the whole test on its own, slowly",
                   "3  a red ring: go and look at that slot"), 0.5, -0.5, dy=0.5)
-    save(fig, "4_test_slots")
+    save(fig, "4_test")
 
 
-def fig_test_marker():
-    fig, ax = figure(9, 5.4, (0, 12), (-1.6, 6.8))
-    line(ax, (0.5, 0.3), (11.5, 0.3), color=C_GREY, lw=1.5)
-    seat = holder_side(ax, 1.5, 0.3, w=3.6, h=0.7)
-    plate_side(ax, seat[0], seat[1], w=3.0)
-    aruco(ax, 2.7, seat[1] + 0.28, 0.6)
-    lens = hand_side(ax, 3.3, seat[1] + 2.6, open_w=3.6)
-    for sx in (-1, 1):
-        line(ax, lens, (3.0 + sx * 0.6, seat[1] + 0.9), color=C_RED, dashed=True, lw=1.4)
-    rbox(ax, 6.0, 3.0, 5.7, 2.5, fc="#f7f8fa", ec=C_GREY, r=0.1)
-    button(ax, 6.2, 4.5, 3.2, 0.7, "Check marker", size=9)
-    text(ax, 6.2, 3.7, "offset 0.7 mm, limit 25 mm: ok", size=8, ha="left")
-    mark(ax, 9.9, 4.85, 1)
-    mark(ax, 11.2, 3.3, 2)
-    captions(ax, ("1  pick the position, press Check marker. The arm reads the marker",
-                  "2  over the limit: teach that position again"), 0.5, -0.7, dy=0.5)
-    save(fig, "4_test_marker")
-
-
-def fig_test_path():
-    fig, ax = figure(9, 5.0, (0, 13), (-1.6, 7.0))
-    line(ax, (0.5, 0.3), (12.5, 0.3), color=C_GREY, lw=1.5)
-    box(ax, 0.9, 0.3, 2.2, 2.6, fc=C_SQUID)
-    text(ax, 2.0, 1.5, "microscope", size=9, color="white")
-    holder_side(ax, 6.5, 0.3, w=2.4, h=0.8, fc="white")
-    text(ax, 7.7, 0.0, "stage", size=9, color=C_MUTE)
-    line(ax, (0.5, 4.6), (12.5, 4.6), color=C_GREY, dashed=True, lw=1.2)
-    text(ax, 12.4, 4.9, "travel height", size=9, color=C_MUTE, ha="right")
-    arrow(ax, (2.0, 3.3), (2.0, 4.6), lw=2.4)
-    arrow(ax, (2.0, 4.6), (7.7, 4.6), lw=2.4)
-    arrow(ax, (7.7, 4.6), (7.7, 1.6), lw=2.4)
-    text(ax, 1.5, 3.95, "up", size=10, color=C_RED, ha="right")
-    text(ax, 4.85, 5.0, "across", size=10, color=C_RED)
-    text(ax, 8.2, 3.1, "down", size=10, color=C_RED, ha="left")
-    button(ax, 0.9, 5.6, 3.4, 0.8, "Show the path", size=10)
-    button(ax, 4.6, 5.6, 2.8, 0.8, "Go, slowly", size=10)
-    mark(ax, 7.9, 6.0, 1)
-    captions(ax, ("1  pick from and to, press Show the path, then Go, slowly",), 0.5, -0.7)
-    save(fig, "4_test_path")
-
-
-def fig_exercise():
-    fig, ax = figure(9, 7.6, (0, 12), (-2.7, 8.2))
+def fig_test_run():
+    fig, ax = figure(9, 8.4, (0, 12), (-4.2, 7.9))
     pts = bench(ax, scopes=1, hotel_plates=LOADED)
-    mark(ax, 8.6, 4.0, 1)
-    mark(ax, 4.5, 5.2, 2)
-    arrow(ax, (7.0, 4.9), (5.2, 5.3), rad=0.5, lw=1.4, color=C_INK)
+    stage, scope = pts["stage"], pts["microscope"]
+    mark(ax, 8.6, 4.6, 1)                                                          # every slot
+    mark(ax, scope[0] - 0.9, scope[1] - 0.6, 2)                                    # marker at the microscope
+    mark(ax, stage[0] - 0.55, stage[1] + 0.65, 2)                                  # marker at the stage
+    arrow(ax, (3.0, scope[1]), (stage[0] - 1.2, stage[1] + 0.2), rad=-0.2, lw=2.0, both=True)
+    mark(ax, 4.3, 5.4, 3)                                                          # the path
+    arrow(ax, (stage[0] + 1.3, stage[1] + 0.6), (stage[0] + 0.6, stage[1] + 1.25), rad=0.35, lw=1.4,
+          color=C_INK)
+    mark(ax, stage[0] + 1.8, stage[1] + 1.3, 4)                                    # turns the stage
     cx, cy = pts["A3"]
     cross(ax, cx, cy, r=0.22, lw=2.0)
     arrow(ax, (cx - 0.5, cy), (pts["B3"][0] - 0.3, pts["B3"][1] + 0.5), rad=-0.3, lw=1.4)
-    mark(ax, 8.6, cy, 3)
-    mark(ax, 6.0, 7.1, 4)
-    button(ax, 0.6, 7.5, 2.4, 0.7, "Exercise", size=10)
-    captions(ax, ("1  looks into every slot", "2  turns the stage",
-                  "3  orders a plate into a full slot on purpose, backs out, uses another slot",
-                  "4  then runs all plates. On the simulator first, then on the arm"), 0.5, -0.9)
-    save(fig, "4_exercise")
-
-
-def fig_every_plate():
-    fig, ax = figure(9, 7.6, (0, 12), (-2.7, 8.2))
-    pts = bench(ax, scopes=1, hotel_plates=LOADED)
-    arrow(ax, (8.9, pts["A1"][1] + 0.1), (6.9, 3.9), rad=0.25, lw=2.0, both=True)
-    arrow(ax, (5.1, 4.5), (3.0, pts["microscope"][1]), rad=0.2, lw=2.0, both=True)
-    mark(ax, 8.4, 1.3, 1)
-    mark(ax, 4.2, 5.4, 2)
-    mark(ax, 6.0, 7.1, 3)
-    rbox(ax, 0.6, -1.6, 10.8, 1.0, fc="#f7f8fa", ec=C_GREY, r=0.08)
-    text(ax, 0.9, -1.1, "A1   C2   A3   C4   A5   C6   A7   C8   A9   C10", size=11, ha="left")
-    captions(ax, ("1  one plate out of the hotel, over the stage, into the microscope holder",
-                  "2  back out, over the stage, into its own slot. Then the next plate",
-                  "3  the order: A1, C2, A3, ... columns alternate so the arm swings less"), 0.5, -2.0, dy=0.36)
-    save(fig, "4_every_plate")
+    mark(ax, 8.55, cy + 0.65, 5)                                                   # taken slot
+    arrow(ax, (8.9, pts["A1"][1] + 0.1), (stage[0] + 1.0, stage[1] - 0.2), rad=0.3, lw=2.0, both=True)
+    mark(ax, 8.6, 1.0, 6)                                                          # every plate
+    captions(ax, ("1  looks into every slot and compares with your clicks",
+                  "2  reads the marker at every taught position",
+                  "3  drives the path slowly between the microscope and the stage",
+                  "4  turns the stage, camera check first",
+                  "5  orders a plate into a taken slot on purpose, backs out, uses another slot",
+                  "6  takes every plate to the microscope and back, in turn: A1, C2, A3, ..."),
+             0.5, -0.6, dy=0.55)
+    save(fig, "4_test_run")
 
 
 # ------------------------------------------------------------------ 5 run
@@ -396,7 +349,7 @@ def fig_cause_drift():
 
 
 FIGURES = (fig_cables, fig_cameras, fig_marker_tab, fig_connect, fig_hotel_size, fig_teach_bench, fig_hover, fig_grip,
-           fig_travel, fig_replay, fig_test_slots, fig_test_marker, fig_test_path, fig_exercise, fig_every_plate, fig_run,
+           fig_travel, fig_replay, fig_test, fig_test_run, fig_run,
            fig_fault, fig_cause_slot, fig_cause_seat, fig_cause_drift)
 
 
