@@ -24,28 +24,28 @@ LEAD = 21
 STEPS = (
     ("0", "Cables",
      ["Plug in the three cables.", "Switch the arm on. Key at Auto."], "0_cables", "full"),
-    ("1", "Cameras",
-     ["Screw the marker tab from the kit onto the practice plate."], "1_marker_tab", "half"),
-    ("1.1", "Does it read the marker?",
+    ("1", "Setup",
+     ["Open the setup program. Setup, Cameras, Teach and Test live in it; run is the other program.",
+      "It finds the arm and the vision box by itself. Nothing to type. Every row green: go on."], "1_connect", "half"),
+    ("1.1", "The hotel",
+     ["Press the hotel you have: 15 slots or 30 slots."], "1_hotel_size", "half"),
+    ("2", "Cameras",
+     ["Screw the marker tab from the kit onto the practice plate."], "2_marker_tab", "half"),
+    ("2.1", "Does it read the marker?",
      ["Put the practice plate with the marker under the camera. The screen says it reads the marker.",
-      "If not: clean the lens, or move the plate closer."], "1_reads_marker", "half"),
-    ("1.2", "Capture plate",
+      "If not: clean the lens, or move the plate closer."], "2_reads_marker", "half"),
+    ("2.2", "Capture plate",
      ["Put the dotted calibration plate from the kit on the bench. Drag the arm so the plate fills the frame on screen. Press Capture plate.",
       "The arm moves around it by itself. Then a number and ok, or redo."],
-     "1_capture_plate", "half"),
-    ("1.3", "Capture hand",
+     "2_capture_plate", "half"),
+    ("2.3", "Capture hand",
      ["Keep the plate still. Press Capture hand: the same again, for how the camera sits on the hand."],
-     "1_capture_hand", "half"),
-    ("1.4", "Upload, Check",
-     ["Press Upload: the box restarts. Then press Check: a number and ok."], "1_upload_check", "half"),
-    ("1.5", "Add, Add, Link",
+     "2_capture_hand", "half"),
+    ("2.4", "Upload, Check",
+     ["Press Upload: the box restarts. Then press Check: a number and ok."], "2_upload_check", "half"),
+    ("2.5", "Add, Add, Link",
      ["Grip the practice plate with the marker, put it down flat, press Add. Open the fingers, hover a hand's width above it, press Add. Press Link.",
-      "Once with the short edges in the fingers, once with the long edges."], "1_add_link", "half"),
-    ("2", "Setup",
-     ["Open the setup program. Cameras, Setup, Teach and Test live in it; run is the other program.",
-      "It finds the arm and the vision box by itself. Nothing to type. Every row green: go on."], "2_connect", "half"),
-    ("2.1", "The hotel",
-     ["Press the hotel you have: 15 slots or 30 slots."], "2_hotel_size", "half"),
+      "Once with the short edges in the fingers, once with the long edges."], "2_add_link", "half"),
     ("3", "Teach",
      ["One list. Put the practice plate where the row says, hover the hand over it so the marker is in view, press Record.",
       "Go down the list. The way you drag the arm between two Records is the route it will use."],
@@ -78,7 +78,7 @@ STEPS = (
      ["Something was bumped. Teach: find that row, Record again. Then Start."], "6_cause_drift", "half"),
 )
 
-CONTENTS = (("0", "Cables"), ("1", "Cameras"), ("2", "Setup"), ("3", "Teach"), ("4", "Test"),
+CONTENTS = (("0", "Cables"), ("1", "Setup"), ("2", "Cameras"), ("3", "Teach"), ("4", "Test"),
             ("5", "Run"), ("6", "If something stops"))
 
 
@@ -151,7 +151,7 @@ def cover(c):
     c.drawString(MARGIN, H - 225, "Setting up the cell and running it")
     c.setFont("Helvetica", 13)
     c.setFillColor(MUTE)
-    c.drawString(MARGIN, H - 262, "Two programs. setup: Cameras, Setup, Teach, Test. run: Start, STOP.")
+    c.drawString(MARGIN, H - 262, "Two programs. setup: Setup, Cameras, Teach, Test. run: Start, STOP.")
     y = H - 330
     for num, title in CONTENTS:
         c.setFillColor(DARK)

@@ -42,7 +42,7 @@ def fig_cables():
     save(fig, "0_cables")
 
 
-# ------------------------------------------------------------------ 1 cameras
+# ------------------------------------------------------------------ 2 cameras
 def dotted_plate_top(ax, x, y, w=3.0, h=2.2, n=5, z=5):
     """The calibration plate from the kit, from above: a plate with a grid of dots."""
     rbox(ax, x, y, w, h, fc="white", ec=C_INK, r=0.08, z=z)
@@ -81,7 +81,7 @@ def fig_reads_marker():
     captions(ax, ("1  the practice plate with the marker under the down camera",
                   "2  the screen says it reads the marker",
                   "3  not read: clean the lens, or move the plate closer"), 0.5, -0.5, dy=0.5)
-    save(fig, "1_reads_marker")
+    save(fig, "2_reads_marker")
 
 
 def fig_capture_plate():
@@ -103,7 +103,7 @@ def fig_capture_plate():
                   "2  drag the arm until the plate fills the frame on screen",
                   "3  press Capture plate. The arm moves around it by itself; then a number and ok, or redo"),
              0.5, -0.5, dy=0.5)
-    save(fig, "1_capture_plate")
+    save(fig, "2_capture_plate")
 
 
 def fig_capture_hand():
@@ -121,7 +121,7 @@ def fig_capture_hand():
     result_line(ax, 8.0, 2.4, "0.3   ok", size=9)
     captions(ax, ("1  keep the plate where it is, do not move it",
                   "2  press Capture hand. The arm moves again; then a number and ok, or redo"), 0.5, -0.5, dy=0.5)
-    save(fig, "1_capture_hand")
+    save(fig, "2_capture_hand")
 
 
 def fig_upload_check():
@@ -138,7 +138,7 @@ def fig_upload_check():
     result_line(ax, 8.4, 0.6, "0.1   ok", size=9)
     captions(ax, ("1  press Upload, wait for the box to come back", "2  press Check: a number and ok"),
              0.5, -0.5, dy=0.5)
-    save(fig, "1_upload_check")
+    save(fig, "2_upload_check")
 
 
 def fig_add_link():
@@ -165,7 +165,7 @@ def fig_add_link():
     mark(ax, sx + 8.5, -0.9, 2, r=0.7, size=11)
     button(ax, 13.0, -4.6, 4.0, 1.4, "Link", size=9)
     mark(ax, 18.0, -3.9, 3, r=0.7, size=11)
-    save(fig, "1_add_link")
+    save(fig, "2_add_link")
 
 
 def fig_marker_tab():
@@ -183,10 +183,10 @@ def fig_marker_tab():
     arrow(ax, (11.2, 4.6), (9.4, 4.6), lw=2.0)
     mark(ax, 1.8, 9.9, 1)
     captions(ax, ("1  screw the tab onto the practice plate. The box reads the marker",), 0.5, -1.2)
-    save(fig, "1_marker_tab")
+    save(fig, "2_marker_tab")
 
 
-# ------------------------------------------------------------------ 2 connect
+# ------------------------------------------------------------------ 1 setup
 def fig_connect():
     fig, ax = figure(9, 5.0, (0, 12), (-1.9, 5.4))
     rbox(ax, 0.6, 0.2, 10.8, 4.9, fc="white", ec=C_GREY, r=0.2)
@@ -201,10 +201,10 @@ def fig_connect():
             button(ax, 8.2, y - 0.34, 2.7, 0.68, "Search again", size=9)
             mark(ax, 11.15, y + 0.42, 1)
     captions(ax, ("1  a row not green: power, key at Auto, that device's cable, then Search again",), 0.5, -0.6)
-    save(fig, "2_connect")
+    save(fig, "1_connect")
 
 
-# ------------------------------------------------------------------ 2 setup: the hotel
+# ------------------------------------------------------------------ 1 setup: the hotel
 def fig_hotel_size():
     fig, ax = figure(9, 6.8, (0, 12), (-1.9, 7.6))
     button(ax, 0.8, 6.3, 2.3, 0.7, "15 slots", size=10)
@@ -217,7 +217,7 @@ def fig_hotel_size():
     text(ax, 7.7, -0.1, "30 slots", size=10, color=C_MUTE, ha="left")
     text(ax, 6.0, -0.7, "row 10 is the top shelf, row 1 the bottom", size=10, color=C_MUTE)
     captions(ax, ("1  press the hotel you have: 15 slots (every other shelf) or 30 slots",), 0.5, -1.3)
-    save(fig, "2_hotel_size")
+    save(fig, "1_hotel_size")
 
 
 # ------------------------------------------------------------------ 3 teach
