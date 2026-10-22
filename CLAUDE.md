@@ -22,6 +22,29 @@ Four packages plus the main loop. Each box calls only the boxes below it; `perce
 - `routes/`: `plan.py` picks a taught trajectory or lift / travel at `routes.safe_z_mm` / lower, every leg checked;
   `Motion.move_to(position)` executes it, to the hover only. `cli.py goto NAME` drives it by hand.
 
+## Hardware handoff (for the session on the cell PC, 2026-10-22)
+
+The refactor and the new checks were built and tested offline on the fakes only. On the cell, in this order, each
+step cheap to back out of:
+
+1. `python cli.py status`, then `python cli.py preflight`: the moved imports and the vendor SDK load on Windows.
+2. `python cli.py run --mode supervised --slot A1 --cycles 1`: the one-microscope cycle through the new packages.
+   If this passes, the refactor broke nothing.
+3. Measure and write into `layout.json`: `plate.height`, the finger stand-off above a gripped plate, and from those
+   the hotel lift for the 30-plate hotel (17 mm headroom; today's `fixtures.hotel.lift_mm` 25 is wrong for it).
+   Re-teach the hotel rows; every row is live now, not only the odd ones.
+4. Measure `routes.safe_z_mm` (a height that clears the hotel, the stage and the holder) and try `python cli.py goto`
+   between two taught positions.
+5. Import `lua/data_plate.lua` into the BioyondWorks project, teach the four `PLATE_*` values, run one pick and place
+   through the controller job path with SYSINVAR8 = 0.
+6. Let the cell collect its references over a day of supervised runs, then `python cli.py occupancy`. The gates with
+   `enforce: "auto"` start blocking on their own once trained; set `enforce: false` on any gate that blocks wrongly.
+7. `python run.py --scopes microscope --slots A1 --mode supervised`: the asyncio loop on the real arm with fake imaging.
+   Then two nests: `--scopes microscope,microscope_2 --fake-scopes microscope_2 --slots A1,A3`, once `microscope_2`
+   has its own fixture entry.
+
+Anything that fails in 1 or 2 is a refactor mistake: report it with the run folder's `events.jsonl`.
+
 ## Rules that hold
 
 - Never run anything against the real arm or the vision box from a session; the fakes exist for that.
