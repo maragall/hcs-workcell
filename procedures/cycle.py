@@ -253,6 +253,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
 
     def _check_resumable(self, slot: str, resume: bool = False):
         s, scope = self.store.s, self.scope
+        self.hotel_slot_pose(slot)                   # a ledger from another hotel layout may name a slot this one lacks
         if resume and not s.step_done and s.plate_at == "gripper" and s.step.startswith("place:"):
             return                                   # a carry was interrupted on a route; continue that step
         if resume and not s.step_done and s.grip == "none" and s.step.startswith("pick:"):

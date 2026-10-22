@@ -257,6 +257,19 @@ def test_resume_refuses_to_restart_a_pick_while_the_jaw_is_closed():
         r.close()
 
 
+def test_ledger_naming_a_slot_the_hotel_does_not_have_is_refused():
+    """A state file from another hotel layout: plate_at hotel:A11 on a 10-row hotel. Nothing may move until an
+    operator says where that plate really is."""
+    r = Rig()
+    r.store.s.plate_at = "hotel:A11"
+    r.store.save()
+    try:
+        r.expect_stop("does not exist")
+        assert r.robot._moves == 0
+    finally:
+        r.close()
+
+
 def test_resume_refuses_moved_arm():
     r = Rig()
     r.store.s.last_safe_pose = [300.0, 0.0, 300.0, 0, 0, 0]
