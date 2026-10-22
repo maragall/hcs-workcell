@@ -21,11 +21,11 @@ class Motion:
 
     # -------------------------------------------------------------- primitives
     def _wait_still(self, label: str):
-        t0 = time.time()
+        t0 = self.clock.time()
         while self.robot.state().moving:
-            if time.time() - t0 > self.lim["step_timeout_s"]:
+            if self.clock.time() - t0 > self.lim["step_timeout_s"]:
                 raise StopSafe(f"{label}: still moving after {self.lim['step_timeout_s']} s")
-            time.sleep(0.05)
+            self.clock.sleep(0.05)
 
     def _settle(self, label: str, target_xyz: List[float]) -> float:
         self._wait_still(label)
@@ -91,7 +91,7 @@ class Motion:
         """A move that did not reach its target. Ask the controller why before naming the fault: on 2026-10-20 22:25 a
         wrist collision (3873) surfaced only as 'abs joint move did not reach', the supervisor read that as
         recoverable and would have relaunched into a cell with the plate somewhere unknown."""
-        errs = self._controller_errors()
+        errs = self.robot.errors()
         if errs:
             self._fault(label, "controller_error", f"{errs} after: {e}")
             self.corr.alert("collision" if "3873" in str(errs) else "controller", f"{label}: {errs}")
@@ -153,26 +153,6 @@ class Motion:
         """The pose the jaw acts at: taught seat + vision correction + the plate type's grab height
         (the vendor template adds VAR7 to the seat Z the same way)."""
         return offset(offset(pose, corr), [0.0, 0.0, self.plate.grab_height_mm])
-
-    def _controller_errors(self):
-        """Controller error list over the documented protocol; empty when unreachable (the SDK path still guards)."""
-        try:
-            import json as _json
-            import socket as _socket
-            s = _socket.create_connection((self.L["robot"]["ip"], 56788), timeout=3)
-            s.settimeout(3)
-            s.sendall((_json.dumps({"BRCAPI": "1.0", "cmd": "getRobotErr", "id": 7}) + chr(10)).encode())
-            buf = b""
-            while not buf.endswith(b"\n"):
-                c = s.recv(65536)
-                if not c:
-                    break
-                buf += c
-            s.close()
-            ret = _json.loads(buf).get("ret") or []
-            return [e for e in ret if e.get("errCode") is not None]
-        except Exception:
-            return []
 
     # ------------------------------------------------------------- go somewhere
     def _position(self, name: str) -> List[float]:

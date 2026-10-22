@@ -26,7 +26,7 @@ class Grasp:
         want = (fixture or {}).get("open_width", {}).get(grip) or self.plate.jaw_open[grip]
         self._jaw(want, "jaw open")
         self._wait_still("jaw open")
-        time.sleep(0.5)
+        self.clock.sleep(0.5)
         jaw = self.robot.jaw()
         self.tele.log("jaw", "open", jaw=round(jaw, 2), grip=grip)
         if jaw < want - 1.0:
@@ -51,7 +51,7 @@ class Grasp:
         except MotionRefused as e:
             stall = str(e)
         self._wait_still("jaw close")
-        time.sleep(0.5)
+        self.clock.sleep(0.5)
         jaw = self.robot.jaw()
         self.tele.log("jaw", "close", "stalled" if stall else "", jaw=round(jaw, 2), start=round(start, 2), grip=grip,
                       stall=stall)

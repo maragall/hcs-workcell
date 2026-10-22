@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
-from rig import GATES, SAFE, FakeVision, jpeg, layout  # noqa: E402
+from rig import GATES, SAFE, FakeClock, FakeVision, jpeg, layout  # noqa: E402
 
 import run  # noqa: E402
 from devices.fake_arm import SimFaults, SimRobot  # noqa: E402
@@ -47,7 +47,7 @@ def make_cell(acquisition_s=0.2):
             robot.joint_pose_map[tuple(round(v, 3) for v in j[:4])] = pose
     scopes = {n: FakeSquid(n, acquisition_s, tele.log) for n in (A, B)}
     cell = run.Workcell(L, robot, FakeVision(), scopes, tele, "unsupervised", os.path.join(tmp, "run"), ref_dir, tmp,
-                        poll_s=0.01)
+                        poll_s=0.01, clock=FakeClock())
     return cell, tmp
 
 
@@ -72,12 +72,45 @@ def test_two_microscopes_share_the_arm_and_image_while_the_other_moves():
         msgs = [e["msg"] for e in events(tmp) if e["step"] in ("arm", "scope")]
         arm = [m for m in msgs if "the arm" in m]
         assert arm == [f"{A} takes the arm", f"{A} returns the arm", f"{B} takes the arm", f"{B} returns the arm"]
-        # A images while B has the arm: that is the point of the loop
+        # A images while B has the arm: that is the point of the loop. A's acquisition starts the moment it returns
+        # the arm and is still running when B takes it (a fake plate change is quicker than the 0.2 s fake acquisition)
         done_a = next(i for i, m in enumerate(msgs) if m.startswith(f"{A}: acquisition done"))
-        assert msgs.index(f"{B} takes the arm") < done_a < msgs.index(f"{B} returns the arm")
+        assert msgs.index(f"{B} takes the arm") < done_a
         for n in (A, B):                                      # each microscope ran its own route, in its own folder
             steps = {e["step"] for e in events(tmp, n)}
             assert {f"pick:{n} lower", f"place:{n} lower", f"place:hotel:{SLOTS[n]} lower"} <= steps
+    finally:
+        close(cell, tmp)
+
+
+def reopen(cell, tmp):
+    """A second Workcell on the same robot, ledgers and run folder: what `run.py --resume` builds."""
+    a = cell.cycles[A]
+    cell.close()
+    return run.Workcell(a.L, a.robot, a.vision, cell.scopes, cell.tele, "unsupervised", os.path.join(tmp, "run"),
+                        a.lower.ref_root, tmp, poll_s=0.01)
+
+
+def test_resume_gives_the_arm_first_to_the_microscope_whose_plate_is_in_the_gripper():
+    """The run stopped while B carried its plate to the hotel. A's ledger is clean and A is first in the list, so A
+    would take the arm with B's plate between the fingers: at best a stop telling the operator to jog the loaded arm
+    back to A's hover, at worst A's pick opening the jaw there. The unfinished microscope must go first."""
+    cell, tmp = make_cell()
+    try:
+        asyncio.run(cell.run(SLOTS, cycles=1))
+        b, robot = cell.cycles[B], cell.cycles[B].robot
+        b.store.begin(f"place:hotel:{SLOTS[B]}")                  # B stopped at the approach point, plate in hand
+        b.store.s.plate_at, b.store.s.grip, b.store.s.polar_angle = "gripper", "long_edges", 90
+        b.store.save()
+        robot.set_pose_for_test(b._hotel_geometry(SLOTS[B])[1])
+        robot._jaw = 2.92
+        ax = b.L["polar"]["ext_axis"]
+        robot._ext[1] = ax["zero_reading"] + ax["direction"] * 90
+        cell = reopen(cell, tmp)
+        asyncio.run(cell.run(SLOTS, cycles=1, resume=True))
+        assert cell.plates() == {A: A, B: B}
+        takes = [e["msg"] for e in events(tmp) if e["step"] == "arm" and "takes" in e["msg"]]
+        assert takes[-2:] == [f"{B} takes the arm", f"{A} takes the arm"]
     finally:
         close(cell, tmp)
 

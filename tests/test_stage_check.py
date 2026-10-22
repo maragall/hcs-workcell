@@ -31,6 +31,22 @@ def test_stage_rotation_is_blocked_by_the_camera_once_trained():
         r.close()
 
 
+def test_stage_rotation_is_blocked_when_the_trained_camera_gives_no_frame():
+    """Once a self-trained gate enforces, a camera that returns nothing is a doubt, and doubt blocks: the stage must
+    not turn on a verdict of 'no frame'."""
+    r = Rig(refs=GATES + [("stage", "to_90")])
+    r.cyc.L["vision"]["stage_check"]["auto_refs"] = 3
+    P0 = r.L["fixtures"]["polar"]["pose_at_0"]["pose"]
+    r.robot.set_pose_for_test(P0)
+    r.vis.frame_error = OSError("camera gone")
+    try:
+        with pytest.raises(StopSafe, match="no frame"):
+            r.cyc._polar_rotate(90, P0)
+        assert r.robot._ext.get(1) == r.L["polar"]["ext_axis"]["zero_reading"]   # the stage did not turn
+    finally:
+        r.close()
+
+
 def test_stage_rotation_collects_references_while_untrained():
     r = Rig()
     P0 = r.L["fixtures"]["polar"]["pose_at_0"]["pose"]

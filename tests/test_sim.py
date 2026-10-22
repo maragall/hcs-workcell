@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from rig import BAD, GATES, SAFE, FakeVision, jpeg, layout  # noqa: E402
+from rig import BAD, GATES, SAFE, FakeClock, FakeVision, jpeg, layout  # noqa: E402
 
 from devices.fake_arm import SimFaults, SimRobot  # noqa: E402
 from devices.vision_box import VisionError  # noqa: E402
@@ -44,7 +44,9 @@ class Rig:
             for j, pose in zip(wp["joints"], wp["poses"]):
                 self.robot.joint_pose_map[tuple(round(v, 3) for v in j[:4])] = pose
         self.vis = FakeVision()
-        self.cyc = Cycle(self.L, self.robot, self.vis, self.tele, self.store, mode, os.path.join(self.tmp, "run"), ref_dir)
+        self.clock = FakeClock()
+        self.cyc = Cycle(self.L, self.robot, self.vis, self.tele, self.store, mode, os.path.join(self.tmp, "run"), ref_dir,
+                         clock=self.clock)
 
     def run(self, slot="A1", cycles=1):
         return self.cyc.run(slot, cycles)
@@ -187,6 +189,17 @@ def test_vision_box_down_stops():
     r = Rig()
     r.vis.status_error = OSError("unreachable")
     r.expect_stop("vision box unreachable")
+    retries = [e for e in r.events() if e["step"] == "vision" and e["msg"].startswith("unreachable")]
+    assert len(retries) == r.L["limits"]["vision_retry_s"] // 10 + 1       # every 10 s for the whole retry window
+    assert r.clock.slept >= r.L["limits"]["vision_retry_s"]
+    r.close()
+
+
+def test_controller_error_stops_before_any_move():
+    r = Rig(SimFaults(controller_errors=[{"errCode": 3873, "errMsg": "wrist collision"}]))
+    r.expect_stop("controller error")
+    assert r.robot._moves == 0
+    assert os.path.exists(os.path.join(r.tmp, "run", "ALERT.txt"))
     r.close()
 
 
@@ -237,6 +250,55 @@ def test_resume_refuses_unknown_plate_location():
     r.expect_stop("no automatic resume")
     assert r.robot._moves == 0
     r.close()
+
+
+def test_resume_refuses_to_restart_a_pick_while_the_jaw_is_closed():
+    """Power lost after the fingers closed on the plate but before the ledger said so: grip is still 'none' and the
+    rule 'a pick interrupted before the grasp restarts' would open the jaw at the hover, dropping the plate."""
+    import pytest
+    r = Rig()
+    seat = list(r.L["fixtures"]["microscope"]["pose"])
+    r.robot.set_pose_for_test(seat)
+    r.robot._jaw = 2.92                                 # closed on the plate
+    r.store.s.last_safe_pose = seat
+    r.store.begin("pick:microscope")
+    try:
+        with pytest.raises(StopSafe, match="jaw"):
+            r.cyc.run("A1", 1, resume=True)
+        assert r.robot._moves == 0 and r.robot._jaw == 2.92
+    finally:
+        r.close()
+
+
+def test_ledger_naming_a_slot_the_hotel_does_not_have_is_refused():
+    """A state file from another hotel layout: plate_at hotel:A11 on a 10-row hotel. Nothing may move until an
+    operator says where that plate really is."""
+    r = Rig()
+    r.store.s.plate_at = "hotel:A11"
+    r.store.save()
+    try:
+        r.expect_stop("does not exist")
+        assert r.robot._moves == 0
+    finally:
+        r.close()
+
+
+def test_hotel_place_stops_when_nothing_can_see_the_slot():
+    """At the approach point the vision box stops answering: no front frame, no vendor live detection. Placing blind
+    into a slot is what the occupancy check exists to prevent; 'nobody looked' must not pass as 'empty'."""
+    r = Rig()
+    orig = r.cyc._hotel_go_to_approach
+
+    def arrive(slot, step):
+        orig(slot, step)
+        r.vis.frame_error = r.vis.live_error = OSError("vision box gone")
+    r.cyc._hotel_go_to_approach = arrive
+    try:
+        r.expect_stop("no view")
+        assert r.store.s.plate_at == "gripper" and not r.store.s.step_done    # the plate was never released
+        assert r.robot._jaw < 3.0
+    finally:
+        r.close()
 
 
 def test_resume_refuses_moved_arm():

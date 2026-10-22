@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import math
 import shutil
-import time
 from typing import List, Optional
 
 from devices.vision_box import VisionError
@@ -15,22 +14,22 @@ class Gates:
     """What is checked before and after a move: health, the camera gates, the barcode."""
 
     def _health(self, force: bool = False):
-        if not force and time.time() - self._last_health < self.lim["health_check_every_s"]:
+        if not force and self.clock.time() - self._last_health < self.lim["health_check_every_s"]:
             return
-        self._last_health = time.time()
+        self._last_health = self.clock.time()
         st = self.robot.state()
         vs = None
-        deadline = time.time() + self.lim.get("vision_retry_s", 300)
+        deadline = self.clock.time() + self.lim.get("vision_retry_s", 300)
         while vs is None:
             try:
                 vs = self.vision.status()
             except Exception as e:
-                if time.time() > deadline:
+                if self.clock.time() > deadline:
                     self.corr.alert("health", f"vision box unreachable for {self.lim.get('vision_retry_s', 300)} s: {e}")
                     raise StopSafe("vision box unreachable")
                 self.tele.log("health", "vision", f"unreachable, retrying: {e}")
-                time.sleep(10)
-        ctrl_err = self._controller_errors()
+                self.clock.sleep(10)
+        ctrl_err = self.robot.errors()
         if ctrl_err:
             self.corr.alert("health", f"controller error: {ctrl_err}")
             raise StopSafe(f"controller error {ctrl_err}")
@@ -89,8 +88,8 @@ class Gates:
 
     def _record(self, check: str, frame_path: str, verdict: str, step: str) -> None:
         """Opt-in (vision.hub.record): the photo, the verdict and the step, for training later."""
-        if self.hub_cfg.get("record") and frame_path:
-            hub.record(check, frame_path, verdict, step, self.hub_cfg.get("outbox", hub.OUTBOX))
+        if frame_path:
+            self._hub(hub.record, check, frame_path, verdict, step)
 
     def _learned_gate(self, step: str, name: str, state: str, cam: str, cfg: dict, fault: str, question: str,
                       roi=None) -> Optional[bool]:
@@ -99,10 +98,13 @@ class Gates:
         view looks right. Blocks (through the corrector) only when enforced: cfg.enforce "auto" = once trained."""
         img = self._frame(cam)
         path = self.tele.image(f"{step}_{name}", img)
-        if img is None:
-            return None
         n = self.lower.count(name, state)
-        if n < cfg.get("auto_refs", 12):
+        trained = n >= cfg.get("auto_refs", 12)
+        if img is None:
+            if self._enforce(cfg, trained):          # a gate that may block treats no frame as doubt, and doubt blocks
+                raise StopSafe(f"{step}: no frame from {cam} for the {name} check")
+            return None
+        if not trained:
             self.lower.add_reference(name, state, img)
             self.tele.log("vision", f"{step} {name}", f"reference {n + 1} collected", state=state)
             return None

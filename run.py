@@ -44,7 +44,7 @@ class Workcell:
 
     def __init__(self, layout: dict, robot, vision, scopes: Dict[str, object], tele: Telemetry, mode: str,
                  run_dir: str, ref_dir: str, state_dir: str, layout_path: Optional[str] = None, poll_s: float = 1.0,
-                 frame_source=None):
+                 clock=time, frame_source=None):
         missing = [s for s in scopes if s not in layout["fixtures"]]
         if missing:
             raise KeyError(f"no fixture entry in the positions file for {missing}")
@@ -61,7 +61,7 @@ class Workcell:
                 tele.log("run", "ledger", f"{name}: new ledger, plate assumed on the microscope")
             scope_dir = os.path.join(run_dir, name)
             self.cycles[name] = Cycle(layout, robot, vision, Telemetry(scope_dir), store, mode, scope_dir, ref_dir,
-                                      scope=name, layout_path=layout_path, stop_event=self.stop,
+                                      scope=name, layout_path=layout_path, stop_event=self.stop, clock=clock,
                                       frame_source=frame_source)
 
     def plates(self) -> Dict[str, str]:
@@ -107,8 +107,14 @@ class Workcell:
     async def run(self, slots: Dict[str, str], cycles: int, resume: bool = False,
                   stop_file: Optional[str] = None, order: Optional[list] = None) -> None:
         """Waits for every task, so no arm thread is left running when the caller disconnects the robot,
-        then raises the first fault. (A cancelled task cannot stop its thread; it finishes its current step.)"""
-        await asyncio.gather(*(self.run_scope(n, slots[n], cycles, resume, stop_file, order) for n in self.scopes),
+        then raises the first fault. (A cancelled task cannot stop its thread; it finishes its current step.)
+        The microscope whose ledger says its step did not finish, or whose plate is in the gripper, takes the arm
+        first: the other ledgers know nothing of what the gripper holds."""
+        def arm_is_free(name: str) -> bool:
+            s = self.cycles[name].store.s
+            return s.step_done and s.plate_at != "gripper"
+        names = sorted(self.scopes, key=arm_is_free)
+        await asyncio.gather(*(self.run_scope(n, slots[n], cycles, resume, stop_file, order) for n in names),
                              return_exceptions=True)
         if self.fault is not None:
             raise self.fault
@@ -145,7 +151,7 @@ def parser() -> argparse.ArgumentParser:
 def build(args, layout: dict, vision=None, tag: str = "", ref_dir: str = positions.REFS, state_dir: Optional[str] = None):
     """Everything a run needs from parsed args: (cell, robot, tele, slot_of). `vision` and `ref_dir` let a test
     pass a fake box and its own reference photos."""
-    names = [s for s in args.scopes.split(",") if s]
+    names = [s for s in args.scopes.split(",") if s]              # one microscope is the product; more are a flag
     fakes = {s for s in args.fake_scopes.split(",") if s}
     active = layout["fixtures"]["hotel"].get("active_slots", ["A1"])
     slots = [s for s in args.slots.split(",") if s] or active[:len(names)]

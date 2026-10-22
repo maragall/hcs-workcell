@@ -40,16 +40,18 @@ class Cycle(Motion, Grasp, Gates, Hotel):
     scope:        this cycle's microscope, a fixture name in the positions file
     layout_path:  where learned poses and grasp widths are written back; None keeps them in memory
     stop_event:   set by another task (run.py) when the cell must stop at the next step
+    clock:        time() and sleep() for every fixed wait (jaw settle, stage settle, retry pauses); the
+                  time module, or a fake the tests inject so the simulator does not wait in real seconds
     frame_source: where the checks take their camera frames; anything with vision_box's frame() signature.
                   Default: the box itself. The GUI passes its always-on frame buffer.
     """
 
     def __init__(self, layout: dict, robot: Robot, vision: VisionClient, tele: Telemetry, store: StateStore,
                  mode: str, run_dir: str, ref_dir: str, scope: str = "microscope",
-                 layout_path: Optional[str] = None, stop_event: Optional[threading.Event] = None,
+                 layout_path: Optional[str] = None, stop_event: Optional[threading.Event] = None, clock=time,
                  frame_source=None):
         self.L, self.robot, self.vision, self.tele, self.store = layout, robot, vision, tele, store
-        self.scope, self.run_dir, self.layout_path = scope, run_dir, layout_path
+        self.scope, self.run_dir, self.layout_path, self.clock = scope, run_dir, layout_path, clock
         self.frames = frame_source or vision
         self.stop_event = stop_event or threading.Event()
         self.ask_before_lower = None             # callable(label) -> bool; set by a supervisor that wants a word before every lowering
@@ -58,8 +60,8 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.plate = plates.default(layout)      # jaw widths and seat Z offset of the plate being handled
         self.checks = PreChecks(layout, self.plate.jaw_open, self.plate.jaw_closed)
         self.drift = DriftMonitor(os.path.join(run_dir, f"drift_{scope}.json"))
-        self.corr = Corrector(layout, vision, robot, self.safety, tele, self.supervised)
-        self.polar = PolarStage(layout["polar"], robot, tele.log, self.supervised, store.s.polar_angle)
+        self.corr = Corrector(layout, vision, robot, self.safety, tele, self.supervised, clock)
+        self.polar = PolarStage(layout["polar"], robot, tele.log, self.supervised, store.s.polar_angle, clock)
         lc = layout["vision"]["lower_check"]
         self.lower = LowerCheck(ref_dir, lc["min_refs"], lc["margin"], lc["floor"])
         self.slot_cfg = layout["vision"].get("slot_check", {})
@@ -75,14 +77,22 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self._search_widths: List[float] = []        # jaw widths seen during a centering search
         self.hub_cfg = layout["vision"].get("hub", {})   # record: every gate verdict and outcome go to the outbox
         if self.hub_cfg.get("record"):
-            store.on_done = lambda step: hub.outcome(step, True, self.hub_cfg.get("outbox", hub.OUTBOX))
+            store.on_done = lambda step: self._hub(hub.outcome, step, True)
 
     # --------------------------------------------------------------- recording
+    def _hub(self, write, *args):
+        """Opt-in (vision.hub.record) rows for cephla-hub. Training data never stops the arm: a failed write is logged."""
+        if not self.hub_cfg.get("record"):
+            return
+        try:
+            write(*args, self.hub_cfg.get("outbox", hub.OUTBOX))
+        except OSError as e:
+            self.tele.log("hub", write.__name__, f"not recorded: {e}")
+
     def _fault(self, step: str, kind: str, detail: str):
         self.store.fault(step, kind, detail)
         self.tele.log("fault", step, kind, detail=detail)
-        if self.hub_cfg.get("record"):
-            hub.outcome(step, False, self.hub_cfg.get("outbox", hub.OUTBOX))
+        self._hub(hub.outcome, step, False)
 
     def _observe(self, feature: str, value: float):
         w = self.drift.observe(feature, value)
@@ -258,9 +268,14 @@ class Cycle(Motion, Grasp, Gates, Hotel):
 
     def _check_resumable(self, slot: str, resume: bool = False):
         s, scope = self.store.s, self.scope
+        self.hotel_slot_pose(slot)                   # a ledger from another hotel layout may name a slot this one lacks
         if resume and not s.step_done and s.plate_at == "gripper" and s.step.startswith("place:"):
             return                                   # a carry was interrupted on a route; continue that step
         if resume and not s.step_done and s.grip == "none" and s.step.startswith("pick:"):
+            problems = self.checks.before_grasp(self.robot.jaw(), self.robot.state())
+            if problems:                             # the ledger learns of a grasp only after it; the jaw knows now
+                raise StopSafe(f"{s.step} was interrupted and cannot restart: {'; '.join(problems)}. "
+                               "The fingers may hold the plate; inspect the cell and open them by hand first.")
             return                                   # a pick was interrupted before the grasp; the step restarts
         if not s.step_done:
             raise StopSafe(f"last step '{s.step}' did not finish; plate_at={s.plate_at} grip={s.grip}. "

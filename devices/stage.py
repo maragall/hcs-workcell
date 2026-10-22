@@ -18,8 +18,8 @@ class PolarError(Exception):
 
 
 class PolarStage:
-    def __init__(self, cfg: dict, robot, log, supervised: bool, initial_angle: int = 0):
-        self.cfg, self.robot, self.log, self.supervised = cfg, robot, log, supervised
+    def __init__(self, cfg: dict, robot, log, supervised: bool, initial_angle: int = 0, clock=time):
+        self.cfg, self.robot, self.log, self.supervised, self.clock = cfg, robot, log, supervised, clock
         self.driver = cfg.get("driver", "ext_axis")
         self.settle = float(cfg.get("settle_s", 1.0))
         self.angle = int(initial_angle)
@@ -34,7 +34,7 @@ class PolarStage:
             return
         self.log("polar", "rotate", f"{self.angle} -> {deg} via {self.driver}")
         getattr(self, f"_drv_{self.driver}")(deg)
-        time.sleep(self.settle)
+        self.clock.sleep(self.settle)
         self._verify(deg)
         self.angle = deg
 
@@ -62,7 +62,7 @@ class PolarStage:
     def _drv_do(self, deg: int):
         sig = self.cfg["do"]["rotate_90" if deg == 90 else "home"]
         self.robot.write_do(sig, 1)
-        time.sleep(float(self.cfg["do"].get("pulse_s", 0.5)))
+        self.clock.sleep(float(self.cfg["do"].get("pulse_s", 0.5)))
         self.robot.write_do(sig, 0)
 
     def _drv_tcp(self, deg: int):

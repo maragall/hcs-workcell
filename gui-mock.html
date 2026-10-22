@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>hcs-workcell GUI mock, round 2</title>
+<style>
+  :root{--bg:#dfe3e8;--panel:linear-gradient(180deg,#f7f8fa,#e6e9ee);--edge:#b9c0c9;--ink:#1f2933;--mute:#5c6673;
+        --polar:#5FA9D6;--squid:#1F3F5F;--ok:#2e8b57;--bad:#b23a3a;--warn:#c98a00}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
+  header{display:grid;grid-template-columns:1fr 1fr 230px;gap:12px;padding:12px 16px;background:linear-gradient(180deg,#c9ced6,#aeb6c0);border-bottom:1px solid #8f98a3;position:sticky;top:0;z-index:5}
+  .cam{height:200px;background:#1d2026;border:2px solid #666;border-radius:6px;color:#dde;display:flex;flex-direction:column;justify-content:space-between;padding:8px 10px;font-size:13px;position:relative}
+  .cam .t{font-weight:700;font-size:15px} .cam .rec{position:absolute;top:8px;right:10px;background:#b23a3a;color:#fff;border-radius:4px;padding:2px 8px;font-size:12px;font-weight:700}
+  .cam.down{background:radial-gradient(ellipse at 60% 40%,#3a4452,#1d2026)} .cam.front{background:radial-gradient(ellipse at 40% 60%,#4a3f3a,#1d2026)}
+  .side{display:flex;flex-direction:column;gap:8px}
+  .pose{background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:8px 10px;font-family:ui-monospace,Menlo,monospace;font-size:12px;flex:1}
+  .pose b{font-family:system-ui;font-size:12px;color:var(--mute);display:block;margin-bottom:3px}
+  .stop{background:linear-gradient(180deg,#e05a5a,#b23a3a);color:#fff;border:1px solid #7a2020;border-radius:6px;font-weight:700;font-size:20px;padding:14px 0;text-align:center;letter-spacing:1px;cursor:pointer}
+  nav{display:flex;gap:4px;padding:12px 16px 0}
+  nav button{background:linear-gradient(180deg,#eef0f3,#d6dae0);border:1px solid var(--edge);border-bottom:none;border-radius:6px 6px 0 0;padding:10px 18px;font-weight:700;font-size:15px;color:var(--mute);cursor:pointer}
+  nav button.on{background:#fff;color:var(--ink)} nav button .n{display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--squid);color:#fff;font-size:12px;line-height:22px;text-align:center;margin-right:8px}
+  section{display:none;margin:0 16px 16px;background:#fff;border:1px solid var(--edge);border-radius:0 6px 6px 6px;padding:20px 24px}
+  section.on{display:block}
+  h2{margin:0 0 6px;font-size:22px} .lead{margin:0 0 18px;color:var(--mute);font-size:15px}
+  .row{display:grid;grid-template-columns:30px 1fr;gap:12px;margin:12px 0;align-items:start}
+  .row .k{width:26px;height:26px;border-radius:50%;background:var(--polar);color:#fff;text-align:center;line-height:26px;font-weight:700;font-size:14px}
+  .btn{display:inline-block;background:linear-gradient(180deg,#f3f5f8,#d9dee5);border:1px solid #9aa3ae;border-radius:5px;padding:8px 16px;font-weight:700;cursor:pointer;margin:2px 6px 2px 0}
+  .btn.primary{background:linear-gradient(180deg,#6fb4de,#4a93c4);color:#fff;border-color:#2f6f99}
+  .btn.dark{background:linear-gradient(180deg,#2d4a66,#1F3F5F);color:#fff;border-color:#122a40}
+  .btn.big{font-size:18px;padding:12px 26px}
+  table{border-collapse:collapse;width:100%;margin:8px 0} th,td{text-align:left;padding:8px;border-bottom:1px solid #e4e7eb;font-size:14px;vertical-align:top} th{color:var(--mute);font-weight:600}
+  .ok{color:var(--ok);font-weight:700} .bad{color:var(--bad);font-weight:700} .warn{color:var(--warn);font-weight:700}
+  .done{margin-top:16px;color:var(--mute);font-size:14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+  .matrix{display:inline-grid;grid-template-columns:28px repeat(3,52px);gap:5px;margin:8px 0}
+  .matrix div{height:34px;border:1px solid #9aa3ae;border-radius:4px;background:#f3f5f8;font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;position:relative}
+  .matrix div.lab{border:none;background:none;color:var(--mute);font-weight:700;cursor:default}
+  .matrix div.learned::after{content:'';position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  .matrix div.plate{background:var(--polar);color:#fff;font-weight:700} .matrix div.off{background:#e5e8ec;color:#b0b7c0;cursor:default}
+  .matrix div.match{outline:3px solid var(--ok)} .matrix div.miss{outline:3px solid var(--bad)}
+  .legend{font-size:13px;color:var(--mute)} .order{font-family:ui-monospace,Menlo,monospace;font-size:14px;background:#f7f8fa;border:1px solid var(--edge);border-radius:4px;padding:8px 10px;margin:6px 0}
+  .frames{display:flex;gap:8px;flex-wrap:wrap} .frames .cam{width:170px;height:110px;font-size:12px}
+  .log{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:#f7f8fa;border:1px solid var(--edge);border-radius:4px;padding:10px;max-height:190px;overflow:auto}
+  details{margin:8px 0;font-size:14px} details summary{cursor:pointer;color:var(--mute)} pre{background:#f7f8fa;border:1px solid var(--edge);padding:8px;font-size:12px}
+  input[type=text],select{border:1px solid #9aa3ae;border-radius:4px;padding:7px 9px;font-size:14px}
+  .teach td:nth-child(2){color:var(--mute)}
+</style></head>
+<body>
+<header>
+  <div class="cam down"><span class="t">Down camera, video</span><span class="rec">REC</span><span>always on; the checks take their frames from this same stream</span></div>
+  <div class="cam front"><span class="t">Front camera, video</span><span class="rec">REC</span><span>what the arm sees in front of the fingers</span></div>
+  <div class="side"><div class="stop">STOP</div>
+    <div class="pose"><b>arm</b>x 124.0&nbsp; y 399.2&nbsp; z 264.4<br>yaw 90.3&nbsp; jaw 10.0 mm<br><span style="color:var(--ok)">enabled</span>, holding still</div></div>
+</header>
+
+<nav>
+  <button class="on" onclick="go(0)"><span class="n">1</span>Connect</button>
+  <button onclick="go(1)"><span class="n">2</span>Cell</button>
+  <button onclick="go(2)"><span class="n">3</span>Teach</button>
+  <button onclick="go(3)"><span class="n">4</span>Test</button>
+  <button onclick="go(4)"><span class="n">5</span>Run</button>
+</nav>
+
+<section class="on">
+  <h2>Connect</h2><p class="lead">Nothing to type. The program looks for the arm and the vision box on the network.</p>
+  <table><tr><th>device</th><th>found</th><th>state</th></tr>
+    <tr><td>Arm (Nova controller)</td><td>192.168.1.220</td><td class="ok">enabled, holding still</td></tr>
+    <tr><td>Vision box</td><td>192.168.3.100</td><td class="ok">2 cameras, video above</td></tr>
+    <tr><td>Rotating stage</td><td>through the arm</td><td class="ok">reads 0.0 deg</td></tr>
+    <tr><td>Squid microscope 1</td><td class="warn">not found</td><td><span class="btn">Search again</span></td></tr></table>
+  <details><summary>Not found? What to check</summary>
+    <ol><li>Arm power on, the key switch at Auto.</li><li>Cable from the arm's LAN 1 port to this PC. Cable from the vision box to this PC. Squid controller USB to this PC.</li>
+      <li>Then press Search again. If still nothing, run this and send the output:</li></ol>
+    <pre>python cli.py status</pre></details>
+  <table><tr><th>cameras</th><th></th></tr>
+    <tr><td>Calibrated on 2026-05-14 with Bioyond's VIB tool. Do not touch the focus rings. Moved or refocused a camera? Calibrate again with that tool, then come back here.</td><td class="ok">ok</td></tr></table>
+  <div class="done">Devices you do not have are skipped.</div>
+</section>
+
+<section>
+  <h2>Cell</h2><p class="lead">Say what is on the bench.</p>
+  <div class="grid"><div>
+    <div class="row"><div class="k">1</div><div>Microscopes <select><option>1</option><option>2</option><option>3</option><option>4</option></select></div></div>
+    <div class="row"><div class="k">2</div><div>Hotel <span class="btn" onclick="preset(15)">15 slots</span><span class="btn primary" onclick="preset(30)">30 slots</span></div></div>
+    <div class="row"><div class="k">3</div><div>Click every slot that holds a plate.</div></div>
+    <div>The arm will take them in this order:</div>
+    <div class="order" id="order1"></div>
+    <div class="legend">Columns alternate so the arm swings less. Change the slots and the order follows.</div>
+  </div><div>
+    <div class="matrix" id="m1"></div>
+    <div class="legend">Row 10 is the top shelf, row 1 the bottom. Blue = plate. Starts with one plate in A1.</div>
+  </div></div>
+  <div class="done">Done when the matrix matches the bench.</div>
+</section>
+
+<section>
+  <h2>Teach</h2><p class="lead">One list. Move the arm by hand to where each row says, press Record. The path you dragged becomes the route; the camera takes its picture at the same time. Marker rows let the camera correct small shifts later; they use the marker tab from the kit.</p>
+  <div class="row"><div class="k">1</div><div><span class="btn primary">Let me move the arm</span> &nbsp; the jaw closes, then the arm goes loose. Press it again to lock the arm.</div></div>
+  <div class="row"><div class="k">2</div><div>Go down the list. Each row: put the arm where it says, press <b>Record</b>.</div></div>
+  <table class="teach"><tr><th>row</th><th>put the arm</th><th>recorded</th><th></th></tr>
+    <tr><td>Microscope 1, hover</td><td>above the holder, a hand's width up, with a plate in the holder</td><td class="ok">pose, picture</td><td><span class="btn">Record</span></td></tr>
+    <tr><td>Microscope 1, hover, empty</td><td>same place, take the plate out</td><td class="ok">picture</td><td><span class="btn">Record</span></td></tr>
+    <tr><td>Microscope 1, marker</td><td>screw the marker tab onto the holder, hover so the down camera sees it whole</td><td class="ok">marker seen</td><td><span class="btn">Record</span></td></tr>
+    <tr><td>Stage at 0, seat</td><td>drag over to the stage, plate seated, short edges in the fingers</td><td class="ok">pose, route from the microscope, picture</td><td><span class="btn">Record</span></td></tr>
+    <tr><td>Stage at 90, seat</td><td>turn the stage, long edges in the fingers</td><td class="bad">nothing yet</td><td><span class="btn primary">Record</span></td></tr>
+    <tr><td>Stage, marker</td><td>marker tab on the stage, hover so the down camera sees it whole</td><td class="bad">nothing yet</td><td><span class="btn primary">Record</span></td></tr>
+    <tr><td>Hotel A1</td><td>drag to the hotel, plate seated in A1</td><td class="bad">nothing yet</td><td><span class="btn primary">Record</span></td></tr>
+    <tr><td>Hotel A10, C1, C10</td><td>one row each, same way</td><td class="bad">nothing yet</td><td><span class="btn primary">Record</span></td></tr>
+    <tr><td>Grip</td><td>plate between the fingers, short edges, then long edges</td><td class="warn">short 22.40 mm, long not yet</td><td><span class="btn">Measure</span></td></tr>
+    <tr><td>Travel height</td><td>lift the arm to a height that clears everything</td><td class="bad">nothing yet</td><td><span class="btn primary">Record</span></td></tr></table>
+  <div class="row"><div class="k">3</div><div><span class="btn">Replay slowly</span> &nbsp; the arm repeats every route at low speed while you watch. STOP at any time.</div></div>
+  <div class="done">Done when no row is red. Red rows are exactly what Run will refuse on.</div>
+</section>
+
+<section>
+  <h2>Test</h2><p class="lead">Before anything runs on its own: check one thing at a time against what you see on the bench.</p>
+  <div class="grid"><div>
+    <h3 style="margin:6px 0">Does the camera see the plates?</h3>
+    <div class="row"><div class="k">1</div><div>Click the slots that really hold a plate.</div></div>
+    <div class="row"><div class="k">2</div><div><span class="btn primary">Check every slot</span> the arm looks into each slot and marks agree or disagree.</div></div>
+    <div class="matrix" id="m3"></div>
+    <div class="legend">Green ring = camera agrees with you. Red = disagrees. No ring = the camera has not learned that slot yet; it learns a slot from its first visits, and only checks once its own self-test on those photos passes. The green dot marks learned slots.</div>
+  </div><div>
+    <h3 style="margin:6px 0">Does the marker still match?</h3>
+    <div class="row"><div class="k">1</div><div>Position <select><option>Microscope 1</option><option>Stage</option></select> <span class="btn primary">Check marker</span> <span class="legend">the arm goes to its hover, reads the marker, and says how far the position has drifted. Over the limit: teach it again.</span></div></div>
+    <div class="log">microscope: offset 0.6 0.3 0.0 mm, 0.7 mm total, limit 25 mm: ok</div>
+    <h3 style="margin:14px 0 6px">Can the arm get from here to there?</h3>
+    <div class="row"><div class="k">1</div><div>From <select><option>Microscope 1</option><option>Stage</option></select> to <select><option>Stage</option><option>Hotel A1</option></select> <span class="btn primary">Show the path</span></div></div>
+    <div class="log">up to 180 mm, across, down to 93 mm<br>3 moves, all inside the safe box, none through a forbidden zone</div>
+    <div><span class="btn">Go, slowly</span></div>
+    <h3 style="margin:16px 0 6px">Everything at once</h3>
+    <div><span class="btn">Exercise</span> &nbsp; <span class="legend">looks into every slot, turns the stage, orders a place into a full slot on purpose and recovers, then runs all plates. On the simulator first, then on the arm.</span></div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Run</h2><p class="lead">After the tests. First one plate with the arm asking before each move, then everything.</p>
+  <div class="row"><div class="k">1</div><div><span class="btn big">One plate, ask me</span> &nbsp; the arm stops before every lowering and asks on screen.</div></div>
+  <div class="row"><div class="k">2</div><div><span class="btn big dark">Start</span> <span class="btn">Finish this plate and stop</span></div></div>
+  <div class="grid"><div>
+    <table><tr><th>microscope</th><th>plate</th><th>now</th></tr>
+      <tr><td>Microscope 1</td><td>from A3</td><td class="ok">imaging, 12 min</td></tr>
+      <tr><td>Microscope 2</td><td>from C2</td><td>waiting for the arm</td></tr></table>
+    <div class="log">13:02:10  arm goes to microscope 2<br>13:02:11  looked from above: clear<br>13:02:12  looked from the front: clear<br>13:02:19  plate held, 22.40 mm<br>13:03:40  slot C2 looks empty<br>13:04:02  plate seated</div>
+  </div><div>
+    <div class="matrix" id="m2"></div>
+    <div class="legend">Blue = plate. Green dot = the camera has learned this slot (enough photos, self-check passed) and is checking it. Red ring = camera disagrees with the plan; the arm stopped and is asking.</div>
+    <div class="frames"><div class="cam down"><span class="t">13:02:11</span><span>from above, before lowering</span></div><div class="cam front"><span class="t">13:02:12</span><span>from the front</span></div><div class="cam front"><span class="t">13:02:19</span><span>plate held</span></div></div>
+  </div></div>
+  <div class="done">STOP at any time. The program remembers where every plate is. Start again continues.</div>
+</section>
+
+<script>
+const secs=[...document.querySelectorAll('section')],tabs=[...document.querySelectorAll('nav button')];
+function go(i){secs.forEach((s,k)=>s.classList.toggle('on',k===i));tabs.forEach((t,k)=>t.classList.toggle('on',k===i));window.scrollTo(0,0)}
+function lab(m,t){const d=document.createElement('div');d.className='lab';d.textContent=t;m.appendChild(d)}
+function build(id){const m=document.getElementById(id);m.innerHTML='';lab(m,'');for(const c of ['A','B','C'])lab(m,c);
+  for(let r=10;r>=1;r--){lab(m,String(r));for(const c of ['A','B','C']){const d=document.createElement('div');d.textContent=c+r;
+  d.onclick=()=>{if(!d.classList.contains('off')){d.classList.toggle('plate');if(id==='m1')order()}};m.appendChild(d)}}}
+function cells(id){return [...document.getElementById(id).children].filter(d=>!d.classList.contains('lab'))}
+function preset(n,id){for(const mid of (id?[id]:['m1','m2','m3'])){build(mid);
+  if(n===15)cells(mid).forEach(d=>{if(+d.textContent.slice(1)%2===0)d.classList.add('off')});
+  cells(mid).forEach(d=>{if(d.textContent==='A1')d.classList.add('plate')});}order()}
+function order(){const c=cells('m1').filter(d=>d.classList.contains('plate')).map(d=>d.textContent);const cols={};c.forEach(s=>{(cols[s[0]]=cols[s[0]]||[]).push(s)});
+  const lists=Object.values(cols).map(l=>l.sort((a,b)=>+a.slice(1)-+b.slice(1)));const out=[];for(let i=0;i<Math.max(0,...lists.map(l=>l.length));i++)lists.forEach(l=>{if(l[i])out.push(l[i])});
+  document.getElementById('order1').textContent=out.length?out.join('  '):'no plates yet'}
+preset(30);
+cells('m2').forEach(d=>{const t=d.textContent;if(['A1','A3','C2'].includes(t))d.classList.add('plate','learned');if(t==='A3')d.classList.add('match');if(t==='C2')d.classList.add('miss')});
+cells('m3').forEach(d=>{if(['A1','A3','C2'].includes(d.textContent))d.classList.add('learned')});
+</script>
+</body></html>
