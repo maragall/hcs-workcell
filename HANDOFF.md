@@ -20,9 +20,9 @@ The vision box reads an ArUco marker (the 40 mm tab from the kit, drawing `aruco
 gripper sits relative to that marker, every position is taught by putting the practice plate where a plate will
 rest and hovering the camera over it: the box computes the grip pose. No precise seating by hand.
 
-Do once, with Bioyond's VIB tool (`VIB_Tool_Calibration_Guide_EN.pdf`, sections 2 to 5): focus the cameras,
-calibrate intrinsics and extrinsics (automatic mode: Run Plan), then the teach-free calibration for both grip modes
-(Wide = short edges, Long = long edges). Restart the box. Never touch the focus rings afterwards.
+The cameras have no focus ring. The camera check is the box reading the marker on the practice plate. Calibration
+(the plate captures, the hand captures, the upload, the check, the teach-free relation for both grips) is done in our
+setup program's Cameras tab, not with the vendor tool.
 
 Our side: `cli.py record-pose NAME` stores a position (and the box's teach point), `cli.py record-trigger` stores
 the marker view for it, `cli.py marker-check NAME` reads how far a position has drifted. The box is addressed with
