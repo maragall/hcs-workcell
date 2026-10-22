@@ -24,14 +24,25 @@ LEAD = 21
 STEPS = (
     ("0", "Cables",
      ["Plug in the three cables.", "Switch the arm on. Key at Auto."], "0_cables", "full"),
-    ("1", "Cameras, once",
-     ["Focus and calibration are done once, with Bioyond's VIB tool and its guide. Do not touch the focus rings.",
-      "A camera moved or refocused means the VIB tool again, then Teach again."], "1_cameras", "half"),
-    ("1.1", "The marker tab",
-     ["Screw the marker tab from the kit onto the practice plate.",
-      "The box reads the marker and works out where the plate is."], "1_marker_tab", "half"),
+    ("1", "Cameras",
+     ["Screw the marker tab from the kit onto the practice plate."], "1_marker_tab", "half"),
+    ("1.1", "Does it read the marker?",
+     ["Put the practice plate with the marker under the camera. The screen says it reads the marker.",
+      "If not: clean the lens, or move the plate closer."], "1_reads_marker", "half"),
+    ("1.2", "Capture plate",
+     ["Put the dotted calibration plate from the kit on the bench. Drag the arm so the plate fills the frame on screen. Press Capture plate.",
+      "The arm moves around it by itself. Then a number and ok, or redo."],
+     "1_capture_plate", "half"),
+    ("1.3", "Capture hand",
+     ["Keep the plate still. Press Capture hand: the same again, for how the camera sits on the hand."],
+     "1_capture_hand", "half"),
+    ("1.4", "Upload, Check",
+     ["Press Upload: the box restarts. Then press Check: a number and ok."], "1_upload_check", "half"),
+    ("1.5", "Add, Add, Link",
+     ["Grip the practice plate with the marker, put it down flat, press Add. Open the fingers, hover a hand's width above it, press Add. Press Link.",
+      "Once with the short edges in the fingers, once with the long edges."], "1_add_link", "half"),
     ("2", "Setup",
-     ["Open the setup program. Setup, Teach and Test live in it; run is the other program.",
+     ["Open the setup program. Cameras, Setup, Teach and Test live in it; run is the other program.",
       "It finds the arm and the vision box by itself. Nothing to type. Every row green: go on."], "2_connect", "half"),
     ("2.1", "The hotel",
      ["Press the hotel you have: 15 slots or 30 slots."], "2_hotel_size", "half"),
@@ -67,7 +78,7 @@ STEPS = (
      ["Something was bumped. Teach: find that row, Record again. Then Start."], "6_cause_drift", "half"),
 )
 
-CONTENTS = (("0", "Cables"), ("1", "Cameras, once"), ("2", "Setup"), ("3", "Teach"), ("4", "Test"),
+CONTENTS = (("0", "Cables"), ("1", "Cameras"), ("2", "Setup"), ("3", "Teach"), ("4", "Test"),
             ("5", "Run"), ("6", "If something stops"))
 
 
@@ -140,7 +151,7 @@ def cover(c):
     c.drawString(MARGIN, H - 225, "Setting up the cell and running it")
     c.setFont("Helvetica", 13)
     c.setFillColor(MUTE)
-    c.drawString(MARGIN, H - 262, "Two programs. setup: Setup, Teach, Test. run: Start, STOP.")
+    c.drawString(MARGIN, H - 262, "Two programs. setup: Cameras, Setup, Teach, Test. run: Start, STOP.")
     y = H - 330
     for num, title in CONTENTS:
         c.setFillColor(DARK)

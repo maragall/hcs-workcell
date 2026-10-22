@@ -1,4 +1,6 @@
 """The manual's drawings, one per step. `python3 draw.py` writes every PNG into png/."""
+from matplotlib.patches import Polygon, Rectangle
+
 from drawlib import (C_GREY, C_INK, C_MUTE, C_OK, C_POLAR, C_RED, C_SQUID, C_VISION, aruco, arrow, bench, box,
                      button, captions, circle, cross, figure, hand_glyph, hand_side, holder_side, line, mark,
                      marker_tab, matrix, plate_side, plate_top, rbox, save, text)
@@ -41,30 +43,129 @@ def fig_cables():
 
 
 # ------------------------------------------------------------------ 1 cameras
-def fig_cameras():
-    fig, ax = figure(9, 5.6, (0, 12), (-1.7, 6.4))
-    lens = hand_side(ax, 4.0, 1.0, open_w=2.4)
-    box(ax, 5.05, 2.0, 0.5, 0.6, fc=C_VISION)                                     # front camera on the hand
-    circle(ax, 5.55, 2.3, 0.13, fc=C_INK)
-    circle(ax, lens[0], lens[1] - 0.05, 0.3, fc="none", ec=C_INK, lw=2.0)        # focus ring, down camera
-    circle(ax, 5.62, 2.3, 0.3, fc="none", ec=C_INK, lw=2.0)                      # focus ring, front camera
-    cross(ax, lens[0], lens[1] - 0.05, r=0.38)
-    cross(ax, 5.62, 2.3, r=0.38)
-    text(ax, 4.0, 4.6, "the arm's hand, from the side", bold=True)
-    text(ax, 2.0, 1.7, "down camera", size=10, color=C_MUTE, ha="right")
-    line(ax, (2.05, 1.7), (3.6, 1.85), color=C_MUTE, lw=0.8)
-    text(ax, 5.2, 0.2, "front camera", size=10, color=C_MUTE, ha="left")
-    line(ax, (5.9, 0.45), (5.7, 1.95), color=C_MUTE, lw=0.8)
-    mark(ax, 2.6, 0.5, 1)
-    box(ax, 8.6, 0.6, 3.0, 3.6, fc="#f7f8fa", ec=C_GREY)
-    text(ax, 10.1, 3.75, "VIB tool", bold=True)
-    text(ax, 10.1, 3.2, "focus", size=10)
-    text(ax, 10.1, 2.7, "calibration", size=10)
-    text(ax, 10.1, 1.5, "once, by\nBioyond's tool", size=8.5, color=C_MUTE)
-    mark(ax, 8.6, 4.2, 2)
-    captions(ax, ("1  the two focus rings: do not touch them",
-                  "2  a camera moved or refocused: the VIB tool again, then this manual again"), 0.5, -0.5)
-    save(fig, "1_cameras")
+def dotted_plate_top(ax, x, y, w=3.0, h=2.2, n=5, z=5):
+    """The calibration plate from the kit, from above: a plate with a grid of dots."""
+    rbox(ax, x, y, w, h, fc="white", ec=C_INK, r=0.08, z=z)
+    for i in range(n):
+        for k in range(n):
+            circle(ax, x + 0.35 + i * (w - 0.7) / (n - 1), y + 0.3 + k * (h - 0.6) / (n - 1), 0.08, fc=C_INK,
+                   ec=C_INK, z=z + 1)
+
+
+def dotted_plate_side(ax, x, y, w=3.0, z=4):
+    box(ax, x, y, w, 0.18, fc="white", z=z)
+    for i in range(6):
+        circle(ax, x + 0.3 + i * (w - 0.6) / 5, y + 0.09, 0.05, fc=C_INK, ec=C_INK, z=z + 1)
+
+
+def result_line(ax, x, y, s, size=9):
+    rbox(ax, x, y - 0.3, 3.6, 0.6, fc="#f7f8fa", ec=C_GREY, r=0.08)
+    text(ax, x + 0.2, y, s, size=size, ha="left")
+
+
+def fig_reads_marker():
+    fig, ax = figure(9, 5.0, (0, 12), (-1.6, 5.8))
+    line(ax, (0.5, 0.3), (7.0, 0.3), color=C_GREY, lw=1.5)
+    plate_side(ax, 1.6, 0.3, w=3.6)
+    aruco(ax, 3.0, 0.58, 0.7)
+    mark(ax, 0.9, 0.8, 1)
+    lens = hand_side(ax, 3.4, 2.4, open_w=3.2)
+    for sx in (-1, 1):
+        line(ax, lens, (3.35 + sx * 0.7, 0.65), color=C_RED, dashed=True, lw=1.4)
+    rbox(ax, 7.6, 0.6, 4.0, 4.6, fc="#dfe3e8", ec=C_GREY, r=0.15)                 # the screen
+    rbox(ax, 7.9, 2.2, 3.4, 2.6, fc="#1d2026", ec=C_INK, r=0.08)
+    aruco(ax, 9.0, 2.8, 1.2)
+    rbox(ax, 8.85, 2.65, 1.5, 1.5, fc="none", ec=C_OK, lw=2.0, r=0.05, z=8)
+    text(ax, 9.6, 1.3, "marker: read", size=10, color=C_OK, bold=True)
+    mark(ax, 11.7, 1.3, 2)
+    captions(ax, ("1  the practice plate with the marker under the down camera",
+                  "2  the screen says it reads the marker",
+                  "3  not read: clean the lens, or move the plate closer"), 0.5, -0.5, dy=0.5)
+    save(fig, "1_reads_marker")
+
+
+def fig_capture_plate():
+    fig, ax = figure(9, 5.2, (0, 13), (-1.9, 6.2))
+    box(ax, 0.3, 0.3, 6.4, 5.4, ec=C_GREY, fc="white")                             # the bench, from above
+    circle(ax, 3.5, 1.0, 0.7, fc=C_POLAR)
+    text(ax, 3.5, 1.0, "arm", size=9, color="white", bold=True)
+    dotted_plate_top(ax, 2.0, 2.8, w=3.0, h=2.2)
+    mark(ax, 1.3, 5.2, 1)
+    rbox(ax, 7.4, 0.6, 5.3, 5.1, fc="#dfe3e8", ec=C_GREY, r=0.15)                 # the screen
+    rbox(ax, 7.8, 2.2, 4.5, 3.2, fc="#1d2026", ec=C_INK, r=0.08)
+    dotted_plate_top(ax, 8.3, 2.5, w=3.5, h=2.6)
+    rbox(ax, 8.1, 2.35, 3.9, 2.9, fc="none", ec=C_POLAR, lw=2.0, r=0.05, z=8)
+    mark(ax, 12.4, 5.3, 2)
+    button(ax, 7.8, 1.2, 2.4, 0.7, "Capture plate", size=8)
+    result_line(ax, 10.4, 1.55, "0.16   ok", size=9)
+    mark(ax, 7.4, 0.9, 3)
+    captions(ax, ("1  the dotted plate from the kit, flat on the bench",
+                  "2  drag the arm until the plate fills the frame on screen",
+                  "3  press Capture plate. The arm moves around it by itself; then a number and ok, or redo"),
+             0.5, -0.5, dy=0.5)
+    save(fig, "1_capture_plate")
+
+
+def fig_capture_hand():
+    fig, ax = figure(9, 5.0, (0, 12), (-1.6, 7.0))
+    line(ax, (0.5, 0.3), (7.5, 0.3), color=C_GREY, lw=1.5)
+    dotted_plate_side(ax, 2.0, 0.3, w=3.4)
+    mark(ax, 1.2, 0.8, 1)
+    lens = hand_side(ax, 3.7, 2.6, open_w=2.4)
+    for sx in (-1, 1):
+        line(ax, lens, (3.7 + sx * 1.5, 0.5), color=C_RED, dashed=True, lw=1.2)
+    arrow(ax, (1.4, 4.4), (6.0, 4.4), rad=0.3, lw=1.6, both=True)
+    text(ax, 3.7, 6.5, "the arm moves around the plate by itself", size=9.5, color=C_MUTE)
+    button(ax, 8.2, 3.6, 2.6, 0.7, "Capture hand", size=8)
+    mark(ax, 11.3, 3.95, 2)
+    result_line(ax, 8.0, 2.4, "0.3   ok", size=9)
+    captions(ax, ("1  keep the plate where it is, do not move it",
+                  "2  press Capture hand. The arm moves again; then a number and ok, or redo"), 0.5, -0.5, dy=0.5)
+    save(fig, "1_capture_hand")
+
+
+def fig_upload_check():
+    fig, ax = figure(9, 3.8, (0, 12.6), (-1.4, 3.6))
+    button(ax, 0.8, 1.6, 2.4, 0.8, "Upload", size=10)
+    mark(ax, 3.6, 2.4, 1)
+    arrow(ax, (3.4, 2.0), (4.6, 2.0), lw=1.6, color=C_INK)
+    box(ax, 4.8, 1.3, 2.6, 1.4, fc=C_VISION)
+    text(ax, 6.1, 2.0, "vision box", size=9, bold=True)
+    text(ax, 6.1, 0.8, "restarts, wait", size=9, color=C_MUTE)
+    arrow(ax, (7.6, 2.0), (8.8, 2.0), lw=1.6, color=C_INK)
+    button(ax, 9.0, 1.6, 2.4, 0.8, "Check", size=10)
+    mark(ax, 11.9, 2.5, 2)
+    result_line(ax, 8.4, 0.6, "0.1   ok", size=9)
+    captions(ax, ("1  press Upload, wait for the box to come back", "2  press Check: a number and ok"),
+             0.5, -0.5, dy=0.5)
+    save(fig, "1_upload_check")
+
+
+def fig_add_link():
+    fig, ax = figure(9, 4.6, (0, 30), (-5.6, 12.0))
+    c = plate_top(ax, 2.5, 2.0)                                                    # gripped, put down flat
+    marker_tab(ax, c[0] - 2.1, c[1] - 3.0)
+    box(ax, 1.3, 2.5, 1.0, 7.5, fc=C_RED, ec=C_RED)
+    box(ax, 15.4, 2.5, 1.0, 7.5, fc=C_RED, ec=C_RED)
+    text(ax, 8.85, 11.3, "gripped, put down flat", size=10, bold=True)
+    button(ax, 6.8, -1.6, 4.0, 1.4, "Add", size=9)
+    mark(ax, 11.8, -0.9, 1, r=0.7, size=11)
+    sx, sy = 19.0, 0.0                                                             # hovering, fingers open
+    line(ax, (sx, sy + 0.5), (sx + 10.5, sy + 0.5), color=C_GREY, lw=1.5)
+    plate_side(ax, sx + 1.5, sy + 0.5, w=7.0, h=0.7)
+    aruco(ax, sx + 4.0, sy + 1.2, 1.6)
+    ax.add_patch(Rectangle((sx + 2.5, sy + 8.2), 6.0, 1.6, fc="white", ec=C_INK, lw=1.2, zorder=5))
+    for fx in (sx + 2.5, sx + 8.0):
+        ax.add_patch(Rectangle((fx, sy + 4.4), 0.5, 3.8, fc=C_GREY, ec=C_INK, lw=1.2, zorder=5))
+    ax.add_patch(Rectangle((sx + 4.9, sy + 7.0), 1.2, 1.2, fc=C_VISION, ec=C_INK, lw=1.2, zorder=5))
+    circle(ax, sx + 5.5, sy + 7.0, 0.3, fc=C_INK, z=6)
+    arrow(ax, (sx + 9.6, sy + 1.3), (sx + 9.6, sy + 4.3), both=True, lw=1.4, color=C_INK)
+    text(ax, sx + 5.5, 11.3, "fingers open, a hand's width up", size=10, bold=True)
+    button(ax, sx + 3.5, -1.6, 4.0, 1.4, "Add", size=9)
+    mark(ax, sx + 8.5, -0.9, 2, r=0.7, size=11)
+    button(ax, 13.0, -4.6, 4.0, 1.4, "Link", size=9)
+    mark(ax, 18.0, -3.9, 3, r=0.7, size=11)
+    save(fig, "1_add_link")
 
 
 def fig_marker_tab():
@@ -348,7 +449,8 @@ def fig_cause_drift():
     save(fig, "6_cause_drift")
 
 
-FIGURES = (fig_cables, fig_cameras, fig_marker_tab, fig_connect, fig_hotel_size, fig_teach_bench, fig_hover, fig_grip,
+FIGURES = (fig_cables, fig_marker_tab, fig_reads_marker, fig_capture_plate, fig_capture_hand, fig_upload_check,
+           fig_add_link, fig_connect, fig_hotel_size, fig_teach_bench, fig_hover, fig_grip,
            fig_travel, fig_replay, fig_test, fig_test_run, fig_run,
            fig_fault, fig_cause_slot, fig_cause_seat, fig_cause_drift)
 
