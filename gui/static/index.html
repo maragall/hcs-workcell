@@ -3,9 +3,9 @@
 <style>
   :root{--ink:#1f2933;--mute:#6b7280;--line:#d0d4da;--dark:#1F3F5F;--ok:#2e7d4f;--bad:#b23a3a}
   *{box-sizing:border-box} body{margin:0;background:#fff;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
-  header{display:grid;grid-template-columns:1fr 1fr 230px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:5}
-  .cam{height:200px;background:#3a3f46;color:#e6e8eb;position:relative;overflow:hidden}
-  .cam img{width:100%;height:100%;object-fit:cover;display:block}
+  header{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 230px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:5}
+  .cam{aspect-ratio:16/9;width:100%;max-width:462px;justify-self:start;background:#3a3f46;color:#e6e8eb;position:relative;overflow:hidden}
+  .cam img{width:100%;height:100%;object-fit:contain;display:block}   /* the box sends 1280x720: show all of it, never crop */
   .cam .t{position:absolute;left:10px;top:8px;font-weight:600;font-size:14px;text-shadow:0 0 4px #000}
   .cam .outline{display:none;position:absolute;left:20%;top:15%;width:60%;height:70%;border:2px dashed #fff;opacity:.8}
   body.cameras .cam .outline{display:block}
