@@ -259,3 +259,21 @@ def test_cameras_flow_on_the_fake_package(gui):
     wait_idle(cell)
     cams = state(url)["cameras"]["cameras"]
     assert all(n["uploaded_at"] and n["checked_mm"] <= 1.0 for n in cams.values()), cams
+
+
+def test_arm_rests_loose_and_a_moving_step_locks_it_then_loosens_again():
+    """The arm is hand-guided by default; a button that moves it locks it for the job, then it is loose again."""
+    cell = Cell(*sim.build(), sim=True)
+    cell.start_up()
+    assert cell.robot.state().drag and cell.arm.get("drag")
+    assert cell.ready_to_move() is None                      # locked for the step
+    assert not cell.robot.state().drag
+    seen = []
+    assert cell.start("a moving step", lambda: seen.append(cell.robot.state().drag))
+    for _ in range(100):
+        if not cell.busy:
+            break
+        time.sleep(0.05)
+    assert seen == [False]                                   # locked while it ran
+    assert cell.robot.state().drag                           # loose again afterwards
+    cell.stop()

@@ -71,6 +71,7 @@ class Cell:
         self.busy: Optional[str] = None               # the running job's label
         self._job: Optional[threading.Thread] = None
         self.run = None                               # gui.runs.Run while plates move
+        self._relax = False                           # the arm was loose before the job now starting: loosen it after
         self.checks: dict = {}                        # latest results of the Test screen
         L = self.layout()
         v = L["vision"]
@@ -120,6 +121,18 @@ class Cell:
         """Connect both devices (reads only, nothing moves), then fill the Setup table."""
         self.connect()
         self.discover()
+        self.loosen_arm()
+
+    def loosen_arm(self) -> None:
+        """Default state of the arm: loose (hand-guided). Skipped while the arm is not connected or already loose."""
+        from gui import teach
+        if self.arm_error is not None or self.arm.get("drag"):
+            return
+        try:
+            teach.loosen(self)
+            self.arm = dict(self.arm, drag=True)
+        except Exception as e:
+            self.note(f"could not leave the arm loose: {plain_error(e)}")
 
     def _readout(self) -> None:
         while True:
@@ -204,6 +217,7 @@ class Cell:
             return False
         self.stop_event.clear()
         self.busy = label
+        relax, self._relax = self._relax, False        # ready_to_move locked a loose arm for this job
 
         def work():
             try:
@@ -212,6 +226,12 @@ class Cell:
                 self.log("gui", label, f"failed: {e!r}", trace=traceback.format_exc())
                 self.note(f"{label}: {plain_error(e)}")
             finally:
+                if relax:                               # the arm's resting state is loose: back to it, fault or not
+                    try:
+                        self.arm = dict(self.arm, drag=False)
+                        self.loosen_arm()
+                    except Exception as e:
+                        self.note(f"could not leave the arm loose: {plain_error(e)}")
                 self.busy = None
 
         self._job = threading.Thread(target=work, daemon=True, name=label)
@@ -245,8 +265,11 @@ class Cell:
         """Why the arm may not move now, or None."""
         if not self.arm.get("ok"):
             return f"arm not connected: {self.arm.get('error')}"
-        if self.arm.get("drag"):
-            return "the arm is loose; lock it first"
+        if self.arm.get("drag"):                      # the arm starts loose: a step that moves it locks it first
+            from gui import teach
+            teach.drag(self, False)
+            self.arm = dict(self.arm, drag=False)
+            self._relax = True
         if not self.arm.get("enabled") and not self.robot.enable():
             return "the arm could not be enabled"
         return None

@@ -129,22 +129,31 @@ def rows(cell) -> dict:
 
 
 # -------------------------------------------------------------------------------------------------- actions
-def drag(cell, on: bool) -> None:
+def drag(cell, on: bool, close_jaw: bool = True) -> None:
     """Hand-guiding. On: the jaw closes (on the plate or on itself), the arm goes loose, the route recorder starts.
     Off: the recorder stops, the arm locks and is enabled again."""
     t = _teach(cell)
     if on:
-        try:
-            cell.robot.jaw_to(0.0)
-        except Exception:
-            pass                                   # the fingers met the plate: that is a closed jaw too
+        if close_jaw:
+            try:
+                cell.robot.jaw_to(0.0)
+            except Exception:
+                pass                               # the fingers met the plate: that is a closed jaw too
         cell.robot.drag(True)
         t["tracer"].start()
         cell.note("arm loose: move it by hand")
     else:
         t["tracer"].stop()
         cell.robot.drag(False)
+        cell.robot.enable()
         cell.note("arm locked")
+
+
+def loosen(cell) -> None:
+    """The arm's default state in the setup program: loose, so the person can move it (the microscope's practice
+    plate, the camera views) without pressing anything. A step that moves the arm locks it first (Cell.ready_to_move).
+    The jaw is left as it is."""
+    drag(cell, True, close_jaw=False)
 
 
 def _snapshot(cell, L: dict, rid: str) -> dict:
