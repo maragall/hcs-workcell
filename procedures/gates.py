@@ -89,8 +89,8 @@ class Gates:
 
     def _record(self, check: str, frame_path: str, verdict: str, step: str) -> None:
         """Opt-in (vision.hub.record): the photo, the verdict and the step, for training later."""
-        if self.hub_cfg.get("record") and frame_path:
-            hub.record(check, frame_path, verdict, step, self.hub_cfg.get("outbox", hub.OUTBOX))
+        if frame_path:
+            self._hub(hub.record, check, frame_path, verdict, step)
 
     def _learned_gate(self, step: str, name: str, state: str, cam: str, cfg: dict, fault: str, question: str,
                       roi=None) -> Optional[bool]:

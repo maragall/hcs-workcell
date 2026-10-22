@@ -70,14 +70,22 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self._search_widths: List[float] = []        # jaw widths seen during a centering search
         self.hub_cfg = layout["vision"].get("hub", {})   # record: every gate verdict and outcome go to the outbox
         if self.hub_cfg.get("record"):
-            store.on_done = lambda step: hub.outcome(step, True, self.hub_cfg.get("outbox", hub.OUTBOX))
+            store.on_done = lambda step: self._hub(hub.outcome, step, True)
 
     # --------------------------------------------------------------- recording
+    def _hub(self, write, *args):
+        """Opt-in (vision.hub.record) rows for cephla-hub. Training data never stops the arm: a failed write is logged."""
+        if not self.hub_cfg.get("record"):
+            return
+        try:
+            write(*args, self.hub_cfg.get("outbox", hub.OUTBOX))
+        except OSError as e:
+            self.tele.log("hub", write.__name__, f"not recorded: {e}")
+
     def _fault(self, step: str, kind: str, detail: str):
         self.store.fault(step, kind, detail)
         self.tele.log("fault", step, kind, detail=detail)
-        if self.hub_cfg.get("record"):
-            hub.outcome(step, False, self.hub_cfg.get("outbox", hub.OUTBOX))
+        self._hub(hub.outcome, step, False)
 
     def _observe(self, feature: str, value: float):
         w = self.drift.observe(feature, value)
