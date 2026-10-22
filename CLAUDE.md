@@ -24,6 +24,10 @@ Four packages plus the main loop. Each box calls only the boxes below it; `perce
 - `devices/`: one thin file per machine and a fake for each. `nova.py` is the one import for arm + vision box.
 - `routes/`: `plan.py` picks a taught trajectory or lift / travel at `routes.safe_z_mm` / lower, every leg checked;
   `Motion.move_to(position)` executes it, to the hover only. `cli.py goto NAME` drives it by hand.
+- `gui/` (`python gui.py [--sim]`): the setup program, one page on http.server: Setup, Cameras, Teach, Test. Calls the
+  same functions as cli.py, run.py and exercise.py; stores nothing of its own (layout.json through `positions`). One
+  frame buffer (`gui/frames.py`) feeds the page, the recorder and the checks (`Cycle(frame_source=...)`).
+  `tools/screenshots.py` makes `docs/gui/*.png` and `setup-walkthrough.gif` on the simulator. Tests: `tests/test_gui.py`.
 - Stage safety, two layers, no clocks. Keep-out: `regions.stage_sweep` (`keep_out: true`), the stage's travel envelope at
   its closest approach to the arm; `Safety` refuses any target, segment or joint move whose tool point, elbow or links
   (elbow via `routes_opt/fk`) enter it. Interlock: `run.py` homes the stage and waits for `parked()` inside the arm lock;

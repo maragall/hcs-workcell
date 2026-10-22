@@ -51,8 +51,11 @@ def wait_idle(timeout_s: float = 300, every=None) -> None:
 def shot(tab: str, path: str, profile: str) -> str:
     cmd = [CHROME, "--headless=new", "--disable-gpu", "--no-first-run", "--hide-scrollbars", f"--user-data-dir={profile}",
            f"--window-size={SIZE}", "--virtual-time-budget=2500", f"--screenshot={path}", f"{URL}#{tab}"]
-    subprocess.run(cmd, capture_output=True, timeout=60)
-    return path
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=40)
+    except subprocess.TimeoutExpired:          # a hung Chrome loses one frame, not the recording
+        return None
+    return path if os.path.exists(path) else None
 
 
 def main() -> int:
@@ -65,6 +68,8 @@ def main() -> int:
     def frame(tab: str, label: str = "") -> None:
         p = shot(tab, os.path.join(frames_dir, f"{n[0]:04d}.png"), profile)
         n[0] += 1
+        if p is None:
+            return
         frames.append(p)
         if label:
             shutil.copy(p, os.path.join(OUT, f"{label}.png"))
