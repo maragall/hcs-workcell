@@ -89,12 +89,12 @@
   },
   "gripper": {
     "open": {
-      "short_edges": 26.0,
-      "long_edges": 6.0
+      "short_edges": 28.5,
+      "long_edges": 8.2
     },
     "closed": {
-      "short_edges": 22.4,
-      "long_edges": 1.45
+      "short_edges": 24.87,
+      "long_edges": 3.68
     },
     "tolerance": 0.1,
     "stall_lag": 0.3,
@@ -105,7 +105,15 @@
       "empty_closed": -0.04,
       "short_edges_on_wall": 22.37,
       "long_edges_on_wall": 1.5,
-      "_note": "value = finger gap. 2026-10-19 new fingers + production plate (small grooves): long edges 1.45, short edges 22.40, both measured in 0.1 mm steps with a clean stall. Fingers clamped on the wall ABOVE the groove read 22.37 (short) and 1.50 (long): 0.03 and 0.05 mm from the groove values, so the jaw width cannot tell groove from wall on either side; groove validation needs the cameras or controller torque detection. Old teaching plate with old fingers read 2.84 / 24.0 (sd 0.001 / 0.007 over 985 grasps)"
+      "_note": "value = finger gap. 2026-10-19 new fingers + production plate (small grooves): long edges 1.45, short edges 22.40, both measured in 0.1 mm steps with a clean stall. Fingers clamped on the wall ABOVE the groove read 22.37 (short) and 1.50 (long): 0.03 and 0.05 mm from the groove values, so the jaw width cannot tell groove from wall on either side; groove validation needs the cameras or controller torque detection. Old teaching plate with old fingers read 2.84 / 24.0 (sd 0.001 / 0.007 over 985 grasps)",
+      "_new_plate_2026_10_22": {
+        "short_edges_by_hand": 24.87,
+        "long_edges_by_hand": 3.68,
+        "previous_production_plate": {
+          "short_edges": 22.4,
+          "long_edges": 1.45
+        }
+      }
     },
     "tolerance_measured": {
       "short_edges_sd": 0.0066,
@@ -117,14 +125,14 @@
     "_tolerances": "grasp 0.08 (fresh grasp, measured sd 0.007); release 0.3 (0.6 mm, a carried plate may settle)",
     "accept_band": {
       "short_edges": [
-        22.3,
-        22.9
+        24.77,
+        25.37
       ],
       "long_edges": [
-        1.35,
-        2.5
+        3.58,
+        4.73
       ],
-      "_note": "2026-10-19: without a per-fixture signature a grasp is accepted anywhere in this band (plate between the pads). Nominal 22.40/1.45 by hand; the microscope presents 22.50, the stage at 90 presents 2.33 (12 trials, spread 0.09). Groove-or-wall is a camera question, not a width one"
+      "_note": "2026-10-22 new plate, grips read by hand in drag mode (operator): short 24.87, long 3.68; band = closed -0.1/+0.5 (short) and -0.1/+1.05 (long) as for the production plate. Opens widened by the same 2.5 / 2.2 so the clearance per side stays the same. Fixture signatures (microscope grasp_width) cleared: learned again by the first picks."
     }
   },
   "speeds": {
@@ -246,7 +254,7 @@
       },
       "grip": "short_edges",
       "regrip_above": {
-        "short_edges": 22.6,
+        "short_edges": 25.07,
         "_note": "2026-10-20 23:30: first close wider than this -> open and close again (up to regrip_max, default 2) to square a robot-placed plate in the clips"
       },
       "aruco_reference": "microscope_ref",
@@ -294,9 +302,6 @@
         ],
         "step_deg": 0.3,
         "max_deg": 0.6
-      },
-      "grasp_width": {
-        "short_edges": 22.69
       },
       "corrections": [
         {
@@ -456,7 +461,7 @@
       ],
       "taught": {
         "A1": [
-          293.341,
+          261.666,
           137.174,
           74.632,
           0.0,
@@ -464,7 +469,7 @@
           -0.9959
         ],
         "A9": [
-          291.06,
+          259.385,
           136.889,
           379.06,
           0.0,
@@ -472,7 +477,7 @@
           -0.6795
         ],
         "B1": [
-          293.987,
+          262.312,
           0.651,
           72.126,
           0,
@@ -480,7 +485,7 @@
           -1.0275
         ],
         "C1": [
-          292.98,
+          261.305,
           -129.531,
           71.951,
           0,
@@ -488,7 +493,7 @@
           -1.0267
         ],
         "C9": [
-          293.503,
+          261.828,
           -128.356,
           378.99,
           0.0,
@@ -507,7 +512,7 @@
       "taught_detail": {
         "A1": {
           "pose": [
-            293.341,
+            261.666,
             137.174,
             74.632,
             0.0,
@@ -527,7 +532,7 @@
         },
         "A9": {
           "pose": [
-            291.06,
+            259.385,
             136.889,
             379.06,
             0.0,
@@ -547,7 +552,7 @@
         },
         "C9": {
           "pose": [
-            293.503,
+            261.828,
             -128.356,
             378.99,
             0.0,
@@ -627,7 +632,19 @@
           10
         ]
       },
-      "_loaded_note": "2026-10-22: 30-slot hotel, 10 real plates (colour and weight vary, grip position the same): odd rows in A, even rows in C. procedures.hotel.plate_order interleaves them: A1, C2, A3, C4, ... (run.py --order interleave). Row poses are interpolated from the taught row-1 and row-9 points per column (row_vector_from); re-teach them on this hotel"
+      "_loaded_note": "2026-10-22: 30-slot hotel, 10 real plates (colour and weight vary, grip position the same): odd rows in A, even rows in C. procedures.hotel.plate_order interleaves them: A1, C2, A3, C4, ... (run.py --order interleave). Row poses are interpolated from the taught row-1 and row-9 points per column (row_vector_from); re-teach them on this hotel",
+      "_x_offset_2026_10_22": {
+        "dx_mm": -31.675,
+        "note": "new plate is gripped further back (operator, C2 long edges at x 261.37 against the interpolated 293.05): every taught slot pose x shifted by dx; dy/dz not applied",
+        "C2_hand_pose": [
+          261.37,
+          -137.48,
+          116.63,
+          0,
+          0,
+          1.08
+        ]
+      }
     },
     "microscope_2": {
       "pose": null,
