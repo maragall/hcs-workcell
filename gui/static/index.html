@@ -75,21 +75,18 @@
   <table><tr><th>cameras</th><th style="width:10%"></th></tr><tr><td id="camline"></td><td id="camok"></td></tr></table>
   <div class="done">Devices you do not have are skipped.</div>
   <h3>The bench</h3>
-  <div class="row"><div class="k">1</div><div>Microscope: <span id="scopes">1</span></div></div>
-  <div class="row"><div class="k">2</div><div>Hotel <button class="btn" id="h15" onclick="post('hotel',{size:15})">15 slots</button><button class="btn" id="h30" onclick="post('hotel',{size:30})">30 slots</button></div></div>
-  <div class="done">Which slots hold plates is never typed in: the arm looks for itself when it runs. You check that it looks right in Test.</div>
-</section>
-
-<section id="sec-cameras">
-  <h2>Cameras</h2><p class="lead">Once, when the arm is new or a camera was moved. The arm starts loose, so you can move it by hand to where a step needs it; a step that moves the arm locks it first. You place the practice plate.</p>
-  <div id="cam-tool" class="row"><div class="k"></div><div id="cam-tool-text"></div></div>
-  <div id="cam-flow" style="display:none">
-  <div class="row"><div class="k">1</div><div>Put the practice plate with the marker under the hand. <button class="btn" data-busy onclick="post('read_marker')">Read the marker</button> <span id="c-marker"></span></div></div>
-  <div class="row"><div class="k">2</div><div>Leave the practice plate where it is, the marker in view as the outline shows.
-    <button class="btn primary" data-busy data-move onclick="post('capture',{hand:$('byhand').checked})">Capture</button>
-    <span class="legend">the arm moves around the marker by itself and takes its pictures; one solve per camera</span>
-    <label class="legend" style="margin-left:10px"><input type="checkbox" id="byhand"> I move the arm by hand instead</label>
-    <div class="log" id="c-capture"></div></div></div>
+  <div class="row"><div class="k">1</div><div><b>Down camera.</b> Put the practice plate flat with the marker under the hand, the marker inside the outline on the down view.
+    <button class="btn" data-busy onclick="post('read_marker',{camera:'down'})">Read the marker</button> <span id="c-marker-down"></span><br>
+    <button class="btn primary" data-busy data-move onclick="post('capture',{camera:'down',hand:$('byhand-down').checked})">Capture</button>
+    <span class="legend">the arm moves around the marker by itself and takes its pictures; one solve for this camera</span>
+    <label class="legend" style="margin-left:10px"><input type="checkbox" id="byhand-down"> I move the arm by hand instead</label>
+    <div class="log" id="c-capture-down"></div></div></div>
+  <div class="row"><div class="k">2</div><div><b>Front camera.</b> This camera looks the other way, so it cannot see that marker. Now put the practice plate where the front view sees the marker, with the hand in front of it.
+    <button class="btn" data-busy onclick="post('read_marker',{camera:'front'})">Read the marker</button> <span id="c-marker-front"></span><br>
+    <button class="btn primary" data-busy data-move onclick="post('capture',{camera:'front',hand:$('byhand-front').checked})">Capture</button>
+    <span class="legend">the arm moves around the marker by itself and takes its pictures; one solve for this camera</span>
+    <label class="legend" style="margin-left:10px"><input type="checkbox" id="byhand-front"> I move the arm by hand instead</label>
+    <div class="log" id="c-capture-front"></div></div></div>
   <div class="row"><div class="k">3</div><div><button class="btn primary" data-busy onclick="post('upload')">Upload</button> <span class="legend">the box restarts, about a minute</span> &nbsp; then
     <button class="btn" data-busy onclick="post('check')">Check</button> <span class="log inline" id="c-check"></span></div></div>
   <div class="row"><div class="k">4</div><div>Grip the practice plate on its <b id="c-grip">short edges</b>, put it down flat. <button class="btn" data-busy onclick="post('teach_free',{step:'teach'})">Add</button> &nbsp;
@@ -166,8 +163,10 @@ function render(s){
   $('cam-tool-text').textContent = `Cameras calibrated with Bioyond's VIB tool on ${C.calibrated_on || 'a date not recorded'}; to calibrate again use that tool.`;
   $('camline').textContent = C.installed ? 'Both cameras read the marker on the practice plate: sharp enough. Calibration is the Cameras tab.' : `Calibrated with Bioyond's VIB tool on ${C.calibrated_on || 'a date not recorded'}. Do not touch the cameras; moved one? Calibrate again with that tool.`;
   $('camok').innerHTML = C.installed ? (C.marker_ok ? '<span class="ok">ok</span>' : '<span class="warn">not yet</span>') : (C.calibrated_on ? '<span class="ok">ok</span>' : '');
-  $('c-marker').innerHTML = Object.entries(cams).map(([k, n]) => n.marker ? `<span class="${n.marker==='ok'?'ok':'bad'}">${k} camera: ${n.marker==='ok' ? 'reads it' : 'cannot read the marker: clean the lens, move the plate closer'}</span>` : '').join(' &nbsp; ');
-  $('c-capture').innerHTML = Object.entries(cams).map(([k, n]) => `${k} camera: ${n.pictures ? n.pictures + ' pictures &nbsp; ' : ''}${verdict(n.px, C.limits.px, 'px', 'redo')}${n.px == null ? '' : ' &nbsp; ' + verdict(n.mm, C.limits.mm, 'mm', 'redo')}`).join('<br>');
+  for (const [k, n] of Object.entries(cams)) {
+    $('c-marker-'+k).innerHTML = n.marker ? `<span class="${n.marker==='ok'?'ok':'bad'}">${n.marker==='ok' ? 'reads it' : 'cannot read the marker: clean the lens, move the plate closer'}</span>` : '';
+    $('c-capture-'+k).innerHTML = `${n.pictures ? n.pictures + ' pictures &nbsp; ' : ''}${verdict(n.px, C.limits.px, 'px', 'redo')}${n.px == null ? '' : ' &nbsp; ' + verdict(n.mm, C.limits.mm, 'mm', 'redo')}`;
+  }
   $('c-check').innerHTML = Object.entries(cams).map(([k, n]) => `${k}: ${n.uploaded_at ? verdict(n.checked_mm, C.limits.mm, 'mm', 'too far') : '<span class="mute">not uploaded</span>'}`).join(' &nbsp; ');
   const tf = C.teach_free;
   $('c-grip').textContent = (tf.grip || 'short_edges').replace('_', ' ');

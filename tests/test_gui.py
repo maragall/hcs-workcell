@@ -245,11 +245,12 @@ def test_the_whole_test_runs_through(gui):
 def test_cameras_flow_on_the_fake_package(gui):
     """Read the marker, Capture (the arm drives the plan, one solve per camera), Upload, Check: every row gets its numbers."""
     cell, url = gui
-    post(url, "/api/read_marker")
-    wait_idle(cell)
-    code, out = post(url, "/api/capture", {"hand": False})
-    assert code == 200 and out["ok"]
-    wait_idle(cell, 120)
+    for camera in ("down", "front"):                          # one camera at a time: they look different ways
+        post(url, "/api/read_marker", {"camera": camera})
+        wait_idle(cell)
+        code, out = post(url, "/api/capture", {"camera": camera, "hand": False})
+        assert code == 200 and out["ok"]
+        wait_idle(cell, 120)
     cams = state(url)["cameras"]["cameras"]
     assert all(n["pictures"] >= 6 and n["px"] <= 0.5 and n["mm"] <= 1.0 for n in cams.values()), cams
     assert os.path.exists(os.path.join(cell.ref_dir, "calibration", "auto_teach_camera", "CamInTool.dat"))

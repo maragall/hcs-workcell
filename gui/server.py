@@ -41,7 +41,7 @@ def act(cell, name: str, body: dict) -> dict:
     if not cell.arm.get("ok"):
         return {"ok": False, "error": f"arm not connected: {cell.arm.get('error')}"}
     if name == "read_marker":
-        return {"ok": cell.start("reading the marker", lambda: cameras.read_marker(cell))}
+        return {"ok": cell.start("reading the marker", lambda: cameras.read_marker(cell, body.get("camera")))}
     if name == "teach_free":
         return {"ok": cell.start("teach-free point", lambda: cameras.teach_free(cell, str(body["step"])))}
     if name == "upload":
@@ -58,7 +58,7 @@ def act(cell, name: str, body: dict) -> dict:
     if why:
         return {"ok": False, "error": why}
     if name == "capture":
-        return {"ok": cell.start("capturing the marker", lambda: cameras.capture(cell, bool(body.get("hand"))))}
+        return {"ok": cell.start("capturing the marker", lambda: cameras.capture(cell, bool(body.get("hand")), body.get("camera")))}
     if name == "replay":
         return {"ok": cell.start("replaying the routes", lambda: teach.replay(cell))}
     if name == "test":

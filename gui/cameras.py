@@ -78,11 +78,23 @@ def state(cell) -> dict:
 
 
 # ------------------------------------------------------------------------------------------------- steps
-def read_marker(cell) -> None:
-    """Both cameras read the marker on the practice plate under the hand, or the row says what to do."""
+def _picked(L: dict, camera) -> List[tuple]:
+    """The one camera a step is for ("down" or "front"). The two cameras look in different directions on the hand,
+    so a marker is never in both views at once: each is read and captured on its own, the plate moved between."""
+    cams = _cams(L)
+    if camera is None:
+        return cams
+    got = [c for c in cams if c[0] == camera]
+    if not got:
+        raise ValueError(f"there is no camera called {camera!r}; use down or front")
+    return got
+
+
+def read_marker(cell, camera=None) -> None:
+    """One camera reads the marker on the practice plate, or the row says what to do."""
     L = cell.layout()
     said = []
-    for label, cam in _cams(L):
+    for label, cam in _picked(L, camera):
         try:
             seen = any(cell.vision.aruco_pose(cam, 1, None, L["vision"]["led"]).pixel)
         except Exception:
@@ -92,12 +104,12 @@ def read_marker(cell) -> None:
     cell.note("; ".join(said))
 
 
-def capture(cell, by_hand: bool) -> None:
-    """Pictures of the marker from around it, one solve per camera: lens numbers and where the camera sits on the
-    hand. Redo above LIMIT_PX or LIMIT_MM."""
+def capture(cell, by_hand: bool, camera=None) -> None:
+    """Pictures of the marker from around it for one camera, one solve: lens numbers and where the camera sits on
+    the hand. Redo above LIMIT_PX or LIMIT_MM."""
     calib, L = package(cell), cell.layout()
     here = cell.robot.pose()
-    for label, cam in _cams(L):
+    for label, cam in _picked(L, camera):
         if cell.stop_event.is_set():
             return
         folder = _dir(cell, cam, "capture")
