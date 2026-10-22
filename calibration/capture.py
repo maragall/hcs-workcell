@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import List, Optional, Sequence
+from typing import Optional, Sequence
 
 import cv2
 import numpy as np
