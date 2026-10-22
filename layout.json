@@ -236,12 +236,12 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        117.182,
-        399.493,
+        120.305,
+        399.017,
         267.101,
         0.0,
         -0.0,
-        86.88
+        87.755
       ],
       "hover_mm": 66.7,
       "approach": {
@@ -259,8 +259,8 @@
       },
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
-      "taught_at": "2026-10-22 04:39:19",
-      "jaw_at_teach": 25.01,
+      "taught_at": "2026-10-22 04:51:35",
+      "jaw_at_teach": 24.93,
       "vendor_teach": {
         "name": "microscope-short",
         "pick_method": "long",
@@ -281,9 +281,9 @@
       },
       "joints_at_teach": [
         228.503,
-        93.858,
-        174.814,
-        -181.791
+        86.884,
+        -172.133,
+        173.004
       ],
       "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\microscope",
       "grasp_search": {
@@ -364,7 +364,23 @@
         ],
         "taught_at": "2026-10-19 20:42:20"
       },
-      "_taught_note_2026_10_22": "new plate: seat taught by hand in drag mode (operator), fingers around the plate in the clips. Elbow reads +174.8 / wrist -181.8 here, the other side of the fold from the route's hover joints (elbow -177.6, wrist 178.6): the first descent and the route replay from this branch are untested."
+      "_taught_note_2026_10_22": "re-taught on the route's elbow branch (j3 -172.1, as the cycle reaches it): x, y, yaw by hand with the plate seated (operator), z kept from the first pick that gripped (267.101; the hand put it 1.4 mm higher, 268.47). Replaces the mirror-branch seat (elbow +174.8) saved earlier tonight.",
+      "previous_pose_2026_10_22_b": {
+        "pose": [
+          117.182,
+          399.493,
+          267.101,
+          0.0,
+          -0.0,
+          86.88
+        ],
+        "joints_at_teach": [
+          228.503,
+          93.858,
+          174.814,
+          -181.791
+        ]
+      }
     },
     "polar": {
       "pose_at_0": {
