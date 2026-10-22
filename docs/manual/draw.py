@@ -43,22 +43,48 @@ def fig_cables():
 
 
 # ------------------------------------------------------------------ 2 cameras
+def result_line(ax, x, y, s, size=9):
+    rbox(ax, x, y - 0.3, 3.6, 0.6, fc="#f7f8fa", ec=C_GREY, r=0.08)
+    text(ax, x + 0.2, y, s, size=size, ha="left")
+
+
+def fig_reads_marker():
+    fig, ax = figure(9, 5.0, (0, 12), (-1.6, 5.8))
+    line(ax, (0.5, 0.3), (7.0, 0.3), color=C_GREY, lw=1.5)
+    plate_side(ax, 1.6, 0.3, w=3.6)
+    aruco(ax, 3.0, 0.58, 0.7)
+    mark(ax, 0.9, 0.8, 1)
+    lens = hand_side(ax, 3.4, 2.4, open_w=3.2)
+    for sx in (-1, 1):
+        line(ax, lens, (3.35 + sx * 0.7, 0.65), color=C_RED, dashed=True, lw=1.4)
+    rbox(ax, 7.6, 0.6, 4.0, 4.6, fc="#dfe3e8", ec=C_GREY, r=0.15)                 # the screen
+    rbox(ax, 7.9, 2.2, 3.4, 2.6, fc="#1d2026", ec=C_INK, r=0.08)
+    aruco(ax, 9.0, 2.8, 1.2)
+    rbox(ax, 8.85, 2.65, 1.5, 1.5, fc="none", ec=C_OK, lw=2.0, r=0.05, z=8)
+    text(ax, 9.6, 1.3, "marker: read", size=10, color=C_OK, bold=True)
+    mark(ax, 11.7, 1.3, 2)
+    captions(ax, ("1  the practice plate with the marker under the down camera",
+                  "2  the screen says it reads the marker",
+                  "3  not read: clean the lens, or move the plate closer"), 0.5, -0.5, dy=0.5)
+    save(fig, "2_reads_marker")
+
+
 def fig_capture():
     fig, ax = figure(9, 5.0, (0, 12), (-1.6, 7.0))
     line(ax, (0.5, 0.3), (7.5, 0.3), color=C_GREY, lw=1.5)
-    box(ax, 2.6, 0.3, 2.2, 0.18, fc="white", z=4)                                  # the practice plate with its marker
-    box(ax, 3.4, 0.48, 0.6, 0.08, fc=C_INK, z=5)
+    plate_side(ax, 1.9, 0.3, w=3.6)
+    aruco(ax, 3.3, 0.58, 0.7)
     mark(ax, 1.2, 0.8, 1)
     lens = hand_side(ax, 3.7, 2.6, open_w=2.4)
     for sx in (-1, 1):
-        line(ax, lens, (3.7 + sx * 1.5, 0.5), color=C_RED, dashed=True, lw=1.2)
+        line(ax, lens, (3.65 + sx * 0.7, 0.65), color=C_RED, dashed=True, lw=1.2)
     arrow(ax, (1.4, 4.4), (6.0, 4.4), rad=0.3, lw=1.6, both=True)
     text(ax, 3.7, 6.5, "the arm moves around the marker by itself", size=9.5, color=C_MUTE)
-    button(ax, 8.2, 3.6, 2.6, 0.7, "Capture", size=8)
+    button(ax, 8.2, 3.6, 2.6, 0.7, "Capture", size=9)
     mark(ax, 11.3, 3.95, 2)
-    result_line(ax, 8.0, 2.4, "0.16 px  0.3 mm   ok", size=9)
-    captions(ax, ("1  leave the practice plate where it is, the marker in view",
-                  "2  press Capture. The arm moves; then two numbers and ok, or redo"), 0.5, -0.5, dy=0.5)
+    result_line(ax, 8.0, 2.4, "0.16   ok", size=9)
+    captions(ax, ("1  the practice plate with the marker, flat on the bench, the marker in the frame",
+                  "2  press Capture. The arm moves by itself; then a number and ok, or redo"), 0.5, -0.5, dy=0.5)
     save(fig, "2_capture")
 
 
@@ -387,8 +413,7 @@ def fig_cause_drift():
     save(fig, "6_cause_drift")
 
 
-FIGURES = (fig_cables, fig_marker_tab, fig_reads_marker, fig_capture, fig_upload_check,
-           fig_add_link, fig_connect, fig_hotel_size, fig_teach_bench, fig_hover, fig_grip,
+FIGURES = (fig_cables, fig_marker_tab, fig_reads_marker, fig_capture, fig_upload_check, fig_add_link, fig_connect, fig_hotel_size, fig_teach_bench, fig_hover, fig_grip,
            fig_travel, fig_replay, fig_test, fig_test_run, fig_run,
            fig_fault, fig_cause_slot, fig_cause_seat, fig_cause_drift)
 
