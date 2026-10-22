@@ -52,10 +52,13 @@ class Robot(Protocol):
     def ext_axis_to(self, index: int, value: float) -> None: ...
     def write_do(self, signal: str, value: int) -> None: ...
     def read_di(self, signal: str) -> int: ...
+    def errors(self) -> list: ...
 
 
 # ============================================================================ real arm
 class VendorRobot:
+    BRCAPI_PORT = 56788           # the controller's documented JSON protocol; the SDK has no error field
+
     def __init__(self, ip: str, port: int, grip_axis: int = 0, log=None):
         self.ip, self.port, self.grip_axis = ip, port, grip_axis
         self._log = log or (lambda *a: None)
@@ -216,3 +219,23 @@ class VendorRobot:
 
     def read_di(self, signal: str) -> int:
         return int(self._r.ReadDIAsync(signal))
+
+    def errors(self) -> list:
+        """Controller error list over BRCAPI (one short connection); empty when unreachable, the SDK path still guards."""
+        import json
+        import socket
+        try:
+            s = socket.create_connection((self.ip, self.BRCAPI_PORT), timeout=3)
+            s.settimeout(3)
+            s.sendall((json.dumps({"BRCAPI": "1.0", "cmd": "getRobotErr", "id": 7}) + "\n").encode())
+            buf = b""
+            while not buf.endswith(b"\n"):
+                c = s.recv(65536)
+                if not c:
+                    break
+                buf += c
+            s.close()
+            ret = json.loads(buf).get("ret") or []
+            return [e for e in ret if e.get("errCode") is not None]
+        except Exception:
+            return []

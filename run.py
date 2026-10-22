@@ -42,7 +42,8 @@ class Workcell:
     layout, robot and vision are shared by every task and touched only while holding arm_lock."""
 
     def __init__(self, layout: dict, robot, vision, scopes: Dict[str, object], tele: Telemetry, mode: str,
-                 run_dir: str, ref_dir: str, state_dir: str, layout_path: Optional[str] = None, poll_s: float = 1.0):
+                 run_dir: str, ref_dir: str, state_dir: str, layout_path: Optional[str] = None, poll_s: float = 1.0,
+                 clock=time):
         missing = [s for s in scopes if s not in layout["fixtures"]]
         if missing:
             raise KeyError(f"no fixture entry in the positions file for {missing}")
@@ -59,7 +60,7 @@ class Workcell:
                 tele.log("run", "ledger", f"{name}: new ledger, plate assumed on the microscope")
             scope_dir = os.path.join(run_dir, name)
             self.cycles[name] = Cycle(layout, robot, vision, Telemetry(scope_dir), store, mode, scope_dir, ref_dir,
-                                      scope=name, layout_path=layout_path, stop_event=self.stop)
+                                      scope=name, layout_path=layout_path, stop_event=self.stop, clock=clock)
 
     def plates(self) -> Dict[str, str]:
         """Where every plate is, by microscope: the microscope name, 'hotel:<slot>' or 'gripper'."""

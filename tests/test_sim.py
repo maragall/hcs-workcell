@@ -13,7 +13,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from rig import BAD, GATES, SAFE, FakeVision, jpeg, layout  # noqa: E402
+from rig import BAD, GATES, SAFE, FakeClock, FakeVision, jpeg, layout  # noqa: E402
 
 from devices.fake_arm import SimFaults, SimRobot  # noqa: E402
 from devices.vision_box import VisionError  # noqa: E402
@@ -44,7 +44,9 @@ class Rig:
             for j, pose in zip(wp["joints"], wp["poses"]):
                 self.robot.joint_pose_map[tuple(round(v, 3) for v in j[:4])] = pose
         self.vis = FakeVision()
-        self.cyc = Cycle(self.L, self.robot, self.vis, self.tele, self.store, mode, os.path.join(self.tmp, "run"), ref_dir)
+        self.clock = FakeClock()
+        self.cyc = Cycle(self.L, self.robot, self.vis, self.tele, self.store, mode, os.path.join(self.tmp, "run"), ref_dir,
+                         clock=self.clock)
 
     def run(self, slot="A1", cycles=1):
         return self.cyc.run(slot, cycles)
@@ -187,6 +189,17 @@ def test_vision_box_down_stops():
     r = Rig()
     r.vis.status_error = OSError("unreachable")
     r.expect_stop("vision box unreachable")
+    retries = [e for e in r.events() if e["step"] == "vision" and e["msg"].startswith("unreachable")]
+    assert len(retries) == r.L["limits"]["vision_retry_s"] // 10 + 1       # every 10 s for the whole retry window
+    assert r.clock.slept >= r.L["limits"]["vision_retry_s"]
+    r.close()
+
+
+def test_controller_error_stops_before_any_move():
+    r = Rig(SimFaults(controller_errors=[{"errCode": 3873, "errMsg": "wrist collision"}]))
+    r.expect_stop("controller error")
+    assert r.robot._moves == 0
+    assert os.path.exists(os.path.join(r.tmp, "run", "ALERT.txt"))
     r.close()
 
 

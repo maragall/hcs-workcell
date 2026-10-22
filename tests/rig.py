@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import time
 
 import numpy as np
 from PIL import Image
@@ -31,6 +32,22 @@ def jpeg(seed: int, noise: float = 3.0) -> bytes:
     b = io.BytesIO()
     im.save(b, "JPEG", quality=90)
     return b.getvalue()
+
+
+class FakeClock:
+    """time() and sleep() for Cycle: sleep advances the clock instead of waiting, so the fixed settle
+    waits of the procedures cost nothing on the simulator. Starts at the real time."""
+
+    def __init__(self):
+        self.now = time.time()
+        self.slept = 0.0
+
+    def time(self) -> float:
+        return self.now
+
+    def sleep(self, s: float) -> None:
+        self.now += s
+        self.slept += s
 
 
 class FakeVision:

@@ -12,7 +12,8 @@ Tuned for NO false negatives (never says "safe" when it is not): the threshold i
 spread of the "safe" references themselves, and any doubt returns False.  False positives (refusing
 to lower when it was in fact fine) are accepted and simply cost a retry or an operator look.
 
-References live in reference_images/<fixture>/<state>/*.png, recorded with `cli.py record-ref`.
+References live in reference_images/<fixture>/<state>/*.jpg (older cells: *.png), recorded with `cli.py record-ref`
+or collected by the self-training gates.
 """
 from __future__ import annotations
 
@@ -112,11 +113,13 @@ class LowerCheck:
                             "match" if best >= thr else f"best correlation {best:.3f} below {thr:.3f}")
 
     def add_reference(self, fixture: str, state: str, img_bytes: bytes) -> str:
+        """Stores the camera's JPEG bytes as they came: the same pixels the verdict saw, no PNG re-encode
+        (100 ms and 2.5 MB per 720p frame, inside the arm lock)."""
         d = os.path.join(self.ref_root, fixture, state)
         os.makedirs(d, exist_ok=True)
-        n = len([x for x in os.listdir(d) if x.lower().endswith(".png")]) + 1
-        path = os.path.join(d, f"ref_{n:03d}.png")
-        Image.open(io.BytesIO(img_bytes)).convert("RGB").save(path)
+        path = os.path.join(d, f"ref_{self.count(fixture, state) + 1:03d}.jpg")
+        with open(path, "wb") as f:
+            f.write(img_bytes)
         for k in [k for k in self._cache if k[0] == fixture and k[1] == state]:
             self._cache.pop(k, None)
         return path

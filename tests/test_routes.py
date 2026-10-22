@@ -5,6 +5,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 
 import pytest
 
@@ -64,6 +65,7 @@ def test_move_to_on_the_simulator_ends_at_the_hover():
     cyc = Cycle(L, robot, FakeVision(), tele, StateStore(os.path.join(tmp, "state.json")), "unsupervised",
                 os.path.join(tmp, "run"), os.path.join(tmp, "refs"))
     try:
+        assert cyc.clock is cyc.polar.clock is cyc.corr.clock is time     # nothing injected: the waits are real seconds
         cyc.move_to("free_spot")
         assert robot.pose()[:3] == [300.0, 180.0, 120.0]
         assert [k for k, _ in robot.trace] == ["L", "L", "L"]           # lift, travel, lower

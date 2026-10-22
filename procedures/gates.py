@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import math
 import shutil
-import time
 from typing import List, Optional
 
 from devices.vision_box import VisionError
@@ -15,22 +14,22 @@ class Gates:
     """What is checked before and after a move: health, the camera gates, the barcode."""
 
     def _health(self, force: bool = False):
-        if not force and time.time() - self._last_health < self.lim["health_check_every_s"]:
+        if not force and self.clock.time() - self._last_health < self.lim["health_check_every_s"]:
             return
-        self._last_health = time.time()
+        self._last_health = self.clock.time()
         st = self.robot.state()
         vs = None
-        deadline = time.time() + self.lim.get("vision_retry_s", 300)
+        deadline = self.clock.time() + self.lim.get("vision_retry_s", 300)
         while vs is None:
             try:
                 vs = self.vision.status()
             except Exception as e:
-                if time.time() > deadline:
+                if self.clock.time() > deadline:
                     self.corr.alert("health", f"vision box unreachable for {self.lim.get('vision_retry_s', 300)} s: {e}")
                     raise StopSafe("vision box unreachable")
                 self.tele.log("health", "vision", f"unreachable, retrying: {e}")
-                time.sleep(10)
-        ctrl_err = self._controller_errors()
+                self.clock.sleep(10)
+        ctrl_err = self.robot.errors()
         if ctrl_err:
             self.corr.alert("health", f"controller error: {ctrl_err}")
             raise StopSafe(f"controller error {ctrl_err}")

@@ -169,7 +169,7 @@ def main():
             d = os.path.join(REFS, gate, state)
             os.makedirs(d, exist_ok=True)
             for old in os.listdir(d):
-                if old.startswith("ref_") and old.endswith(".png"):
+                if old.startswith("ref_") and "_from_runs" not in old:     # the cell's own references, .png or .jpg
                     os.remove(os.path.join(d, old))
             for i, si in enumerate(seed_idx, 1):
                 shutil.copy(arrs[si][1], os.path.join(d, f"ref_{i:03d}_from_runs.jpg"))

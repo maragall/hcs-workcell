@@ -4,8 +4,8 @@ Same interface as devices.arm.VendorRobot, with fault injection (SimFaults).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 from devices.arm import MotionRefused, RobotState
 
@@ -20,6 +20,7 @@ class SimFaults:
     drop_enable_at: int = -1
     drag_on: bool = False
     ext_error: float = 0.0            # degrees the polar axis lands away from its command
+    controller_errors: List[dict] = field(default_factory=list)   # what the controller's error list reports
 
 
 class SimRobot:
@@ -142,3 +143,6 @@ class SimRobot:
 
     def read_di(self, signal):
         return self.dis.get(signal, 0)
+
+    def errors(self):
+        return list(self.faults.controller_errors)
