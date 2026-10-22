@@ -87,14 +87,14 @@ def button(ax, x, y, w, h, label, size=10, **_ignored):
 
 # ------------------------------------------------------------------ the bench from above
 def bench(ax, scopes=2, hotel_plates=("A1",)):
-    """The cell from above: arm base at the bottom, stage in front of it, microscopes to the left, hotel to the right.
+    """The cell from above: arm base at the bottom, the rotation module in front of it, microscopes to the left, hotel to the right.
     Returns the centres the marks go on."""
     box(ax, 0.3, 0.3, 11.4, 7.4, ec=C_GREY, fc="white")
     circle(ax, 6, 1.3, 0.9, fc=C_POLAR)
     text(ax, 6, 1.3, "arm", color="white", bold=True)
     circle(ax, 6, 4.2, 1.1)
     box(ax, 5.35, 3.8, 1.3, 0.8, lw=1.0)
-    text(ax, 6, 5.6, "stage")
+    text(ax, 6, 5.65, "rotation module")
     pts = {"stage": (6.0, 4.2)}
     ys = [4.4, 1.0] if scopes >= 2 else [3.3]
     for i, y in enumerate(ys[:scopes]):

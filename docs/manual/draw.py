@@ -90,7 +90,7 @@ def fig_connect():
     fig, ax = figure(9, 5.0, (0, 12), (-1.9, 5.4))
     rbox(ax, 0.6, 0.2, 10.8, 4.9, fc="white", ec=C_GREY, r=0.2)
     text(ax, 1.0, 4.6, "Setup", size=14, bold=True, ha="left")
-    rows = (("Arm", True), ("Vision box", True), ("Rotating stage", True), ("Squid microscope", False))
+    rows = (("Arm", True), ("Vision box", True), ("Rotation module", True), ("Squid microscope", False))
     for k, (name, ok) in enumerate(rows):
         y = 3.7 - k * 0.85
         text(ax, 1.0, y, name, size=12, ha="left")
@@ -135,8 +135,8 @@ def fig_teach_bench():
     arrow(ax, (stage[0] + 0.9, stage[1] - 0.3), (8.9, 1.9), dashed=True, rad=-0.25)
     text(ax, 6, 7.95, "put the practice plate at each mark, hover the hand over it, press Record", size=11.5)
     captions(ax, ("1  the microscope holder, plate in the holder",
-                  "2  stage at 0, plate seated, short edges in the fingers",
-                  "3  stage at 90, plate seated, long edges in the fingers",
+                  "2  rotation module at 0, plate seated, short edges in the fingers",
+                  "3  rotation module at 90, plate seated, long edges in the fingers",
                   "4  hotel A1       5  hotel A10       6  hotel C1       7  hotel C10",
                   "dashed: the drag between two Records is the route the arm will use"), 0.5, -0.6)
     save(fig, "3_teach_bench")
@@ -179,8 +179,8 @@ def fig_grip():
             arrow(ax, (x0 + 14.2, 12.3), (x0 + 14.2, 9.8), lw=1.6)
         text(ax, c[0], 12.5, mode, size=12, bold=True)
         mark(ax, x0 + 13.5, -0.3, k + 1, r=0.7, size=11)
-    captions(ax, ("1  short edges, the two ends: the microscope holder and the stage at 0",
-                  "2  long edges, the two sides: the stage at 90 and the hotel"), 1.0, -2.6, dy=1.4)
+    captions(ax, ("1  short edges, the two ends: microscope holder, rotation module at 0",
+                  "2  long edges, the two sides: rotation module at 90, hotel"), 1.0, -2.6, dy=1.4)
     save(fig, "3_grip")
 
 
@@ -190,7 +190,7 @@ def fig_travel():
     box(ax, 0.9, 0.3, 2.2, 2.6, fc=C_SQUID)                                       # microscope
     text(ax, 2.0, 1.5, "microscope", size=9, color="white")
     holder_side(ax, 4.5, 0.3, w=2.4, h=0.8, fc="white")
-    text(ax, 5.7, 0.0, "stage", size=9, color=C_MUTE)
+    text(ax, 5.7, 0.0, "rotation module", size=9, color=C_MUTE)
     box(ax, 8.6, 0.3, 2.6, 3.6, fc="white")                                       # hotel
     for r in range(7):
         box(ax, 8.8, 0.5 + r * 0.48, 2.2, 0.08, fc=C_GREY, ec=C_GREY)
@@ -244,12 +244,12 @@ def fig_test_run():
     stage, scope = pts["stage"], pts["microscope"]
     mark(ax, 8.6, 4.6, 1)                                                          # every slot
     mark(ax, scope[0] - 0.9, scope[1] - 0.6, 2)                                    # marker at the microscope
-    mark(ax, stage[0] - 0.55, stage[1] + 0.65, 2)                                  # marker at the stage
+    mark(ax, stage[0] - 0.55, stage[1] + 0.65, 2)                                  # marker at the rotation module
     arrow(ax, (3.0, scope[1]), (stage[0] - 1.2, stage[1] + 0.2), rad=-0.2, lw=2.0, both=True)
     mark(ax, 4.3, 5.4, 3)                                                          # the path
     arrow(ax, (stage[0] + 1.3, stage[1] + 0.6), (stage[0] + 0.6, stage[1] + 1.25), rad=0.35, lw=1.4,
           color=C_INK)
-    mark(ax, stage[0] + 1.8, stage[1] + 1.3, 4)                                    # turns the stage
+    mark(ax, stage[0] + 1.8, stage[1] + 1.3, 4)                                    # turns the rotation module
     cx, cy = pts["A3"]
     cross(ax, cx, cy, r=0.22, lw=2.0)
     arrow(ax, (cx - 0.5, cy), (pts["B3"][0] - 0.3, pts["B3"][1] + 0.5), rad=-0.3, lw=1.4)
@@ -258,8 +258,8 @@ def fig_test_run():
     mark(ax, 8.6, 1.0, 6)                                                          # every plate
     captions(ax, ("1  looks into every slot and compares with your clicks",
                   "2  reads the marker at every taught position",
-                  "3  drives the path slowly between the microscope and the stage",
-                  "4  turns the stage, camera check first",
+                  "3  drives the path slowly between the microscope and the rotation module",
+                  "4  turns the rotation module, camera check first",
                   "5  orders a plate into a taken slot on purpose, backs out, uses another slot",
                   "6  takes every plate to the microscope and back, in turn: A1, C2, A3, ..."),
              0.5, -0.6, dy=0.55)
