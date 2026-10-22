@@ -12,28 +12,17 @@ prediction models train on.
 - `ANALYSIS.md`: results of the first 90-hour unattended run and the plan derived from it.
 - `STATUS.md`, `review_queue.py`: current state and decisions awaiting review.
 
-## Topology
+## Architecture
 
-```mermaid
-graph TD
-    M[Microscope stage<br/>plate held on SHORT edges]
-    P[Polar stage<br/>rotates 0 / 90 deg<br/>grip changes here]
-    H[Plate hotel]
-    A1[A1]; A3[A3]; A5[A5]; A7[A7]; A9[A9]
-    B1[B1]; B3[B3]; B5[B5]; B7[B7]; B9[B9]
-    C1[C1]; C3[C3]; C5[C5]; C7[C7]; C9[C9]
-    M <-->|trajectory microscope_to_polar| P
-    P <-->|trajectory polar_to_hotel| H
-    H --- A1 & A3 & A5 & A7 & A9
-    H --- B1 & B3 & B5 & B7 & B9
-    H --- C1 & C3 & C5 & C7 & C9
-    R((Arm + gripper<br/>down camera, front camera)) -.carries the plate along every edge.-> M
-    R -.-> P
-    R -.-> H
-```
+![hcs-workcell architecture](docs/architecture.png)
 
-The arm is not a node. It is the agent that moves along the edges; the nodes are the places a plate can rest.
-Each edge is one taught trajectory, replayed forward and in reverse.
+One repo, four parts we write, each calling only the boxes below it. `run.py` is the main loop (asyncio: one
+task per microscope, one arm shared, a list of where every plate is). `layout.json` is the positions file: every
+pose, floor, speed, limit, route and plate type, data not code, changed by editing it or by `cli.py record-pose`.
+`procedures/` are the arm moves with the checks between them. `perception/` turns a photo into a verdict and
+imports no device. `devices/` is one thin file per machine plus a fake for each. `routes/` plans the waypoints
+between two positions. The dashed boxes are the good-to-haves, each in its first working form. Nova SDK and
+Squid are used as they come. Trained models for `perception/` come from cephla-hub, a separate project.
 
 ## Cycle
 
