@@ -1,7 +1,7 @@
 # Offline route optimisation study: microscope <-> rotating stage (route B) and stage -> hotel A1 (route A)
 
 Date 2026-10-19 (evening). Everything here was computed from files only: `layout.json`, `runs/*/events.jsonl`, the
-three drag traces in `runs/`, and the project's `nova_cell/safety.py`. No connection to the robot or the vision box.
+three drag traces in `runs/`, and the project's `procedures/safety.py`. No connection to the robot or the vision box.
 Nothing under `runs/`, `layout.json` or `state.json` was modified. **None of the generated routes has been replayed on
 the arm.** Section 7 lists what has to be verified before the first replay.
 
@@ -206,7 +206,7 @@ Waypoints (j1 mm, j2..j4 deg -> x, y, z, yaw): 1 (293.3, 86.71, -172.86, 176.48 
 90.3); 4 (293.3, 26.83, -119.85, **183.36** -> 315.0, 290.0, 331.9, 90.3); 5-12 wrist only, 24 deg per waypoint, to
 (293.3, 26.83, -119.85, 1.76 -> 315.0, 290.0, 331.9, -91.3); 13-22 column 24 mm per waypoint to (62.61, 31.74,
 -126.45, 3.45 -> 312.5, 304.5, 101.2, -91.3). Joint ranges used: j1 62.6..293.3, j2 26.8..86.7, j3 -172.9..-119.9,
-j4 1.8..183.4. All 22 poses pass `nova_cell.safety.Safety.check_target` (run offline). The route is symmetric, so the
+j4 1.8..183.4. All 22 poses pass `procedures.safety.Safety.check_target` (run offline). The route is symmetric, so the
 reverse replay (stage -> microscope) is the same list reversed, exactly as the cycle does today.
 
 Route A, stage hover at 90 deg (312.41, 305.83, 99.97, yaw -91.09; pose_at_90 taught 21:21:58) -> A1 approach

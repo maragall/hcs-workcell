@@ -1,4 +1,4 @@
-# nova_cell
+# hcs-workcell
 
 Plate transfer cell on the Bioyond Nova SCARA arm: microscope stage, rotating (polar) stage, plate hotel.
 Vision-gated, state-persisted, built to run unattended for days and to log the data that later
@@ -46,30 +46,49 @@ Every fixture visit: travel, hover, vision check, lower, jaw action, jaw verific
 
 ## Layout
 
+Each box calls only the boxes below it. The figure and the reasoning live in AI-docs/hcs-workcell.
+
 ```
-run.py                 command line
-layout.json            every pose, floor, speed, limit and trajectory. Data, not code.
-nova_cell/vision.py    VIBVision TCP client (vendor API, our code)
-nova_cell/robot.py     the only module touching the vendor robot SDK; SimRobot behind the same interface
-nova_cell/safety.py    speed profiles, workspace box, per-region z floors, vision jump limit
-nova_cell/lower_check.py  cross-correlation "safe to lower" / "seated" / "held" gates
-nova_cell/state.py     persisted cell state (where is the plate, what does the gripper hold)
-nova_cell/predictor.py pre-step checks and drift statistics
-nova_cell/corrector.py bounded recovery actions
-nova_cell/trajectory.py hand-guided capture, multi-demo normalisation to waypoints
-nova_cell/telemetry.py JSONL events + images per cycle
-nova_cell/cycle.py     the loop
-tests/test_sim.py      offline tests against the simulator and a fake vision box
+run.py                     the main loop, asyncio: one task per microscope, one arm shared, a list of where every plate is
+cli.py                     teaching, references, tests and one-microscope runs from the command line
+layout.json                the positions file: every pose, floor, speed, limit, route and plate type. Data, not code.
+
+procedures/                the arm moves, with the checks between them
+  cycle.py                 Cycle: pick, place, the step tables, outbound, inbound, run (one plate change on one microscope)
+  motion.py                its arm moves, each checked       grasp.py       its jaw: open, close, judge, centre
+  gates.py                 its camera and health checks      hotel.py       its hotel slots: climb, slide, pick, place
+  corrector.py             bounded recovery actions        safety.py      speed profiles, workspace box, z floors
+  state.py                 where the plate is (ledger)     telemetry.py   JSONL events + images per cycle
+  recorder.py              camera video per run            plates.py      plate types: jaw widths, grab height
+  positions.py             load/save the positions file    preflight.py   what must be taught before a run
+
+perception/                photo in, verdict out. No device imports.
+  lower_check.py           clear_to_lower and occupancy: cross-correlation against reference photos
+  predictor.py             pre-step checks and drift statistics
+  hub.py                   serve a pinned model / record a frame for cephla-hub (stub, optional)
+
+devices/                   one thin file per machine, plus a fake for each
+  nova.py                  the arm and the vision box, one import; arm(layout, sim=True) gives the fake
+  arm.py                   the only module touching the vendor robot SDK      fake_arm.py    simulator with fault injection
+  vision_box.py            vision box TCP client                             controller.py  Lua jobs on the controller
+  stage.py                 rotating (polar) stage                            squid.py       Squid+ (call names to confirm)
+  fake_squid.py            waits and does nothing                            rail.py        stub for a future farm
+
+routes/                    waypoints between two positions
+  trajectory.py            hand-guided capture, multi-demo normalisation
+
+lua/                       the program on the arm's controller (Bioyond template + our mod_Cell, data_cell, data_plate)
+tests/                     rig.py (fake vision box, simulator layout), test_sim.py (one microscope), test_run.py (two microscopes, one arm), test_plates.py, test_hub.py
 ```
 
 ## Commissioning order
 
-1. `python run.py status`
-2. Teach poses while hand-guiding: `python run.py record-pose microscope`, `polar.pose_at_0`, `polar.pose_at_90`
-3. Record each route 2 to 3 times: `python run.py trace microscope_to_polar` (stop: create `runs/trace.stop`), then `python run.py normalise microscope_to_polar`; same for `polar_to_hotel`
-4. Record "safe to lower" references at each fixture hover: `python run.py record-ref microscope plate_present` (3 or more each) for states `plate_present` and `empty`, plus `gripper short_edges` / `gripper long_edges` from the front camera
+1. `python cli.py status`
+2. Teach poses while hand-guiding: `python cli.py record-pose microscope`, `polar.pose_at_0`, `polar.pose_at_90`
+3. Record each route 2 to 3 times: `python cli.py trace microscope_to_polar` (stop: create `runs/trace.stop`), then `python cli.py normalise microscope_to_polar`; same for `polar_to_hotel`
+4. Record "safe to lower" references at each fixture hover: `python cli.py record-ref microscope plate_present` (3 or more each) for states `plate_present` and `empty`, plus `gripper short_edges` / `gripper long_edges` from the front camera
 5. Set the microscope region box and z floor in `layout.json`
-6. `python run.py run --mode supervised --slot A1 --cycles 1`
+6. `python cli.py run --mode supervised --slot A1 --cycles 1`
 7. Only after the acceptance tests in DESIGN.md: `--mode unsupervised`
 
 ## Teaching quickly

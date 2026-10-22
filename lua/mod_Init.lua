@@ -17,6 +17,8 @@ function mod_Init()
     SetSysInVarI(6,0)
     --Cell lift override
     SetSysInVarI(7,0)
+    --Cell plate type
+    SetSysInVarI(8,0)
     --Reset system output variables
     ResetSysOutVarI()
     --a program restart loses the carry state: start with detection off

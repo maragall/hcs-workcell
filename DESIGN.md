@@ -1,4 +1,4 @@
-# nova_cell design
+# hcs-workcell design
 
 ## 1. Cross-correlation gate: what it is and what it is not
 

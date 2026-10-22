@@ -10,15 +10,14 @@ Teach daemon: holds the one SDK connection open and records poses on demand, so 
 Every record stores pose, joints, jaw, stage axis reading and both camera frames (reference_images/teach/<name>/).
 Results are appended to runs/teach_log.txt.
 """
-import json
 import os
 import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import run as R  # noqa: E402
-from nova_cell.vision import VisionClient  # noqa: E402
+import cli as R  # noqa: E402
+from devices.vision_box import VisionClient  # noqa: E402
 
 CMD = os.path.join(HERE, "runs", "teach_cmd.txt")
 LOG = os.path.join(HERE, "runs", "teach_log.txt")

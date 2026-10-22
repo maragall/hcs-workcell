@@ -11,6 +11,7 @@ function main()
 --SYSINVAR5=1
 --SYSINVAR6=0
 --SYSINVAR7=0
+--SYSINVAR8=0
 --mod_Cell()
 --mod_CellEnd()
 --PAUSE()

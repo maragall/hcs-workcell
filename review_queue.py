@@ -7,7 +7,7 @@ Priority: P0 = can damage hardware or lose a plate. P1 = can stop the 7-day run.
 
 QUEUE = [
     {
-        "id": "Q0d", "priority": "P0", "file": "nova_cell/cycle.py:_hotel_place/_hotel_pick", "what": "route end -> slot pre-approach path",
+        "id": "Q0d", "priority": "P0", "file": "procedures/cycle.py:_hotel_place/_hotel_pick", "what": "route end -> slot pre-approach path",
         "decision": "Proposed: from the route end, (1) linear retreat in -x to a climb column x_c in front of the rack, (2) vertical "
                     "linear climb to slot z + lift at x_c, (3) joint move to the pre-approach with the slot yaw, (4) slide in. "
                     "x_c must leave the plate's far edge clear of the shelf fronts for every yaw along the way. Needs the rack front "
@@ -15,14 +15,14 @@ QUEUE = [
         "numbers": "A1 pre-approach x 193 worked at slot z+25; A3 attempt climbed at x 257 and hit a shelf at z ~121",
     },
     {
-        "id": "Q0c", "priority": "P1", "file": "nova_cell/robot.py:move_linear", "what": "MoveLinear sometimes does not execute",
+        "id": "Q0c", "priority": "P1", "file": "devices/arm.py:move_linear", "what": "MoveLinear sometimes does not execute",
         "decision": "Observed 2026-10-15 at the microscope hover: a 9 mm vertical + 1 mm lateral MoveLinear produced no motion "
                     "(SDK position check failed, arm never moved); the same target as MoveJoint executed. Earlier linear "
                     "slides/lowers at the hotel worked. Cause unknown (pose near y 400?). Readback verification caught it. "
                     "Decide: allow a joint-interpolated fallback for sub-15 mm moves, or find the controller rule.",
     },
     {
-        "id": "Q0", "priority": "P0", "file": "nova_cell/robot.py:VendorRobot.jaw_to", "what": "external joint index",
+        "id": "Q0", "priority": "P0", "file": "devices/arm.py:VendorRobot.jaw_to", "what": "external joint index",
         "decision": "Vendor SDK reads external joints 0-based (extjoints[0] = E1 gripper, [1] = E2 rotary) but "
                     "MoveSingleExtJoint is 1-based (1 = E1). Verified live: index 0 -> '外部关节索引不合法'; index 1 "
                     "moved E1 only. E2 (reads 91.8 deg) is very likely the polar stage; never command index 2 "
@@ -38,7 +38,7 @@ QUEUE = [
         "numbers": "GRIP_DET_DIS 2 mm below stall; speed tiers 5/2/1 and 3/2/1 percent (SetSpeedScale is integer)",
     },
     {
-        "id": "Q1", "priority": "P0", "file": "nova_cell/safety.py", "what": "z floors and workspace box",
+        "id": "Q1", "priority": "P0", "file": "procedures/safety.py", "what": "z floors and workspace box",
         "decision": "Every commanded target is checked against the global box and the z floor of the region it "
                     "falls in. Linear moves are sampled every 5 mm along the segment. A fixture may go below its own "
                     "floor only during its lower step (allow_floor_regions).",
@@ -57,7 +57,7 @@ QUEUE = [
 ''',
     },
     {
-        "id": "Q2", "priority": "P0", "file": "nova_cell/cycle.py:_move", "what": "collision / stall detection",
+        "id": "Q2", "priority": "P0", "file": "procedures/cycle.py:_move", "what": "collision / stall detection",
         "decision": "After every move the reported pose must be within max_pose_deviation_mm (1.0) of the target, "
                     "else StopSafe. This is the software-side crash detector; the controller's collision "
                     "sensitivity is the hardware side and must be set to maximum on the pendant.",
@@ -70,7 +70,7 @@ QUEUE = [
 ''',
     },
     {
-        "id": "Q3", "priority": "P0", "file": "nova_cell/lower_check.py", "what": "safe-to-lower gate threshold",
+        "id": "Q3", "priority": "P0", "file": "perception/lower_check.py", "what": "safe-to-lower gate threshold",
         "decision": "Normalised cross-correlation at 160x120 grey against >=3 reference images of the SAME fixture "
                     "state. Threshold = (lowest pairwise correlation among the references) - 0.08, never below "
                     "0.55. Fewer than 3 references => always unsafe. NaN => unsafe. Bias is toward refusing.",
@@ -87,7 +87,7 @@ QUEUE = [
 ''',
     },
     {
-        "id": "Q4", "priority": "P0", "file": "nova_cell/cycle.py:_jaw_close + predictor.PreChecks.grasp_ok",
+        "id": "Q4", "priority": "P0", "file": "procedures/cycle.py:_jaw_close + predictor.PreChecks.grasp_ok",
         "what": "grasp inference without force sensing",
         "decision": "Close in 0.5 steps with 0.15 s pauses down to 2.92. Grasp is good only if the final jaw value "
                     "is within 0.35 of 2.92. Below => nothing held (missed). Above => obstruction / not seated. "
@@ -101,7 +101,7 @@ QUEUE = [
 ''',
     },
     {
-        "id": "Q5", "priority": "P0", "file": "nova_cell/cycle.py:_vision_correction",
+        "id": "Q5", "priority": "P0", "file": "procedures/cycle.py:_vision_correction",
         "what": "how far vision may move a taught pose",
         "decision": "Only dx, dy from get_pose_offset are applied (dz and rotations ignored). If the 3D magnitude "
                     "exceeds max_correction_mm (25) the cycle stops: the fixture or marker moved.",
@@ -113,7 +113,7 @@ QUEUE = [
 ''',
     },
     {
-        "id": "Q6", "priority": "P1", "file": "nova_cell/state.py + cycle.run", "what": "resume rule",
+        "id": "Q6", "priority": "P1", "file": "procedures/state.py + cycle.run", "what": "resume rule",
         "decision": "State is written before and after each step. On start, if the last step did not finish, the "
                     "cycle refuses to run until a human inspects and edits state.json. No automatic resume of a "
                     "half-finished grasp or release.",
@@ -123,25 +123,25 @@ QUEUE = [
 ''',
     },
     {
-        "id": "Q7", "priority": "P1", "file": "nova_cell/corrector.py", "what": "recovery budgets",
+        "id": "Q7", "priority": "P1", "file": "procedures/corrector.py", "what": "recovery budgets",
         "decision": "Per cycle: 1 regrasp, 3 re-images (LED 0/30/60), 1 polar retry, 1 re-enable. Anything else "
                     "=> StopSafe + ALERT.txt. In supervised mode the operator is asked; unsupervised never asks.",
         "snippet": "Budget(regrasp=1, reimage=3, polar_retry=1, enable_retry=1)",
     },
     {
-        "id": "Q8", "priority": "P1", "file": "nova_cell/polar.py", "what": "polar stage interface is unknown",
+        "id": "Q8", "priority": "P1", "file": "devices/stage.py", "what": "polar stage interface is unknown",
         "decision": "Three drivers: robot DO pulse, TCP line device, manual prompt. Manual is refused in "
                     "unsupervised mode. Needs the real interface of the rotation unit.",
     },
     {
-        "id": "Q9", "priority": "P1", "file": "nova_cell/trajectory.py:normalise", "what": "demo averaging",
+        "id": "Q9", "priority": "P1", "file": "routes/trajectory.py:normalise", "what": "demo averaging",
         "decision": "Trim static ends, resample each demo to 200 points by joint-space arc length, average, "
                     "7-point moving average, thin to <=15 waypoints with joint steps <= 25 deg. Reject if any "
                     "step exceeds 25 deg. Each waypoint is checked against the box before replay.",
         "numbers": "n_samples 200, max_points 15, max_joint_step 25 deg",
     },
     {
-        "id": "Q10", "priority": "P2", "file": "nova_cell/predictor.py:DriftMonitor", "what": "drift thresholds",
+        "id": "Q10", "priority": "P2", "file": "perception/predictor.py:DriftMonitor", "what": "drift thresholds",
         "decision": "Robust z-score on the last 60 values per feature (median / MAD). z>=3.5 warn, z>=6 stop. "
                     "Needs 8 samples before it speaks. Features: step durations, jaw closed value, vision offset "
                     "magnitude, lower-check scores, plate-in-gripper scores, cycle time.",
@@ -152,7 +152,7 @@ QUEUE = [
                     "contact 1%. Both can be raised only after the acceptance tests.",
     },
     {
-        "id": "Q12", "priority": "P1", "file": "nova_cell/cycle.py:_slot_view + lower_check.SlotCheck", "what": "slot gate references",
+        "id": "Q12", "priority": "P1", "file": "procedures/cycle.py:_slot_view + lower_check.SlotCheck", "what": "slot gate references",
         "decision": "The cell collects its own slot references from the same camera call at the same approach pose: "
                     "place approach = empty, pick approach = occupied. First 5 per class on consecutive visits, then one "
                     "per 30 min up to 24, so the set spans a day's lighting. A frame that confidently matches the "

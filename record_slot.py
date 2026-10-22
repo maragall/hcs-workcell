@@ -6,8 +6,8 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import run as R  # noqa: E402
-from nova_cell.vision import VisionClient  # noqa: E402
+import cli as R  # noqa: E402
+from devices.vision_box import VisionClient  # noqa: E402
 
 slot = sys.argv[1].upper()
 layout = R.load_layout()

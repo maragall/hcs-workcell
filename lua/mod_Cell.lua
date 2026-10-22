@@ -7,9 +7,11 @@ function mod_Cell()
   -- SYSINVAR4 1 pick 2 place 3 rotate polar 4 go home 5 open 6 close 7 empty-det report
   -- SYSINVAR5 grip 1 short edges 2 long edges   SYSINVAR6 polar 1 = 0 deg 2 = 90 deg
   -- SYSINVAR7 hover / lift override in mm (0 = default)
+  -- SYSINVAR8 plate type (0 = default), jaw targets and grab height in data_plate.lua
   -- Result in CellResult (1, -1, -2, -3), detail in CellDetail (README_LUA.md).
   --==================================================================
   data_cell()
+  data_plate()
   CellResult=1
   CellDetail=0
   CellAbort=0
@@ -75,6 +77,8 @@ function mod_CellEnd()
   SetSysInVarI(6,0)
   --Lift override
   SetSysInVarI(7,0)
+  --Plate type
+  SetSysInVarI(8,0)
   -- index 1 first: the PC treats the first pushed value as the job code
   SendSysOutVarI(1,CellResult)
   if(CellDetail~=0)then
@@ -102,6 +106,9 @@ end--functionend
 function cell_Validate()
   if(SYSINVAR0<10 or SYSINVAR0>12 or SYSINVAR3~=1 or SYSINVAR4<1 or SYSINVAR4>7)then
     return cell_Invalid(11)
+  end
+  if(PlateKnown==0)then
+    return cell_Invalid(20)
   end
   if(SYSINVAR4==3 and SYSINVAR0~=11)then
     return cell_Invalid(17)
@@ -156,12 +163,21 @@ function cell_Validate()
 end--functionend
 
 function cell_SetGrip()
+  -- jaw targets of the current plate type (data_plate.lua), by grip edge
   if(SYSINVAR5==2)then
-    CellGripOpen=GRIP_LONG_OPEN
-    CellGripClose=GRIP_LONG_CLOSE
+    CellGripOpen=PLATE_LONG_OPEN
+    CellGripClose=PLATE_LONG_CLOSE
   else
-    CellGripOpen=GRIP_SHORT_OPEN
-    CellGripClose=GRIP_SHORT_CLOSE
+    CellGripOpen=PLATE_SHORT_OPEN
+    CellGripClose=PLATE_SHORT_CLOSE
+  end
+end--functionend
+
+-- Seat point Z offset of the current plate type (template: P1._z = P1._z + VAR7).
+-- Targets are fresh copies from data_cell() at every job, so mutating is safe.
+function cell_GrabZ(P)
+  if(PLATE_GRAB_MM~=0)then
+    SetElem(P,3,GetElem(P,3)+PLATE_GRAB_MM)
   end
 end--functionend
 
@@ -343,6 +359,7 @@ function mod_CellScope()
     CellDetail=32
     return
   end
+  cell_GrabZ(PSCOPE)
   if(SYSINVAR4==1)then
     cell_TopPick(PSCOPE,JSCOPE)
   elseif(SYSINVAR4==2)then
@@ -374,6 +391,7 @@ function mod_CellPolar()
   if(SYSINVAR6==2)then
     LP=PPOLAR90
   end
+  cell_GrabZ(LP)
   cell_PolarRotate()
   if(SYSINVAR4==1)then
     cell_TopPick(LP,JPOLAR)
@@ -455,6 +473,7 @@ function mod_CellHotel()
   -- rows 1..9 interpolated between the two taught ends of the column
   local LStack=StackConfiguration(9,1,LP1,LP1,LP9,LP9)
   PHOTEL=GetStackTargetPoint(LStack,SYSINVAR1,1)
+  cell_GrabZ(PHOTEL)
   if(SYSINVAR4==1)then
     cell_HotelPick(PHOTEL,LJT)
   elseif(SYSINVAR4==2)then

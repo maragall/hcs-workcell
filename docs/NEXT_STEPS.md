@@ -59,7 +59,7 @@ the cell. The proxy that fixes its preview stays available.
 
 **Document and add a replication interface.**
 - Exists: `docs/REPLICATION.md` (parts to unattended loop), `docs/VENDOR_SDK.md`, `DESIGN.md`,
-  `ANALYSIS.md`, `README.md`; one CLI (`run.py`) for status, teaching, grip measurement, routes, references,
+  `ANALYSIS.md`, `README.md`; one CLI (`cli.py`) for status, teaching, grip measurement, routes, references,
   tests and runs; `layout.json` as the single site file.
 - Missing: a guided `run.py commission` command that walks an operator through sections 4 to 8 of the
   replication guide with prompts and checks; a `layout.schema.json`; mp4 export of a reference run.

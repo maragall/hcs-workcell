@@ -32,8 +32,8 @@ dotnet --list-runtimes          # needs Microsoft.NETCore.App 8.x
 python tests/test_sim.py        # 22 offline tests, no hardware needed
 ```
 
-The vendor Python wheel is only used by `nova_cell/robot.py`. The vision box is driven over its documented TCP
-text protocol by `nova_cell/vision.py`, no vendor code.
+The vendor Python wheel is only used by `devices/arm.py`. The vision box is driven over its documented TCP
+text protocol by `devices/vision_box.py`, no vendor code.
 
 Optional: `winget install Gyan.FFmpeg` to turn recorded frames into mp4.
 
@@ -43,7 +43,7 @@ Optional: `winget install Gyan.FFmpeg` to turn recorded frames into mp4.
   0-based; every move's completion flag is unreliable while a plate is held, so the adapter verifies by
   readback; drag mode snaps the gripper to its last held value.
 - **Controller protocol BRCAPI** (port 56788, JSON lines): read-only use today (state, errors, pose). The
-  motion-in-Lua path is prepared in `lua/` and `nova_cell/brcapi.py` but not yet deployed.
+  motion-in-Lua path is prepared in `lua/` and `devices/controller.py` but not yet deployed.
 - **Vision box** (port 9000, text lines ending in `\r`): `get_frame`, `get_aruco_pose`, `get_pose_offset`,
   `run_live_detection`, `scan`, LED control, NG events, and the no-teach workspace (teach points, trigger points,
   relations). Its calibration handlers are broken in build 20250929 (`'str' object has no attribute 'sendall'`);
@@ -64,14 +64,14 @@ Optional: `winget install Gyan.FFmpeg` to turn recorded frames into mp4.
 Drag mode is for hovers and seats only. Commands are read-only except where stated.
 
 ```
-python run.py status
-python run.py record-pose microscope            # plate seated on the holder, SHORT edges in the fingers
-python run.py record-pose microscope.hover --local-only   # straight up, 60 to 70 mm
-python run.py polar jog +5 / polar zero          # turn the stage until parallel to x, then zero it
-python run.py record-pose polar.pose_at_0        # plate seated on the stage at 0, short edges
-python run.py record-pose polar.hover --local-only
-python run.py polar goto 90                      # stage to the long-edge orientation
-python run.py record-pose polar.pose_at_90       # regrip on the LONG edges, seated
+python cli.py status
+python cli.py record-pose microscope            # plate seated on the holder, SHORT edges in the fingers
+python cli.py record-pose microscope.hover --local-only   # straight up, 60 to 70 mm
+python cli.py polar jog +5 / polar zero          # turn the stage until parallel to x, then zero it
+python cli.py record-pose polar.pose_at_0        # plate seated on the stage at 0, short edges
+python cli.py record-pose polar.hover --local-only
+python cli.py polar goto 90                      # stage to the long-edge orientation
+python cli.py record-pose polar.pose_at_90       # regrip on the LONG edges, seated
 ```
 
 Hotel: teach the bottom and top slot of each column by hand (`fixtures.hotel.taught`); the rest are
@@ -83,8 +83,8 @@ Each `record-pose` also stores the pose on the vision box as a vendor teach poin
 ## 6. Gripper widths (two minutes)
 
 ```
-python run.py measure-grip short_edges      # closes in steps until the servo refuses: contact
-python run.py measure-grip long_edges
+python cli.py measure-grip short_edges      # closes in steps until the servo refuses: contact
+python cli.py measure-grip long_edges
 ```
 Values are the finger gap in the gripper's units; larger is wider. Measured here: 24.0 for the plate's 128 mm
 length, 2.84 for its 85 mm width, spread over a thousand grasps under 0.01.
@@ -94,20 +94,20 @@ length, 2.84 for its 85 mm width, spread over a thousand grasps under 0.01.
 The controller refuses long direct moves between regions, so two routes are hand-taught:
 
 ```
-python run.py trace microscope_to_polar     # drag from the microscope hover to the stage hover; stop: create runs/trace.stop
-python run.py normalise microscope_to_polar
-python run.py trace polar_to_hotel          # from above the stage seat to in front of the hotel
-python run.py normalise polar_to_hotel
+python cli.py trace microscope_to_polar     # drag from the microscope hover to the stage hover; stop: create runs/trace.stop
+python cli.py normalise microscope_to_polar
+python cli.py trace polar_to_hotel          # from above the stage seat to in front of the hotel
+python cli.py normalise polar_to_hotel
 ```
 Rules for the drag: lift before moving sideways, do the 180 degree claw turn away from fixtures, arrive at
 the microscope hover from straight above. The normaliser keeps joints and poses aligned, thins to a waypoint
-list, and refuses joint steps above 25 degrees. Replay with `python run.py replay <name> --step`.
+list, and refuses joint steps above 25 degrees. Replay with `python cli.py replay <name> --step`.
 
 ## 8. Validation ladder
 
-1. `python run.py place-test A1 --stage 1..4`: route, pre-approach, slide, lower, with a look between stages.
-2. `python run.py hotel-cycle-test A1`: pick, place, pick at the slot, return, place on the stage.
-3. `python run.py run --mode supervised --slot A1 --cycles 1 --no-gates --no-vision-correction --allow-no-tty --yes --set-state microscope --record`
+1. `python cli.py place-test A1 --stage 1..4`: route, pre-approach, slide, lower, with a look between stages.
+2. `python cli.py hotel-cycle-test A1`: pick, place, pick at the slot, return, place on the stage.
+3. `python cli.py run --mode supervised --slot A1 --cycles 1 --no-gates --no-vision-correction --allow-no-tty --yes --set-state microscope --record`
 4. Three cycles at `--profile fast`, then three at `--profile stress`.
 5. Unattended: `python run_forever.py A1 --first-state microscope` (see section 10).
 

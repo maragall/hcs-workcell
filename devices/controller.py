@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import json
 import socket
-from collections import deque
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 

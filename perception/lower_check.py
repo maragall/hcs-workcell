@@ -12,7 +12,7 @@ Tuned for NO false negatives (never says "safe" when it is not): the threshold i
 spread of the "safe" references themselves, and any doubt returns False.  False positives (refusing
 to lower when it was in fact fine) are accepted and simply cost a retry or an operator look.
 
-References live in reference_images/<fixture>/<state>/*.png, recorded with `run.py record-ref`.
+References live in reference_images/<fixture>/<state>/*.png, recorded with `cli.py record-ref`.
 """
 from __future__ import annotations
 

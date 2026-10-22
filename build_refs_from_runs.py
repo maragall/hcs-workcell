@@ -30,7 +30,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from nova_cell.lower_check import _prep, ncc  # noqa: E402
+from perception.lower_check import _prep, ncc  # noqa: E402
 
 RUNS = os.path.join(HERE, "runs")
 REFS = os.path.join(HERE, "reference_images")

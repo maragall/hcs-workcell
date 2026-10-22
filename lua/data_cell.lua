@@ -46,10 +46,7 @@ function data_cell()
   -- E1 jaw positions in mm as read on the pendant. Template convention:
   -- E1 = (plate opening - 76) / 2. CLOSE targets must sit at least
   -- GRIP_DET_DIS below the value where the jaw stalls on the plate.
-  GRIP_SHORT_OPEN=31.0     -- TODO TEACH: jaw open for a SHORT-edge grasp (~138 mm)
-  GRIP_SHORT_CLOSE=24.0    -- TODO TEACH: stall on 127.8 mm plate ~25.9 -> target 2 mm lower
-  GRIP_LONG_OPEN=10.0      -- TODO TEACH: layout.json gripper.open
-  GRIP_LONG_CLOSE=1.0      -- TODO TEACH: layout.json closed_on_plate 2.92 -> target 2 mm lower
+  -- Open/close targets per plate type live in data_plate.lua (PLATE_*), chosen by SYSINVAR8.
   GRIP_STEP_MM=0.5         -- jaw step while closing
   GRIP_STEP_MS=150         -- pause between steps
   GRIP_SETTLE_MS=300       -- pause before GripperEmptyDet

@@ -1,7 +1,7 @@
 """
 Duration model for waypoint (AJ) moves, fitted from runs/*/events.jsonl. Offline only.
 
-How a waypoint is executed (nova_cell/cycle.py _waypoints -> robot.move_abs_joints_stepped, max_step 8):
+How a waypoint is executed (procedures/cycle.py _waypoints -> robot.move_abs_joints_stepped, max_step 8):
   the joint delta d (max over j1 mm, j2..j4 deg) is split into nsub = int(d/8 + 0.999) equal sub-moves, each a
   separate MoveAbsJointAsync call verified by joint readback (0.1 s polling); then _wait_still, one pose read.
 The log carries per waypoint: dt (whole waypoint), dev. Joints are not logged, so the deltas come from the

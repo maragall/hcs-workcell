@@ -9,6 +9,19 @@
     "groove_offset_from_bottom": null,
     "_note": "production plate measured with calipers 2026-10-19 (operator). Grip grooves are small: jaw width reads the same on the wall and in the groove (see gripper.readings). Height and groove position still to measure"
   },
+  "plates": {
+    "_note": "one entry per plate type (procedures/plates.py). grab_height_mm is added to every seat pose Z before a pick or place (vendor template VAR7). A type may carry its own jaw: {open: {short_edges, long_edges}, closed: {...}} in E1 pendant readings; without it the type uses gripper.open/closed, which the teach and measure commands write. id is SYSINVAR8 for the Lua path and lua/data_plate.lua must hold the same numbers. default names the type used when nothing selects one",
+    "default": "production",
+    "types": {
+      "production": {
+        "id": 1,
+        "length_mm": 127.46,
+        "width_mm": 85.14,
+        "height_mm": null,
+        "grab_height_mm": 0.0
+      }
+    }
+  },
   "robot": {
     "ip": "192.168.1.220",
     "port": 52525,

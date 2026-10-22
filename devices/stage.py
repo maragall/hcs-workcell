@@ -24,7 +24,7 @@ class PolarStage:
         self.settle = float(cfg.get("settle_s", 1.0))
         self.angle = int(initial_angle)
         if self.driver == "ext_axis" and cfg["ext_axis"].get("zero_reading") is None:
-            raise PolarError("polar zero reference not set (run.py polar zero)")
+            raise PolarError("polar zero reference not set (cli.py polar zero)")
         if not supervised and self.driver != "ext_axis" and not cfg.get("di"):
             raise PolarError("unsupervised mode needs polar stage feedback (ext_axis driver or layout.polar.di)")
 

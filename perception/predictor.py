@@ -85,12 +85,13 @@ class DriftMonitor:
 class PreChecks:
     """Deterministic conditions evaluated before a step. Each returns a list of problems."""
 
-    def __init__(self, layout: dict):
+    def __init__(self, layout: dict, jaw_open: Optional[dict] = None, jaw_closed: Optional[dict] = None):
+        """jaw_open / jaw_closed: the plate type's widths per grip; default the cell's gripper.open/closed."""
         self.layout = layout
-        self.closed = layout["gripper"]["closed"]
+        self.closed = jaw_closed or layout["gripper"]["closed"]
         self.jaw_tol = layout["gripper"]["tolerance"]
         self.release_tol = layout["gripper"].get("release_tolerance", 0.3)
-        self.jaw_open = layout["gripper"]["open"]
+        self.jaw_open = jaw_open or layout["gripper"]["open"]
 
     def before_grasp(self, jaw: float, robot_state) -> List[str]:
         p = []

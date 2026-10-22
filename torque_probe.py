@@ -17,8 +17,8 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import run as R                                   # noqa: E402
-from nova_cell.brcapi import Brcapi               # noqa: E402
+import cli as R                                   # noqa: E402
+from devices.controller import Brcapi               # noqa: E402
 
 IDX_RAW, IDX_W, IDX_NORM, IDX_BEAT, IDX_REF = 4, 5, 6, 7, 8
 
@@ -42,7 +42,7 @@ def require_probe(b: Brcapi):
 def job(b: Brcapi, req: int, w_mm: float = 0.0, trq: float = 0.0, v: int = 50, timeout: float = 30.0):
     """The SendSysOutVarI push is delivered to one client only; when BioyondWorks is connected it takes it. Then
     the request variable going back to 0 is the completion signal and the detail is unavailable (None)."""
-    from nova_cell.brcapi import BrcapiError
+    from devices.controller import BrcapiError
     try:
         return b.run_job({0: req, 1: int(round(w_mm * 100)), 2: int(round(trq * 1000)), 3: int(v)}, timeout)
     except BrcapiError as e:

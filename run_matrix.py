@@ -1,5 +1,5 @@
 """
-Run the cycle over a list of hotel slots, one `run.py run` per slot, stopping at the first stop or crash.
+Run the cycle over a list of hotel slots, one `cli.py run` per slot, stopping at the first stop or crash.
 
     python run_matrix.py A3 A5 A7 A9 B1 B3 --extra "--no-gates --no-vision-correction"
 
@@ -19,12 +19,12 @@ def main():
     ap.add_argument("slots", nargs="+")
     ap.add_argument("--mode", default="supervised")
     ap.add_argument("--cycles", type=int, default=1)
-    ap.add_argument("--extra", default="", help="extra flags passed to run.py run")
+    ap.add_argument("--extra", default="", help="extra flags passed to cli.py run")
     ap.add_argument("--pause", type=float, default=5.0, help="seconds between slots")
     args = ap.parse_args()
     log = open(os.path.join(HERE, "runs", "matrix.log"), "a", encoding="utf-8")
     for i, slot in enumerate(args.slots):
-        cmd = [sys.executable, os.path.join(HERE, "run.py"), "run", "--mode", args.mode, "--slot", slot,
+        cmd = [sys.executable, os.path.join(HERE, "cli.py"), "run", "--mode", args.mode, "--slot", slot,
                "--cycles", str(args.cycles), "--allow-no-tty", "--yes", "--record"] + args.extra.split()
         if i == 0:
             cmd += ["--set-state", "microscope"]

@@ -4,7 +4,7 @@ function mod_Socket()
     ActionProcessedVar=0
     GetSysVarI()
     if(SYSINVAR0~=0)then
-        ShowInfo("SYSINVAR0=" .. SYSINVAR0 .. " 1=" .. SYSINVAR1 .. " 2=" .. SYSINVAR2 .. " 3=" .. SYSINVAR3 .. " 4=" .. SYSINVAR4 .. " 5=" .. SYSINVAR5 .. " 6=" .. SYSINVAR6 .. " 7=" .. SYSINVAR7)
+        ShowInfo("SYSINVAR0=" .. SYSINVAR0 .. " 1=" .. SYSINVAR1 .. " 2=" .. SYSINVAR2 .. " 3=" .. SYSINVAR3 .. " 4=" .. SYSINVAR4 .. " 5=" .. SYSINVAR5 .. " 6=" .. SYSINVAR6 .. " 7=" .. SYSINVAR7 .. " 8=" .. SYSINVAR8)
     end
 
     -- template devices (delete these two branches if mod_Stack/modScan are not in the project)
@@ -18,7 +18,7 @@ function mod_Socket()
         ActionProcessedVar=1
     -- plate-transfer cell: 10 microscope, 11 polar, 12 hotel.
     -- mod_Cell validates the rest of the request itself and mod_CellEnd
-    -- reports 1 / -1 / -2 / -3 and zeroes SYSINVAR0..7, so mod_End is not used.
+    -- reports 1 / -1 / -2 / -3 and zeroes SYSINVAR0..8, so mod_End is not used.
     elseif(SYSINVAR0>=10 and SYSINVAR0<=12)then
         mod_Cell()
         mod_CellEnd()

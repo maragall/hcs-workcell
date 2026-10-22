@@ -1,7 +1,7 @@
 # Vendor .NET SDK (BR.PC.BYSDK 1.14) as observed on the Nova S4, October 2026
 
 Everything below was measured live; the vendor package documents the controller's BRCAPI protocol
-(port 56788) but not this SDK (port 52525). Use only through `nova_cell/robot.py`.
+(port 56788) but not this SDK (port 52525). Use only through `devices/arm.py`.
 
 ## Connection and modes
 - `RobotSDKFactory.Create().ConnectAsync(ip, 52525)`; one client at a time. A second client hangs.

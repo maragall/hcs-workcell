@@ -5,7 +5,7 @@ All numbers come from layout.json; nothing here is hard-coded to this cell.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import List
 
 
 class SafetyViolation(Exception):
