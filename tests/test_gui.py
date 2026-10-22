@@ -158,7 +158,7 @@ def test_stop_sets_the_stop_and_the_test_ends(gui):
 
 def test_the_whole_test_runs_through(gui):
     cell, url = gui
-    code, out = post(url, "/api/test")
+    code, out = post(url, "/api/test", {"rounds": 1})        # without rounds it goes on until STOP
     assert code == 200 and out["ok"]
     wait_idle(cell, 300)
     t = state(url)["test"]["test"]

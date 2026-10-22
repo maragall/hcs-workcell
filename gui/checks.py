@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import math
 import time
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import exercise
 from procedures.corrector import StopSafe
@@ -139,7 +139,8 @@ def drive_to_the_module_and_back(cell, cyc, log) -> None:
 
 
 # --------------------------------------------------------------------------------------------- the button
-def test(cell) -> None:
+def test(cell, rounds: Optional[int] = None) -> None:
+    """`rounds`: how many times every plate goes through the microscope; None keeps going until STOP."""
     L = cell.layout()
     scopes = [s for s in bench.microscopes(L) if L["fixtures"][s].get("pose")] or ["microscope"]
     order = plate_order(L)
@@ -161,11 +162,18 @@ def test(cell) -> None:
         drive_to_the_module_and_back(cell, cyc, log)
         _stopped(cell)
         exercise.trip_itself(cyc, order[1] if len(order) > 1 else order[0], log)
-        log("exercise", "plates", "now every plate in turn")
-        before = sum(c.store.s.cycle for c in r.wc.cycles.values())      # the trip counted as one
-        asyncio.run(r.wc.run(slot_of, cycles, False, r.stop_file, list(order)))
-        done = sum(c.store.s.cycle for c in r.wc.cycles.values()) - before
-        log("exercise", "finished", f"plates: {done} of {len(order)} cycled", plates=r.wc.plates(), slots=r.slot_views)
+        log("exercise", "plates", "now every plate in turn" + ("" if rounds else ", round after round, until STOP"))
+        n = 0
+        while True:
+            n += 1
+            before = sum(c.store.s.cycle for c in r.wc.cycles.values())      # the trip counted as one
+            asyncio.run(r.wc.run(slot_of, cycles, False, r.stop_file, list(order)))
+            done = sum(c.store.s.cycle for c in r.wc.cycles.values()) - before
+            _stopped(cell)
+            log("exercise", "round", f"plates: {done} of {len(order)} cycled, round {n}", plates=r.wc.plates(), slots=r.slot_views)
+            if rounds is not None and n >= rounds:
+                break
+        log("exercise", "finished", f"finished after {n} round{'s' if n > 1 else ''}")
         r.close("finished")
         cell.note("test finished")
     except (StopSafe, SafetyViolation) as e:

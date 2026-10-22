@@ -62,7 +62,7 @@ STEPS = (
       "Done when no row in the list is red."], "3_replay", "half"),
     ("4", "Test",
      ["Click the slots that really hold a plate. Press Test everything.",
-      "Watch. STOP at any time. A red ring on a slot: go and look at it."], "4_test", "full"),
+      "Watch. It goes round and round until you press STOP. A red ring on a slot: go and look at it."], "4_test", "full"),
     ("4.1", "What the test does",
      ["The arm does all of it on its own, slowly, in this order.",
       "Done when every plate is back in its own slot and the screen says finished."], "4_test_run", "full"),

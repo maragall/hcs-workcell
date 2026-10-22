@@ -64,7 +64,8 @@ def act(cell, name: str, body: dict) -> dict:
     if name == "replay":
         return {"ok": cell.start("replaying the routes", lambda: teach.replay(cell))}
     if name == "test":
-        return {"ok": cell.start("testing everything", lambda: checks.test(cell))}
+        rounds = body.get("rounds")                   # absent: round after round until STOP
+        return {"ok": cell.start("testing everything", lambda: checks.test(cell, int(rounds) if rounds else None))}
     return {"ok": False, "error": f"unknown action {name}"}
 
 

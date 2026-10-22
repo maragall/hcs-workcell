@@ -81,3 +81,7 @@ the run folders, the operator's words, to correct the codebase, and bring the co
    in `gui/` and calls commands, never devices.
 6. When the setup program's "Test everything" passes on the real cell: merge the branch into main, push, and write
    what still does not match the bench into `CLAUDE.md` under "Hardware handoff" for the next session.
+7. "Test everything" goes round after round until STOP; it is left running on the cell. It may stop only on STOP
+   or on a real fault, and a fault must say its cause in one line on the page and in `runs/<run>/events.jsonl`.
+8. Then open the setup program fresh (`python gui.py`) at Setup and tell Julio: committed to main, the commit id, the
+   GUI is open, what passed on the arm and what did not. He records the walk-through from that screen.

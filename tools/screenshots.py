@@ -91,7 +91,7 @@ def main() -> int:
         wait_idle(30)
         frame("teach", "teach-recorded")
         frame("test", "test")
-        api("test", {})
+        api("test", {"rounds": 1})                  # the recording ends; on the cell it goes on until STOP
         time.sleep(1.0)
         wait_idle(600, every=lambda: frame("test"))
         frame("test", "test-done")
