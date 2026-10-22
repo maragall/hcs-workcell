@@ -40,6 +40,8 @@ class FakeVision:
         self.offset_error = None
         self.slot_occupied = False
         self.status_error = None
+        self.frame_error = None          # raised by frame(): the camera gives nothing
+        self.live_error = None           # raised by live_detection()
         self.on_status = None
 
     def status(self):
@@ -50,6 +52,8 @@ class FakeVision:
         return Status("idle", 1000, 2, 1, 0, 0)
 
     def frame(self, cam, *a, **k):
+        if self.frame_error:
+            raise self.frame_error
         return jpeg(self.scene[cam])
 
     def pose_offset(self, *a, **k):
@@ -59,6 +63,8 @@ class FakeVision:
         return PoseOffset(d, "robot", (d[0] ** 2 + d[1] ** 2) ** 0.5, 0.0, jpeg(2))
 
     def live_detection(self, *a, **k):
+        if self.live_error:
+            raise self.live_error
         return self.slot_occupied, jpeg(3)
 
     def scan(self, *a, **k):
