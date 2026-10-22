@@ -77,7 +77,7 @@
       "enforce": "auto",
       "_note": "references are collected live by the cell (place approach = empty, pick approach = occupied); 24 at 30 min spacing cover a day's lighting. Delete reference_images/slot_<S> to relearn a slot"
     },
-    "front_led": 100,
+    "front_led": 0,
     "_front_led_note": "front camera frames (slot view, seated check, plate in gripper) are lit by the camera LED so day and night match; validated 2026-10-19 21:15",
     "held_plate_auto_refs": 12,
     "stage_check": {
