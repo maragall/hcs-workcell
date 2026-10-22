@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PATH = os.path.join(ROOT, "layout.json")
@@ -15,16 +17,34 @@ REFS = os.path.join(ROOT, "reference_images")
 
 
 def load(path: str = PATH) -> dict:
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    for attempt in range(50):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except PermissionError:          # Windows: a writer is replacing the file this instant
+            if attempt == 49:
+                raise
+            time.sleep(0.02)
+
+
+_SAVE_LOCK = threading.Lock()
 
 
 def save(layout: dict, path: str = PATH) -> None:
-    """Atomic: the teach commands call this while the arm is live."""
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(layout, f, indent=2)
-    os.replace(tmp, path)
+    """Atomic: the teach commands call this while the arm is live. One writer at a time, and on Windows the
+    replace is retried while a reader (another thread's load) still has the file open."""
+    with _SAVE_LOCK:
+        tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(layout, f, indent=2)
+        for attempt in range(50):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                if attempt == 49:
+                    raise
+                time.sleep(0.02)
 
 
 def update_fixture(fixture_name: str, path: str = PATH, **keys) -> None:

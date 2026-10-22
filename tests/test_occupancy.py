@@ -70,3 +70,16 @@ def test_a_mislabelled_reference_keeps_the_detector_out_of_enforcement():
         assert occ.self_test("A1").wrong >= 1 and not occ.ready("A1")
     finally:
         shutil.rmtree(tmp)
+
+
+def test_identical_pictures_under_both_labels_are_unknown_not_occupied():
+    """On the simulator every frame is the same; a tie must never block a placement as 'occupied'."""
+    occ, tmp = detector(n_empty=0, n_occupied=0)
+    try:
+        for state in ("empty", "occupied"):
+            for _ in range(5):
+                occ.add_reference("A1", state, jpeg(EMPTY))
+        v = occ.verdict("A1", jpeg(EMPTY))
+        assert v.decision == "unknown" and not occ.ready("A1")
+    finally:
+        shutil.rmtree(tmp)

@@ -96,6 +96,8 @@ class Occupancy:
         n = min(len(empty), len(occupied))
         if max(se, so) < self.min_match:
             return OccupancyVerdict("unknown", 0.0, se, so, n, f"matches neither class (best {max(se, so):.3f})")
+        if abs(se - so) < 1e-6:        # the same picture under both labels: the camera cannot tell, so it must not claim "occupied"
+            return OccupancyVerdict("unknown", 0.0, se, so, n, f"empty and occupied look the same ({se:.3f})")
         decision = "empty" if se > so else "occupied"
         return OccupancyVerdict(decision, abs(se - so), se, so, n, f"{decision} by {abs(se - so):.3f}")
 

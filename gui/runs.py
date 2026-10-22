@@ -47,6 +47,7 @@ class Run:
         self.rec = Recorder(self.run_dir, cell.frames, list(cell.frames.cameras.values()), fps=2.0, screen=False, log=self.tele.log)
         self.rec.start()
         self.started, self.ended, self.outcome = time.time(), None, ""
+        self.round, self.round_before, self.round_total = 0, 0, 0     # set by the Test screen's loop
         self.slot_views: Dict[str, str] = {}      # slot -> agree | disagree | unsure, from this run's slot checks
         if log_run_start:
             self.tele.log("run", "start", mode=mode, scopes=scopes, sim=cell.sim, plates=self.wc.plates())
@@ -139,8 +140,16 @@ class Run:
             rows.append({"name": bench.label(s), "plate": plate, "now": now[s] if self.active else self.outcome})
         return rows
 
+    def progress(self) -> str:
+        if not self.active:
+            return self.outcome
+        if not self.round:
+            return "checking the cell before the plates start"
+        done = sum(c.store.s.cycle for c in self.wc.cycles.values()) - self.round_before
+        return f"round {self.round}, plate {min(max(done, 0) + 1, self.round_total)} of {self.round_total}"
+
     def state(self) -> dict:
-        return {"active": self.active, "mode": self.mode, "outcome": self.outcome, "since": self.started,
+        return {"progress": self.progress(), "active": self.active, "mode": self.mode, "outcome": self.outcome, "since": self.started,
                 "plates": self.plates(), "log": self.log(), "images": self.images(), "rings": self.rings(),
                 "stopping": os.path.exists(self.stop_file)}
 

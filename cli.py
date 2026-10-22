@@ -23,7 +23,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 from devices import nova  # noqa: E402
-from devices.arm import MotionRefused  # noqa: E402
+from devices.arm import MotionRefused, RobotFault  # noqa: E402
+from devices.controller import BrcapiError  # noqa: E402
+from devices.vision_box import VisionError  # noqa: E402
 from perception.lower_check import LowerCheck  # noqa: E402
 from procedures import positions  # noqa: E402
 from procedures.corrector import StopSafe  # noqa: E402
@@ -984,7 +986,16 @@ def main():
     p.add_argument("run_dir"); p.add_argument("--fps", type=float, default=2.0)
     p.set_defaults(fn=cmd_to_mp4)
     args = ap.parse_args()
-    return args.fn(args)
+    try:
+        return args.fn(args)
+    except (RobotFault, VisionError, BrcapiError, MotionRefused, StopSafe, SafetyViolation, OSError) as e:
+        if os.environ.get("HCS_TRACEBACK"):
+            raise
+        sys.exit(f"{type(e).__name__}: {e}")
+    except (KeyError, TypeError, IndexError) as e:
+        if os.environ.get("HCS_TRACEBACK"):
+            raise
+        sys.exit(f"a value is missing in layout.json ({type(e).__name__} {e}); `python cli.py positions` and `preflight` list what is not taught")
 
 
 if __name__ == "__main__":

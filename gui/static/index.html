@@ -116,7 +116,8 @@
     <div class="row"><div class="k">1</div><div>Click the slots that hold a plate.</div></div>
     <div class="row"><div class="k">2</div><div><button class="btn big primary" data-busy data-move onclick="post('test')">Test everything</button></div></div>
     <div class="legend">The arm looks at every slot and compares with your clicks, checks the marker at every taught position, drives the path slowly between the microscope and the rotation module, turns the module, tries a taken slot on purpose and backs out, then takes every plate to the microscope and back in turn, round after round, until you press STOP.</div>
-    <div class="log" id="log" style="margin-top:12px"></div>
+    <div id="progress" style="margin-top:12px;font-weight:600"></div>
+    <div class="log" id="log" style="margin-top:6px"></div>
     <table><tr><th>microscope</th><th>plate</th><th>now</th></tr><tbody id="plates"></tbody></table>
   </div><div>
     <div class="matrix" id="matrix"></div>
@@ -186,6 +187,7 @@ function render(s){
   matrix(bench, s.test);
   const t = s.test.test;
   $('plates').innerHTML = t ? t.plates.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.plate)}</td><td>${esc(p.now)}</td></tr>`).join('') : '<tr><td colspan=3 class="mute">not started</td></tr>';
+  $('progress').textContent = t ? t.progress : '';
   const log = $('log'); const atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
   log.textContent = t ? t.log.map(l => `${l.t}  ${l.text}`).join('\n') : '';
   if (atEnd) log.scrollTop = log.scrollHeight;

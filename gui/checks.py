@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import math
 import time
+import traceback
 from typing import Dict, List, Optional
 
 import exercise
@@ -36,6 +37,10 @@ def state(cell) -> dict:
 def _compare(verdicts: Dict[str, str], truth: set) -> Dict[str, str]:
     return {s: "unsure" if v not in ("empty", "occupied") else "agree" if (v == "occupied") == (s in truth) else "disagree"
             for s, v in verdicts.items()}
+
+
+def _one_line(e: BaseException) -> str:
+    return " ".join(str(e).split()) or type(e).__name__
 
 
 def _stopped(cell):
@@ -167,9 +172,12 @@ def test(cell, rounds: Optional[int] = None) -> None:
         while True:
             n += 1
             before = sum(c.store.s.cycle for c in r.wc.cycles.values())      # the trip counted as one
+            r.round, r.round_before, r.round_total = n, before, len(order)
             asyncio.run(r.wc.run(slot_of, cycles, False, r.stop_file, list(order)))
             done = sum(c.store.s.cycle for c in r.wc.cycles.values()) - before
             _stopped(cell)
+            if done == 0:
+                raise StopSafe("no plate could be cycled in round %d" % n)
             log("exercise", "round", f"plates: {done} of {len(order)} cycled, round {n}", plates=r.wc.plates(), slots=r.slot_views)
             if rounds is not None and n >= rounds:
                 break
@@ -177,10 +185,13 @@ def test(cell, rounds: Optional[int] = None) -> None:
         r.close("finished")
         cell.note("test finished")
     except (StopSafe, SafetyViolation) as e:
-        r.close(f"stopped: {e}")
-        cell.note(f"test stopped: {e}")
+        why = "STOP pressed" if cell.stop_event.is_set() else f"fault: {_one_line(e)}"
+        r.close(f"stopped: {why}")
+        cell.note(f"test stopped: {why}")
     except Exception as e:
-        r.close(f"failed: {e!r}")
-        raise
+        why = f"fault: {_one_line(e)}"
+        r.tele.log("fault", "test", why, trace=traceback.format_exc())
+        r.close(f"stopped: {why}")
+        cell.note(f"test stopped: {why}")
     finally:
         cell.run = None

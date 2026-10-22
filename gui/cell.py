@@ -25,6 +25,14 @@ from gui.frames import FrameSource
 READOUT_S = 0.5
 
 
+def plain_error(e: Exception) -> str:
+    """One line for the page. A missing or null value in the positions file would otherwise show as "'pose'" or
+    "'NoneType' object is not subscriptable"."""
+    if isinstance(e, (KeyError, TypeError, IndexError)):
+        return f"a value is missing in layout.json ({type(e).__name__} {e}); `python cli.py positions` and `preflight` list what is not taught"
+    return str(e) or type(e).__name__
+
+
 class Questions:
     """A yes/no the procedure thread waits on while the page shows it. No answer in time means no."""
 
@@ -100,8 +108,22 @@ class Cell:
         self.frames.start()
         threading.Thread(target=self._readout, daemon=True, name="readout").start()
 
+    def stop_file_seen(self) -> bool:
+        """runs/STOP, the file run_forever.py and cli.py run end on: while a job runs it is a STOP press."""
+        if self.busy and os.path.exists(os.path.join(self.runs_dir, "STOP")) and not self.stop_event.is_set():
+            self.stop()
+            self.note(f"{os.path.join(self.runs_dir, 'STOP')} is present; delete it to run again")
+            return True
+        return False
+
+    def start_up(self) -> None:
+        """Connect both devices (reads only, nothing moves), then fill the Setup table."""
+        self.connect()
+        self.discover()
+
     def _readout(self) -> None:
         while True:
+            self.stop_file_seen()
             if self.arm_error is None:
                 try:
                     st, p = self.robot.state(), self.robot.pose()
@@ -124,10 +146,10 @@ class Cell:
                 {"name": "Rotation module", "found": "through the arm", "state": self._stage_words(L), "ok": True},
                 {"name": "Microscope", "found": "simulator", "state": "pretends to image", "ok": True}]
             return
-        arm, box, squid = discover.arm(L), discover.vision_box(L), discover.squid()
+        arm, box, squid = discover.arm(L, connected=self.arm_error is None), discover.vision_box(L), discover.squid()
         if "ip" in arm and (arm["ip"] != L["robot"]["ip"] or arm["port"] != L["robot"]["port"]):
             self.edit(lambda L: L["robot"].update(ip=arm["ip"], port=arm["port"]))
-        if "host" in box and box["host"] != L["vision"]["host"]:
+        if "cameras" in box and box["host"] != L["vision"]["host"]:       # only a host that answered as a vision box
             self.edit(lambda L: L["vision"].update(host=box["host"]))
         if "ip" in arm and self.arm_error:
             self.robot.ip, self.robot.port = arm["ip"], arm["port"]
@@ -188,7 +210,7 @@ class Cell:
                 fn()
             except Exception as e:
                 self.log("gui", label, f"failed: {e!r}", trace=traceback.format_exc())
-                self.note(f"{label}: {e}")
+                self.note(f"{label}: {plain_error(e)}")
             finally:
                 self.busy = None
 

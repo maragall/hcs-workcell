@@ -241,7 +241,10 @@ def _route(cell, L: dict, trace: Optional[trajectory.Trace], frm: Optional[str],
 
 
 def record(cell, rid: str) -> None:
-    kind, name = rid.split(":", 1)
+    kind, _, name = rid.partition(":")
+    if not name:
+        cell.note(f"there is no teach row called '{rid}'")
+        return
     t, L = _teach(cell), cell.layout()
     robot, F = cell.robot, L["fixtures"]
     pose = [round(v, 4) for v in robot.pose()]

@@ -34,9 +34,8 @@ def main(argv=None) -> int:
     ap.add_argument("--no-browser", action="store_true")
     args = ap.parse_args(argv)
     cell = build(args.sim)
-    cell.connect()
-    cell.start("searching the network", cell.discover)
-    srv = server.serve(cell, args.port)
+    srv = server.serve(cell, args.port)          # the page first: an arm that is off must not hold the start for the SDK's connect timeout
+    cell.start("connecting", cell.start_up)
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     print(f"hcs-workcell {'simulator' if args.sim else 'cell'}: {url}", flush=True)
     if not args.no_browser:

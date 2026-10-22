@@ -24,7 +24,7 @@ def local_subnets() -> List[ipaddress.IPv4Network]:
     """The /24 of every IPv4 interface, from ifconfig/ipconfig (the stdlib has no interface list)."""
     cmd = ["ipconfig"] if sys.platform == "win32" else ["ifconfig"]
     try:
-        text = subprocess.run(cmd, capture_output=True, text=True, timeout=5).stdout
+        text = subprocess.run(cmd, capture_output=True, text=True, errors="replace", timeout=5).stdout   # any console code page
     except Exception:
         text = ""
     nets = []
@@ -73,13 +73,17 @@ def vision_box(layout: dict) -> Dict[str, str]:
         return {"host": host, "error": f"{host} answers but not as a vision box: {e}"}
 
 
-def arm(layout: dict) -> Dict[str, str]:
-    """{"ip", "port"} of the first host with a controller port open, or {"error"}."""
+def arm(layout: dict, connected: bool = False) -> Dict[str, str]:
+    """{"ip", "port"} of the first host with a controller port open, or {"error"}. The port returned is always the
+    SDK port from the positions file (robot.port): BRCAPI answering only says where the controller is. While the
+    SDK is connected (`connected`) only BRCAPI is probed: the controller accepts one SDK client and a probe on
+    52525 must not touch the live session."""
     r = layout["robot"]
-    for port in (r["port"],) + tuple(p for p in ARM_PORTS if p != r["port"]):
+    ports = (ARM_PORTS[1],) if connected else (r["port"],) + tuple(p for p in ARM_PORTS if p != r["port"])
+    for port in ports:
         ip = scan(port, r["ip"])
         if ip:
-            return {"ip": ip, "port": port}
+            return {"ip": ip, "port": r["port"]}
     return {"error": "no controller answers on ports 52525 or 56788"}
 
 

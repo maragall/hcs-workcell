@@ -156,6 +156,79 @@ def test_stop_sets_the_stop_and_the_test_ends(gui):
     assert not t["active"] and t["outcome"].startswith("stopped")
 
 
+def _events(run_dir):
+    with open(os.path.join(run_dir, "events.jsonl"), encoding="utf-8") as f:
+        return [json.loads(x) for x in f if x.strip()]
+
+
+def test_stop_in_the_plate_loop_says_its_cause_and_the_next_test_starts(gui):
+    """STOP while plates move: prompt, one-line cause on the page and in events.jsonl, progress shown while it ran.
+    (test_the_whole_test_runs_through below is the second Test everything on the same cell.)"""
+    cell, url = gui
+    assert post(url, "/api/test")[1]["ok"]
+    seen = ""
+    for _ in range(600):
+        t = state(url)["test"]["test"]
+        seen = t["progress"] if t else ""
+        if seen.startswith("round 1, plate"):
+            break
+        time.sleep(0.2)
+    assert seen.startswith("round 1, plate"), seen
+    t0 = time.time()
+    post(url, "/api/stop")
+    wait_idle(cell, 60)
+    assert time.time() - t0 < 20
+    s = state(url)
+    t = s["test"]["test"]
+    assert t["outcome"] == "stopped: STOP pressed" and t["progress"] == t["outcome"]
+    assert s["message"]["text"] == "test stopped: STOP pressed"
+    assert any(e["kind"] == "run" and e["step"] == "stop" and e["msg"] == t["outcome"]
+               for e in _events(cell.checks["test"].run_dir))
+    assert cell.run is None
+
+
+def test_a_fault_ends_the_test_in_one_plain_line(gui, monkeypatch):
+    from gui import checks
+    cell, url = gui
+
+    def boom(*a):
+        raise RuntimeError("the jaw did not open" + chr(10) + "  (stalled)")
+    monkeypatch.setattr(checks, "look_at_every_slot", boom)
+    assert post(url, "/api/test", {"rounds": 1})[1]["ok"]
+    wait_idle(cell, 60)
+    t = state(url)["test"]["test"]
+    assert t["outcome"] == "stopped: fault: the jaw did not open (stalled)"
+    assert state(url)["message"]["text"] == "test stopped: fault: the jaw did not open (stalled)"
+    assert any(e["msg"] == t["outcome"] for e in _events(cell.checks["test"].run_dir) if e["step"] == "stop")
+
+
+def test_record_of_an_unknown_row_is_said_in_words(gui):
+    cell, url = gui
+    assert post(url, "/api/record", {"row": "nonsense"})[1]["ok"]
+    wait_idle(cell)
+    assert state(url)["message"]["text"] == "there is no teach row called 'nonsense'"
+
+
+def test_positions_file_survives_threads_saving_and_loading_at_once():
+    import tempfile
+    import threading
+    path = os.path.join(tempfile.mkdtemp(), "layout.json")
+    positions.save({"n": 0}, path)
+    errors = []
+
+    def work(i):
+        try:
+            for k in range(40):
+                positions.save({"n": i * 100 + k}, path)
+                positions.load(path)
+        except Exception as e:
+            errors.append(repr(e))
+    ts = [threading.Thread(target=work, args=(i,)) for i in range(6)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert not errors, errors[:2]
+
+
 def test_the_whole_test_runs_through(gui):
     cell, url = gui
     code, out = post(url, "/api/test", {"rounds": 1})        # without rounds it goes on until STOP
