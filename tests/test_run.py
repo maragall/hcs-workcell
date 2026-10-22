@@ -65,9 +65,9 @@ def close(cell, tmp):
 def test_two_microscopes_share_the_arm_and_image_while_the_other_moves():
     cell, tmp = make_cell()
     try:
-        assert cell.plates() == {A: A, B: B}                 # new ledgers: every plate on its microscope
+        assert cell.plates() == {A: "none", B: "none"}       # new ledgers: holders empty, plates in the hotel
         asyncio.run(cell.run(SLOTS, cycles=1))
-        assert cell.plates() == {A: A, B: B}
+        assert cell.plates() == {A: A, B: B}                 # each fetched its plate from its slot
         assert all(cell.scopes[n].acquisitions == 1 for n in (A, B))
         msgs = [e["msg"] for e in events(tmp) if e["step"] in ("arm", "scope")]
         arm = [m for m in msgs if "the arm" in m]
@@ -78,7 +78,7 @@ def test_two_microscopes_share_the_arm_and_image_while_the_other_moves():
         assert msgs.index(f"{B} takes the arm") < done_a
         for n in (A, B):                                      # each microscope ran its own route, in its own folder
             steps = {e["step"] for e in events(tmp, n)}
-            assert {f"pick:{n} lower", f"place:{n} lower", f"place:hotel:{SLOTS[n]} lower"} <= steps
+            assert {f"pick:hotel:{SLOTS[n]} lower onto plate", f"place:{n} lower"} <= steps   # fetched from its slot, placed on the holder
     finally:
         close(cell, tmp)
 

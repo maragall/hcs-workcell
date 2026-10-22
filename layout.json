@@ -632,7 +632,8 @@
       "direction": -1,
       "speed": 0.02,
       "tolerance_deg": 0.5,
-      "_note": "stage turns -90 (axis reading decreases) from parallel-to-x to the long-edge orientation"
+      "_note": "stage turns -90 (axis reading decreases) from parallel-to-x to the long-edge orientation",
+      "_speed_note": "speed is the arm's speed scale for this axis, 0.01..1.0. Raise it on the cell with: cli.py rotation-speed X --save (turns 0 -> 90 -> 0, times them, verifies the readback)"
     },
     "do": {
       "rotate_90": "POLAR_ROT",
@@ -645,7 +646,8 @@
       "fmt": "ROT {deg}\n",
       "ok": "OK"
     },
-    "di": null
+    "di": null,
+    "_name": "rotation module: the plate turntable on the arm's base, driven as the arm's external axis E2. 'polar' is its name in the code"
   },
   "routes": {
     "safe_z_mm": null,

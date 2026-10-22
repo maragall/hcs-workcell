@@ -1,6 +1,6 @@
 # hcs-workcell
 
-Plate transfer cell on the Bioyond Nova SCARA arm: microscope stage, rotating (polar) stage, plate hotel.
+Plate transfer cell on the Bioyond Nova SCARA arm: microscope stage, rotation module (the arm's own axis; `polar` in the code), plate hotel.
 Vision-gated, state-persisted, built to run unattended for days and to log the data that later
 prediction models train on.
 
@@ -61,7 +61,7 @@ devices/                   one thin file per machine, plus a fake for each
   nova.py                  the arm and the vision box, one import; arm(layout, sim=True) gives the fake
   arm.py                   the only module touching the vendor robot SDK      fake_arm.py    simulator with fault injection
   vision_box.py            vision box TCP client                             controller.py  Lua jobs on the controller
-  stage.py                 rotating (polar) stage                            squid.py       Squid+ (call names to confirm)
+  stage.py                 rotation module (the arm's own axis; `polar` in the code)                            squid.py       Squid+ (call names to confirm)
   fake_squid.py            waits and does nothing                            rail.py        stub for a future farm
 
 routes/                    waypoints between two positions

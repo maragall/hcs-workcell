@@ -1,6 +1,6 @@
 # hcs-workcell
 
-Plate-handling workcell: Bioyond Polar arm + Nova vision box, plate hotel, rotating stage, up to four Squid+
+Plate-handling workcell: Bioyond Polar arm + Nova vision box, plate hotel, rotation module, up to four Squid+
 microscopes. Design docs, figures and plans live in `~/CEPHLA/AI-docs/hcs-workcell`, not here.
 
 ## Structure (2026-10-22)

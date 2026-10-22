@@ -54,10 +54,9 @@ class Workcell:
         self.cycles: Dict[str, Cycle] = {}
         for name in scopes:
             store = StateStore(os.path.join(state_dir, f"state_{name}.json"))
-            if store.s.updated == 0.0:                   # never saved: a new ledger, the plate starts on its microscope
-                store.s.plate_at = name
+            if store.s.updated == 0.0:                   # never saved: a new ledger, the holder is empty
                 store.save()
-                tele.log("run", "ledger", f"{name}: new ledger, plate assumed on the microscope")
+                tele.log("run", "ledger", f"{name}: new ledger; the holder is assumed empty, plates in the hotel")
             scope_dir = os.path.join(run_dir, name)
             self.cycles[name] = Cycle(layout, robot, vision, Telemetry(scope_dir), store, mode, scope_dir, ref_dir,
                                       scope=name, layout_path=layout_path, stop_event=self.stop, clock=clock)

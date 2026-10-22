@@ -12,6 +12,7 @@ hcs-workcell command line (teaching, tests, one-microscope runs). The asyncio ma
 from __future__ import annotations
 
 import argparse
+import copy
 import glob
 import os
 import sys
@@ -633,7 +634,9 @@ def cmd_run(args):
     _run_lock = _acquire_run_lock() if not args.sim else None   # held until exit: one live run per machine
     run_dir = os.path.join(RUNS, time.strftime("%Y%m%d_%H%M%S") + ("_sim" if args.sim else ""))
     tele = Telemetry(run_dir)
-    store = StateStore(os.path.join(HERE, "state.json" if not args.sim else "state_sim.json"))
+    state_dir = os.path.join(HERE, "state_sim") if args.sim else HERE      # the same ledger run.py uses
+    os.makedirs(state_dir, exist_ok=True)
+    store = StateStore(os.path.join(state_dir, "state_microscope.json"))
     if args.set_state:
         store.s.plate_at = "microscope" if args.set_state == "microscope" else f"hotel:{args.slot}"
         store.s.grip, store.s.step_done, store.s.last_safe_pose = "none", True, None
@@ -736,6 +739,68 @@ def cmd_positions(args):
     return 0
 
 
+def cmd_rotation_speed(args):
+    """Try a speed for the rotation module (the arm's own axis): turn 0 -> 90 -> 0 N times, time each turn, verify the
+    readback. --save writes the speed into the positions file only when every turn landed within tolerance."""
+    from devices.stage import PolarError, PolarStage
+    layout = load_layout()
+    cfg = copy.deepcopy(layout["polar"])
+    cfg["ext_axis"]["speed"] = args.speed
+    tele = Telemetry(os.path.join(RUNS, "teach"))
+    robot, st = connect_robot_readonly(layout, tele.log)
+    if st.drag:
+        sys.exit("drag mode is on; turn it off first")
+    if not st.enabled and not robot.enable():
+        sys.exit("robot could not be enabled")
+    stage = PolarStage(cfg, robot, tele.log, True, 0)
+    print(f"arm must be clear of the rotation module. speed {args.speed}, {args.turns} turns each way")
+    worst = 0.0
+    try:
+        for i in range(args.turns):
+            for deg in (90, 0):
+                t0 = time.time()
+                stage.rotate_to(deg)
+                err = abs(stage.read_angle() - deg)
+                worst = max(worst, err)
+                print(f"  turn {i + 1} to {deg}: {time.time() - t0:.1f} s, readback off by {err:.2f} deg")
+    except PolarError as e:
+        print(f"stopped: {e}")
+        return 2
+    finally:
+        robot.disconnect()
+        tele.close()
+    if args.save:
+        layout["polar"]["ext_axis"]["speed"] = args.speed
+        save_layout(layout)
+        print(f"saved polar.ext_axis.speed = {args.speed} (worst readback error {worst:.2f} deg)")
+    return 0
+
+
+def cmd_forget_taught(args):
+    """Blank every number taught on another bench, keep the settings: poses, routes, grip widths, learned corrections.
+    Run this first on a new cell, then teach. The reference photos folder is renamed aside, not deleted."""
+    layout = load_layout()
+    def blank(node):
+        for k in list(node):
+            v = node[k]
+            if k in ("pose", "aruco_reference", "joints_at_teach", "jaw_at_teach", "teach_frames", "vendor_teach", "grasp_width", "corrections"):
+                node[k] = None if k != "corrections" else []
+            elif isinstance(v, dict):
+                blank(v)
+    blank(layout["fixtures"])
+    layout["fixtures"]["hotel"]["taught"] = {}
+    layout["gripper"]["closed"] = {g: None for g in layout["gripper"]["closed"]}
+    layout["trajectories"] = {}
+    layout["routes"]["safe_z_mm"] = None
+    layout["polar"]["ext_axis"]["zero_reading"] = None
+    if os.path.isdir(REFS) and os.listdir(REFS) != ["README.md"]:
+        os.rename(REFS, REFS + "_" + time.strftime("%Y%m%d_%H%M%S"))
+        os.makedirs(REFS)
+    save_layout(layout)
+    print("forgot every taught number; cli.py preflight now lists everything to teach")
+    return 0
+
+
 def cmd_marker_check(args):
     """At the current pose: how far the fixture's marker says the arm is from the taught position. Go there first
     (goto FIXTURE); the offset is what the cycle applies before lowering."""
@@ -828,6 +893,10 @@ def main():
     p.set_defaults(fn=cmd_run)
     p = sub.add_parser("goto", help="move to a position's hover (taught route, or lift/travel/lower at routes.safe_z_mm)")
     p.add_argument("name"); p.set_defaults(fn=cmd_goto)
+    p = sub.add_parser("rotation-speed", help="try a speed for the rotation module, time the turns, verify the readback; --save keeps it")
+    p.add_argument("speed", type=float); p.add_argument("--turns", type=int, default=3); p.add_argument("--save", action="store_true")
+    p.set_defaults(fn=cmd_rotation_speed)
+    sub.add_parser("forget-taught", help="new bench: blank every taught pose, route, width and correction, keep the settings").set_defaults(fn=cmd_forget_taught)
     p = sub.add_parser("marker-check", help="read the marker offset at the current pose (go there with goto first)")
     p.add_argument("fixture"); p.set_defaults(fn=cmd_marker_check)
     sub.add_parser("positions", help="every position, taught or not, and the hotel plate order").set_defaults(fn=cmd_positions)
