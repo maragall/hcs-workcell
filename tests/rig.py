@@ -90,4 +90,5 @@ def layout() -> dict:
     L["gripper"]["open"] = {"short_edges": 10.0, "long_edges": 10.0}
     L["polar"]["ext_axis"]["direction"] = -1
     L["routes"] = {"safe_z_mm": 160.0, "positions": ["microscope", "polar.pose_at_0", "polar.pose_at_90"]}
+    L["fixtures"]["hotel"]["loaded"] = {"A": [1, 3, 5, 7, 9], "C": [2, 4, 6, 8]}   # row 10 extrapolates above the rig's box
     return L

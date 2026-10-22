@@ -37,3 +37,20 @@ def test_second_change_returns_the_plate_home_and_fetches_the_next_slot():
         assert any("place:hotel:A1" in st for st in steps) and any("pick:hotel:C2" in st for st in steps)
     finally:
         r.close()
+
+
+def test_a_place_into_an_occupied_slot_backs_out_and_uses_the_home_slot():
+    r = Rig()
+    try:
+        r.run("A1")                                    # plate home is A1
+        s = r.cyc.store.s
+        s.hotel["A1"] = "a plate someone left there"   # someone filled the home slot meanwhile (ledger, or the camera on the real cell)
+        r.cyc.store.save()
+        r.run("C2")                                    # going home to A1 is refused: backs out, places in C2, then brings C2's plate in
+        assert s.plate_at == "microscope" and s.home_slot == "C2"
+        assert s.hotel["A1"] == "a plate someone left there" and "C2" not in s.hotel
+        events = r.events()
+        assert any(e["step"] == "slot_occupied" for e in events)
+        assert any("place:hotel:C2" in e["step"] for e in events)
+    finally:
+        r.close()

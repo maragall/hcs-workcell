@@ -736,6 +736,26 @@ def cmd_positions(args):
     return 0
 
 
+def cmd_marker_check(args):
+    """At the current pose: how far the fixture's marker says the arm is from the taught position. Go there first
+    (goto FIXTURE); the offset is what the cycle applies before lowering."""
+    layout = load_layout()
+    node = layout["fixtures"]
+    for part in args.fixture.split("."):
+        node = node[part]
+    ref = node.get("aruco_reference")
+    if not ref:
+        sys.exit(f"{args.fixture} has no marker reference; teach it with record-trigger")
+    v = nova.vision_box(layout)
+    off = v.pose_offset(layout["vision"]["down_camera"], ref, layout["vision"]["workspace"],
+                        node.get("aruco_marker_id", 1), None, layout["vision"]["led"])
+    mag = (off.d[0] ** 2 + off.d[1] ** 2 + off.d[2] ** 2) ** 0.5
+    limit = layout["vision"]["max_correction_mm"]
+    print(f"{args.fixture}: offset {[round(x, 2) for x in off.d[:3]]} mm, {mag:.2f} mm total, limit {limit} mm -> "
+          f"{'ok' if mag <= limit else 'TOO FAR: re-teach the position'}")
+    return 0 if mag <= limit else 2
+
+
 def cmd_occupancy(args):
     """Per slot: reference counts, leave-one-out self-test, whether the detector may block a move."""
     from perception.occupancy import Occupancy
@@ -808,6 +828,8 @@ def main():
     p.set_defaults(fn=cmd_run)
     p = sub.add_parser("goto", help="move to a position's hover (taught route, or lift/travel/lower at routes.safe_z_mm)")
     p.add_argument("name"); p.set_defaults(fn=cmd_goto)
+    p = sub.add_parser("marker-check", help="read the marker offset at the current pose (go there with goto first)")
+    p.add_argument("fixture"); p.set_defaults(fn=cmd_marker_check)
     sub.add_parser("positions", help="every position, taught or not, and the hotel plate order").set_defaults(fn=cmd_positions)
     sub.add_parser("occupancy", help="slot occupancy detector: references, self-test, ready").set_defaults(fn=cmd_occupancy)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")

@@ -8,6 +8,14 @@ from procedures.motion import offset
 from procedures.safety import SafetyViolation
 
 
+class SlotOccupied(Exception):
+    """A place found its slot occupied (ledger or camera) and backed out with the plate still held."""
+
+    def __init__(self, slot: str, why: str):
+        super().__init__(f"{slot}: {why}")
+        self.slot = slot
+
+
 def interleave(*columns):
     """Round-robin over the columns' slots: A1, C2, A3, C4, ... so consecutive plates come from different
     columns and the arm alternates sides. Shorter columns simply run out first."""
@@ -99,7 +107,7 @@ class Hotel:
         p, approach, _, carry = self._hotel_geometry(slot)
         step = f"place:hotel:{slot}"
         if self.store.s.hotel.get(slot) is not None:
-            raise StopSafe(f"{step}: state says {slot} is occupied")
+            raise SlotOccupied(slot, "the ledger says it holds a plate")
         self.store.begin(step)
         self._health()
         self._hotel_go_to_approach(slot, step)
@@ -108,14 +116,17 @@ class Hotel:
             ready, _ = self.vision.live_detection(self.front_cam, aruco=False, led=self.led)
         except Exception:
             ready = None
-        if sv and sv.decision == "occupied":                 # placing onto a plate: always blocks
-            self._fault(step, "slot_occupied", f"empty {sv.score_empty:.3f} vs occupied {sv.score_occupied:.3f}")
-            if not self.corr.operator_or_stop(step, f"{slot} looks occupied", "Slot is actually empty?"):
-                raise StopSafe(f"{slot} occupied")
-        if sv is None or sv.decision == "unknown":
-            if ready and not self.corr.operator_or_stop(step, f"{slot} may be occupied (vendor live detection)",
-                                                        "Slot is actually empty?"):
-                raise StopSafe(f"{slot} occupied")
+        occupied = sv is not None and sv.decision == "occupied"          # placing onto a plate: always blocks
+        if not occupied and (sv is None or sv.decision == "unknown") and ready:
+            occupied = not self.corr.operator_or_stop(step, f"{slot} may be occupied (vendor live detection)",
+                                                      "Slot is actually empty?")
+        if occupied:
+            why = f"empty {sv.score_empty:.3f} vs occupied {sv.score_occupied:.3f}" if sv else "vendor live detection"
+            self._fault(step, "slot_occupied", why)
+            self.store.s.hotel[slot] = self.store.s.hotel.get(slot) or "unknown plate"
+            self.store.done()                                 # nothing moved into the slot; the plate is still held
+            self._hotel_leave_approach(slot, step)
+            raise SlotOccupied(slot, why)
         if self.checks.before_release(self.robot.jaw(), "long_edges"):
             raise StopSafe(f"{step}: not holding a plate on its long edges")
         self._slide(carry, f"{step} slide in")
@@ -127,6 +138,21 @@ class Hotel:
         self.store.s.hotel[slot] = self.store.s.plate_id
         self.store.done(plate_at=f"hotel:{slot}", grip="none", home_slot=slot)
         self._hotel_leave_approach(slot, step)
+
+    def _hotel_place_free(self, slot: str):
+        """Place in `slot`; if it turns out occupied, back out and use the plate's home slot, then any free slot.
+        Stops only when no slot is free."""
+        tried = []
+        for candidate in [slot, self.store.s.home_slot] + self.L["fixtures"]["hotel"].get("active_slots", []):
+            if not candidate or candidate in tried:
+                continue
+            tried.append(candidate)
+            try:
+                self._hotel_place(candidate)
+                return
+            except SlotOccupied as e:
+                self.tele.log("run", "slot_occupied", f"{e}; trying another slot", tried=tried)
+        raise StopSafe(f"no free slot to place the plate (tried {tried})")
 
     def _hotel_pick(self, slot: str):
         prof = self.safety.profile

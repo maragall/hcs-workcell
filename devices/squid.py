@@ -26,6 +26,10 @@ class SquidNotWired(RuntimeError):
     pass
 
 
+class SquidError(RuntimeError):
+    """The microscope refused or lost an acquisition."""
+
+
 class Squid:
     def __init__(self, name: str, config: dict, log=None, microscope=None, controller=None):
         self.name, self.config = name, config
@@ -52,17 +56,21 @@ class Squid:
         self._log("squid", self.name, "homed")
 
     def acquire(self) -> None:
-        """Start the acquisition that is configured on this microscope; returns at once."""
+        """Start the acquisition that is configured on this microscope; returns once Squid's worker thread runs.
+        Squid fires signal_acquisition_finished without starting when its settings fail validation: that is an error here."""
         mpc = self._need(self._mpc)
         self._finished.clear()
         mpc.set_base_path(self.config["base_path"])
         mpc.start_new_experiment(self.config.get("experiment_id", self.name))
         mpc.run_acquisition()
+        if not mpc.acquisition_in_progress() and self._finished.is_set():
+            raise SquidError(f"{self.name}: acquisition did not start (Squid rejected its settings)")
         self._log("squid", self.name, f"acquisition started: {self.last_dataset}")
 
     def done(self) -> bool:
-        self._need(self._mpc)
-        return self._finished.is_set()
+        """True once Squid reported the end; also true if its thread died without reporting."""
+        mpc = self._need(self._mpc)
+        return self._finished.is_set() or not mpc.acquisition_in_progress()
 
     def abort(self) -> None:
         self._need(self._mpc).request_abort_aquisition()

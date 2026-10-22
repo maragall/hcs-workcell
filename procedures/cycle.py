@@ -219,7 +219,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
             ("polar:90", lambda: self._polar_rotate(90, P0)),
             ("pick:polar", lambda: self._pick("polar", P90, F["polar"], "long_edges", None, gate="polar@90")),
             ("scan", self._scan_plate),
-            (f"place:hotel:{slot}", lambda: self._hotel_place(slot)),
+            (f"place:hotel:{slot}", lambda: self._hotel_place_free(slot)),
         ]
         back = [
             (f"pick:hotel:{slot}", lambda: self._hotel_pick(slot)),

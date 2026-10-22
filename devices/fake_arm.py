@@ -41,6 +41,16 @@ class SimRobot:
         self.joint_pose_map = {}      # tests map waypoint joints to the pose the arm would reach
         self._ext = {}
 
+    def follow_layout(self, layout: dict) -> None:
+        """Let the fake reach the layout's taught routes: each joint waypoint maps to its demo pose, the stage
+        axis reads its zero, the stage sensors say "seated". What tests/rig.py and exercise.py need."""
+        for wp in layout["trajectories"].values():
+            if wp:
+                for j, pose in zip(wp["joints"], wp["poses"]):
+                    self.joint_pose_map[tuple(round(v, 3) for v in j[:4])] = pose
+        self._ext[1] = layout["polar"]["ext_axis"].get("zero_reading") or 0.0
+        self.dis = {"P0": 1, "P90": 1}
+
     def connect(self):
         self._log("robot", "connect", "SIMULATOR")
 

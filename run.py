@@ -123,7 +123,7 @@ def _scopes(layout: dict, names, fake_names, acquisition_s: float, sim: bool, lo
             else Squid(name, layout.get("squid", {}).get(name, {}), log) for name in names}
 
 
-def main(argv=None) -> int:
+def parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--scopes", default="microscope", help="comma-separated microscope names (fixtures in layout.json)")
     ap.add_argument("--fake-scopes", default="", help="which of them wait and do nothing")
@@ -136,9 +136,12 @@ def main(argv=None) -> int:
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--stop-file", default=None)
     ap.add_argument("--yes", action="store_true")
-    args = ap.parse_args(argv)
+    return ap
 
-    layout = positions.load()
+
+def build(args, layout: dict, vision=None, tag: str = "", ref_dir: str = positions.REFS, state_dir: Optional[str] = None):
+    """Everything a run needs from parsed args: (cell, robot, tele, slot_of). `vision` and `ref_dir` let a test
+    pass a fake box and its own reference photos."""
     names = [s for s in args.scopes.split(",") if s]
     if args.sim and names == ["microscope"]:
         names = ["microscope", "microscope_2"]
@@ -150,16 +153,15 @@ def main(argv=None) -> int:
     slot_of = dict(zip(names, slots))
     if args.sim:
         for name in names:
-            if name not in layout["fixtures"]:
+            if not layout["fixtures"].get(name, {}).get("pose"):      # missing or not taught yet
                 borrow_fixture(layout, name)
     else:
-        problems = preflight(layout, positions.REFS, names)
+        problems = preflight(layout, ref_dir, names)
         if problems:
             sys.exit("preflight failed:\n  " + "\n  ".join(problems))
-
-    run_dir = os.path.join(positions.RUNS, time.strftime("%Y%m%d_%H%M%S") + ("_sim" if args.sim else ""))
+    run_dir = os.path.join(positions.RUNS, time.strftime("%Y%m%d_%H%M%S") + tag + ("_sim" if args.sim else ""))
     tele = Telemetry(run_dir)
-    vision = nova.vision_box(layout, tele.log)
+    vision = vision or nova.vision_box(layout, tele.log)
     robot = nova.arm(layout, tele.log, sim=args.sim)
     robot.connect()
     st = robot.state()
@@ -168,14 +170,20 @@ def main(argv=None) -> int:
     if not st.enabled and not robot.enable():
         sys.exit("robot could not be enabled")
     scopes = _scopes(layout, names, fakes, args.acquisition_s, args.sim, tele.log)
-    state_dir = os.path.join(positions.ROOT, "state_sim" if args.sim else "")
+    state_dir = state_dir or os.path.join(positions.ROOT, "state_sim" if args.sim else "")
     os.makedirs(state_dir, exist_ok=True)
-    cell = Workcell(layout, robot, vision, scopes, tele, args.mode, run_dir, positions.REFS, state_dir,
+    cell = Workcell(layout, robot, vision, scopes, tele, args.mode, run_dir, ref_dir, state_dir,
                     layout_path=None if args.sim else positions.PATH)
     tele.log("run", "start", mode=args.mode, scopes=names, slots=slot_of, cycles=args.cycles, sim=args.sim,
              plates=cell.plates())
-    if not args.sim and not args.yes and \
-            input(f"Plates: {cell.plates()}. Arm clear, hands away. Start? type YES: ") != "YES":
+    return cell, robot, tele, slot_of
+
+
+def main(argv=None) -> int:
+    args = parser().parse_args(argv)
+    layout = positions.load()
+    cell, robot, tele, slot_of = build(args, layout)
+    if not args.sim and not args.yes and input(f"Plates: {cell.plates()}. Arm clear, hands away. Start? type YES: ") != "YES":
         sys.exit("not started")
     try:
         order = plate_order(layout) if args.order else None
