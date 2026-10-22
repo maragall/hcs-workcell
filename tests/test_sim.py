@@ -190,6 +190,14 @@ def test_vision_box_down_stops():
     r.close()
 
 
+def test_controller_error_stops_before_any_move():
+    r = Rig(SimFaults(controller_errors=[{"errCode": 3873, "errMsg": "wrist collision"}]))
+    r.expect_stop("controller error")
+    assert r.robot._moves == 0
+    assert os.path.exists(os.path.join(r.tmp, "run", "ALERT.txt"))
+    r.close()
+
+
 def test_drag_on_mid_run_stops():
     r = Rig()
     calls = {"n": 0}

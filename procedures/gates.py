@@ -30,7 +30,7 @@ class Gates:
                     raise StopSafe("vision box unreachable")
                 self.tele.log("health", "vision", f"unreachable, retrying: {e}")
                 time.sleep(10)
-        ctrl_err = self._controller_errors()
+        ctrl_err = self.robot.errors()
         if ctrl_err:
             self.corr.alert("health", f"controller error: {ctrl_err}")
             raise StopSafe(f"controller error {ctrl_err}")
