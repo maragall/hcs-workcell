@@ -1,12 +1,11 @@
 """
 Cameras: what the vendor's calibration tool does, from this page, once, when the arm is new or a camera moved.
-Read the marker with both cameras; capture the dotted plate (the arm drives a plan around it) and solve each
-camera; capture again with the plate still for where each camera sits on the hand; upload to the box, let it
-restart, check; then the box's own teach-free link (grip the practice plate: Add; open and hover: Add; Link),
-short edges first, then long.
+Read the marker with both cameras; capture (the arm drives the plan around the marker and one solve per camera
+gives its lens numbers and where it sits on the hand); upload to the box, let it restart, check; then the box's
+own teach-free link (grip the practice plate: Add; open and hover: Add; Link), short edges first, then long.
 
 Results live in the positions file under vision.calibration; the files under <ref_dir>/calibration/<camera>/.
-The `calibration` package does the work; until it lands (and always on --sim) gui/calibration_fake.py stands in.
+The `calibration` package does the work; on --sim gui/calibration_fake.py stands in.
 """
 from __future__ import annotations
 
@@ -21,9 +20,11 @@ from procedures.safety import Safety
 from gui import calibration_fake
 
 LIMIT_PX, LIMIT_MM = 0.5, 1.0            # the vendor's: redo above these
-PLAN_MM, PLAN_UP_MM = 20.0, 30.0         # the capture plan: a 3x3 grid around the plate, then four corners higher up
+CHECK_MOVE_MM = 20.0                     # the check reads the marker from here and from this far along x
 GRIPS = ("short_edges", "long_edges")    # the teach-free link is made once per grip, in this order
 PICK = {"short_edges": "long", "long_edges": "wide"}   # the box's words for where the fingers hold
+VENDOR_START = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vendor_data",
+                            "CalibrationData", "IniIntrinsic", "CamParam.dat")   # the solve's start when a camera has no file yet
 
 
 def package(cell):
@@ -49,26 +50,19 @@ def _dir(cell, camera: str, what: str = "") -> str:
     return d
 
 
+def _files(cell, camera: str):
+    d = _dir(cell, camera)
+    return os.path.join(d, "CamParam.dat"), os.path.join(d, "CamInTool.dat")
+
+
 def _stamp() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def plan_around(L: dict, here: List[float]) -> List[List[float]]:
-    """Poses around where the arm is, each checked against the safe box; ends where it started."""
+def plan_around(cell, L: dict, here: List[float]) -> List[List[float]]:
+    """The package's plan around where the arm is, each pose checked against the safe box; ends where it started."""
     s = Safety(L, "supervised")
-    out = []
-    for dz, step in ((0.0, PLAN_MM), (PLAN_UP_MM, PLAN_MM)):
-        for dx in (-step, 0.0, step):
-            for dy in (-step, 0.0, step):
-                if dz and 0.0 in (dx, dy):
-                    continue
-                p = [here[0] + dx, here[1] + dy, here[2] + dz] + list(here[3:])
-                try:
-                    s.check_target(p, "capture plan")
-                    out.append(p)
-                except Exception:
-                    pass
-    return out + [list(here)]
+    return package(cell).plan.around(here, lambda p: s.check_target(p, "capture plan"))
 
 
 def state(cell) -> dict:
@@ -98,52 +92,39 @@ def read_marker(cell) -> None:
     cell.note("; ".join(said))
 
 
-def capture_plate(cell, by_hand: bool) -> None:
-    """Pictures of the dotted plate from around it, each camera solved. Redo above LIMIT_PX."""
+def capture(cell, by_hand: bool) -> None:
+    """Pictures of the marker from around it, one solve per camera: lens numbers and where the camera sits on the
+    hand. Redo above LIMIT_PX or LIMIT_MM."""
     calib, L = package(cell), cell.layout()
     here = cell.robot.pose()
     for label, cam in _cams(L):
         if cell.stop_event.is_set():
             return
-        folder = _dir(cell, cam, "plate")
-        n = calib.capture.run_plan(None if by_hand else plan_around(L, here), cam, cell.robot, cell.vision, folder)
-        cp = calib.intrinsics.solve(folder)
-        cp.write(os.path.join(_dir(cell, cam), "camparam.dat"))
-        px = round(float(cp.reprojection_px), 3)
-        cell.edit(lambda L, cam=cam: _node(L, cam).update(plate_pictures=n, plate_px=px, plate_at=_stamp()))
-        cell.note(f"{label} camera: {n} pictures, error {px} px: {'ok' if px <= LIMIT_PX else f'redo, above {LIMIT_PX} px'}")
-
-
-def capture_hand(cell, by_hand: bool) -> None:
-    """Plate still, arm moving: where each camera sits on the hand. Redo above LIMIT_MM."""
-    calib, L = package(cell), cell.layout()
-    here = cell.robot.pose()
-    for label, cam in _cams(L):
-        if cell.stop_event.is_set():
-            return
-        if not os.path.exists(os.path.join(_dir(cell, cam), "camparam.dat")):
-            cell.note(f"{label} camera: capture the plate first")
-            return
-        folder = _dir(cell, cam, "hand")
-        n = calib.capture.run_plan(None if by_hand else plan_around(L, here), cam, cell.robot, cell.vision, folder)
-        ct = calib.handeye.solve(folder, calib.intrinsics.solve(_dir(cell, cam, "plate")))
-        ct.write(os.path.join(_dir(cell, cam), "camintool.dat"))
-        mm = round(float(ct.mean_error_m) * 1000.0, 3)
-        cell.edit(lambda L, cam=cam: _node(L, cam).update(hand_pictures=n, hand_mm=mm, hand_at=_stamp()))
-        cell.note(f"{label} camera: {n} pictures, error {mm} mm: {'ok' if mm <= LIMIT_MM else f'redo, above {LIMIT_MM:.0f} mm'}")
+        folder = _dir(cell, cam, "capture")
+        n = calib.capture.run_plan(None if by_hand else plan_around(cell, L, here), cam, cell.robot, cell.vision, folder,
+                                   L["vision"]["led"], stop=cell.stop_event)
+        camparam, _ = _files(cell, cam)
+        start = camparam if os.path.exists(camparam) else VENDOR_START
+        res = calib.solve.run(folder, calib.halcon.CamParam.read(start), L["vision"]["marker_mm"] / 1000.0)
+        res.write(_dir(cell, cam))
+        px, mm = round(float(res.reprojection_px), 3), round(float(res.mean_error_m) * 1000.0, 3)
+        cell.edit(lambda L, cam=cam: _node(L, cam).update(pictures=res.images, px=px, mm=mm, captured_at=_stamp()))
+        verdict = "ok" if px <= LIMIT_PX and mm <= LIMIT_MM else f"redo, above {LIMIT_PX} px or {LIMIT_MM:.0f} mm"
+        cell.note(f"{label} camera: {res.images} pictures, error {px} px, {mm} mm: {verdict}")
 
 
 def upload(cell) -> None:
     """Both cameras' files to the box, then the box restarts (about a minute)."""
     calib, L = package(cell), cell.layout()
+    creds = calib.upload.credentials(L)
     for label, cam in _cams(L):
-        d = _dir(cell, cam)
-        if not all(os.path.exists(os.path.join(d, f)) for f in ("camparam.dat", "camintool.dat")):
-            cell.note(f"{label} camera: capture the plate and the hand first")
+        camparam, camintool = _files(cell, cam)
+        if not (os.path.exists(camparam) and os.path.exists(camintool)):
+            cell.note(f"{label} camera: capture first")
             return
-        calib.upload.push(L["vision"]["host"], cam, os.path.join(d, "camparam.dat"), os.path.join(d, "camintool.dat"))
+        calib.upload.push(L["vision"]["host"], cam, camparam, camintool, creds)
         cell.edit(lambda L, cam=cam: _node(L, cam).update(uploaded_at=_stamp(), checked_mm=None))
-    calib.upload.reboot(L["vision"]["host"])
+    calib.upload.reboot(L["vision"]["host"], creds)
     cell.note("uploaded; the box is restarting")
     deadline = time.time() + 180
     while time.time() < deadline and not cell.stop_event.is_set():
@@ -157,15 +138,19 @@ def upload(cell) -> None:
 
 
 def check(cell) -> None:
-    """After the upload: how far the box's new numbers put the marker from where the arm says it is."""
+    """After the upload: the box reads the marker from here and from CHECK_MOVE_MM further along x; with the new
+    numbers it reports the same place both times."""
     calib, L = package(cell), cell.layout()
+    here = cell.robot.pose()
+    there = [here[0] + CHECK_MOVE_MM] + list(here[1:])
     for label, cam in _cams(L):
         if not _node(L, cam).get("uploaded_at"):
             cell.note(f"{label} camera: upload first")
             return
-        mm = round(float(calib.verify.check(cell.vision, cam)), 3)
+        mm = round(float(calib.verify.check(cell.vision, cam, cell.robot, here, there, 1, L["vision"]["led"])), 3)
         cell.edit(lambda L, cam=cam: _node(L, cam).update(checked_mm=mm, checked_at=_stamp()))
         cell.note(f"{label} camera: {mm} mm: {'ok' if mm <= LIMIT_MM else f'too far, above {LIMIT_MM:.0f} mm'}")
+    cell.robot.move_linear(here)
 
 
 def teach_free(cell, step: str) -> None:
@@ -186,7 +171,8 @@ def teach_free(cell, step: str) -> None:
     if not node.get("teach_pose") or not node.get("trigger_pose"):
         cell.note("record the grip point and the hover point first")
         return
-    package(cell).teach_free.add(cell.vision, PICK[grip], node["teach_pose"], node["trigger_pose"])
+    package(cell).teach_free.add(cell.vision, PICK[grip], node["teach_pose"], node["trigger_pose"],
+                                 L["vision"]["down_camera"], grip.replace("_", "-"))
     node["linked_at"] = _stamp()
     cell.save(L)
     nxt = state(cell)["teach_free"]["grip"]

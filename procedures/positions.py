@@ -49,7 +49,7 @@ def save(layout: dict, path: str = PATH) -> None:
 
 def update_fixture(fixture_name: str, path: str = PATH, **keys) -> None:
     """Write `keys` into fixtures.<fixture_name> on disk, leaving everything else as the file has it.
-    fixture_name may be dotted (polar.pose_at_0). Used when the cell learns a pose or a grasp width."""
+    fixture_name may be a path (polar.pose_at_0). Used when the cell learns a pose or a grasp width."""
     layout = load(path)
     node = layout["fixtures"]
     for part in fixture_name.split("."):

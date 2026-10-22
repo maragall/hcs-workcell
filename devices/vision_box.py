@@ -229,9 +229,9 @@ class VisionClient:
     def add_teach(self, name, pose, pick="wide", workspace="autoteach"):
         return self.request("add_teach_position", name, *[f"{v:.4f}" for v in pose], pick, workspace, max_split=8)
 
-    def add_trigger(self, name, pose, camera, marker="aruco", caltab_mm=150, pick="wide",
+    def add_trigger(self, name, pose, camera, marker="aruco", marker_mm=150, pick="wide",
                     workspace="autoteach", led=0):
-        return self.request("add_trigger_position", name, *[f"{v:.4f}" for v in pose], marker, caltab_mm, pick,
+        return self.request("add_trigger_position", name, *[f"{v:.4f}" for v in pose], marker, marker_mm, pick,
                             workspace, camera, led, max_split=8)
 
     def add_relation(self, trigger_name, teach_name, relation_name, pick="wide", workspace="autoteach"):

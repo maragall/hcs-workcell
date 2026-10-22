@@ -57,10 +57,8 @@ def act(cell, name: str, body: dict) -> dict:
     why = cell.ready_to_move()
     if why:
         return {"ok": False, "error": why}
-    if name == "capture_plate":
-        return {"ok": cell.start("capturing the plate", lambda: cameras.capture_plate(cell, bool(body.get("hand"))))}
-    if name == "capture_hand":
-        return {"ok": cell.start("capturing the hand", lambda: cameras.capture_hand(cell, bool(body.get("hand"))))}
+    if name == "capture":
+        return {"ok": cell.start("capturing the marker", lambda: cameras.capture(cell, bool(body.get("hand"))))}
     if name == "replay":
         return {"ok": cell.start("replaying the routes", lambda: teach.replay(cell))}
     if name == "test":

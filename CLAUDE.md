@@ -23,13 +23,14 @@ Four packages plus the main loop. Each box calls only the boxes below it; `perce
   to `hub_outbox/` for cephla-hub; the drift statistics (`predictor.py`) are the live prediction that runs today.
 - `devices/`: one thin file per machine and a fake for each. `nova.py` is the one import for arm + vision box.
 - `calibration/`: our replacement for the vendor's Windows calibration tool (HALCON 12 maths, two text files on the
-  box). `plate` finds the 7x7 dot plate (the physical plate is the 6.25 mm pitch one; the vendor's `.descr` says 5 mm and
-  is scaled), `intrinsics` fits HALCON's area_scan_polynomial (`CamParam.dat`), `handeye` the camera-in-tool pose
-  (`CamInTool.dat`, HALCON pose type 2 = Rz(g) Ry(b) Rx(a)); a SCARA cannot fix the camera's offset along tool z, the plate
-  is pinned at base z = 0 as the vendor's file shows. `capture` drives a plan (`calibration_plans/<camera>.json`, offsets in
-  the initial pose's frame), `upload` SFTPs to `/home/pi/Nova/data/calibration/<camera>/active/` with credentials from
-  `layout.json vision.ssh`, `verify` reads the marker from two poses. `python3 -m calibration.validate` reproduces the
-  vendor's numbers from `vendor_data/` (ground truth, committed). `cli.py calibrate <camera> read|plate|hand|upload|check`.
+  box). The target is the 40 mm marker on the practice plate (`marker.py`, cv2.aruco). `plan.around` is the one capture
+  plan (three heights, x/y spread, four yaws, ends where it started); `solve.run` is one joint least squares over the
+  camera model (`CamParam.dat`, HALCON area_scan_polynomial), the camera-in-tool pose (`CamInTool.dat`, HALCON pose
+  type 2 = Rz(g) Ry(b) Rx(a)) and the marker-in-base pose; a SCARA cannot fix the camera's offset along tool z, so the
+  marker is pinned at base z = 0 as the vendor's file implies. `upload` SFTPs to
+  `/home/pi/Nova/data/calibration/<camera>/active/` with credentials from `layout.json vision.ssh`, `verify` reads the
+  marker from two poses. `python3 -m calibration.validate` renders the marker through the vendor's files in
+  `vendor_data/` and solves it back (`synth.py`). `cli.py calibrate <camera> read|capture|upload|check`.
 - `routes/`: `plan.py` picks a taught trajectory or lift / travel at `routes.safe_z_mm` / lower, every leg checked;
   `Motion.move_to(position)` executes it, to the hover only. `cli.py goto NAME` drives it by hand.
 - `gui/` (`python gui.py [--sim]`): the setup program, one page on http.server: Setup, Cameras, Teach, Test. Calls the

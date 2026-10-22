@@ -1,8 +1,8 @@
-"""The calibration package on the vendor's captures and on the fakes. No hardware, no network."""
+"""The calibration package: the marker rendered through the vendor's files and solved back, the file formats
+byte-compared, the plan, capture on the fakes, upload on a mocked SFTP, verify and teach-free on a fake box."""
 from __future__ import annotations
 
 import glob
-import json
 import os
 import sys
 
@@ -14,50 +14,40 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
-from calibration import capture, halcon, handeye, intrinsics, plate, teach_free, upload, verify  # noqa: E402
+from calibration import capture, halcon, marker, plan, solve, synth, teach_free, upload, validate, verify  # noqa: E402
 from devices.fake_arm import SimRobot  # noqa: E402
 from devices.vision_box import ArucoPose  # noqa: E402
 
-VENDOR = os.path.join(ROOT, "vendor_data")
-INTR = os.path.join(VENDOR, "CalibrationData", "intrinsic")
-HAND = os.path.join(VENDOR, "CalibrationData", "HandEye")
-PLAN = os.path.join(VENDOR, "CalibrationPlans", "scan_camera.json")
+CAL = os.path.join(ROOT, "vendor_data", "CalibrationData")
+VCAM = halcon.CamParam.read(os.path.join(CAL, "intrinsic", "CamParam.dat"))
+VPOSE = halcon.Pose.read(os.path.join(CAL, "HandEye", "CamInTool.dat"))
+START = halcon.CamParam.read(os.path.join(CAL, "IniIntrinsic", "CamParam.dat"))
 
 
-# ------------------------------------------------------------------ plate
-def test_plate_detection_orders_and_orients_the_vendor_image():
-    det = plate.detect(os.path.join(INTR, "intrinsic_008.png"))
-    assert det.image_points.shape == (49, 2) and det.object_points.shape == (49, 3)
-    assert np.allclose(det.object_points[0, :2], [-3 * plate.PLATE_PITCH_M] * 2)     # first mark: min x, min y
-    pred = cv2.perspectiveTransform(det.object_points[:, :2].reshape(-1, 1, 2).astype(np.float32),
-                                    det.homography).reshape(-1, 2)
-    assert np.linalg.norm(pred - det.image_points, axis=1).max() < 2.0
-
-
-def test_plate_detection_under_flare():
-    det = plate.detect(os.path.join(HAND, "handeye_014.png"))
-    assert det.image_points.shape == (49, 2)
-
-
-def test_plate_not_found_raises():
-    with pytest.raises(plate.PlateNotFound):
-        plate.detect(np.full((400, 600), 128, np.uint8))
+# ------------------------------------------------------------------ marker
+def test_marker_corners_are_detected_where_they_were_drawn():
+    T_bm = synth.facing(validate.START_POSE, VPOSE, 0.2)
+    scene = synth.Scene(VCAM, VPOSE, T_bm, 0.04, noise_px=0.3)
+    img = scene.render(validate.START_POSE)
+    got = marker.detect(img)
+    assert got.shape == (4, 2)
+    assert np.linalg.norm(got - scene.corners(validate.START_POSE), axis=1).max() < 0.5
+    with pytest.raises(marker.MarkerNotFound):
+        marker.detect(np.full((400, 600), 128, np.uint8))
 
 
 # ------------------------------------------------------------------ file formats
 def test_camparam_round_trip_is_byte_identical():
-    path = os.path.join(INTR, "CamParam.dat")
-    cam = halcon.CamParam.read(path)
+    path = os.path.join(CAL, "intrinsic", "CamParam.dat")
     with open(path, "rb") as f:
-        assert cam.dumps(cam.written).encode() == f.read()
+        assert VCAM.dumps(VCAM.written).encode() == f.read()
 
 
 def test_pose_round_trip_is_byte_identical():
-    path = os.path.join(HAND, "CamInTool.dat")
-    pose = halcon.Pose.read(path)
+    path = os.path.join(CAL, "HandEye", "CamInTool.dat")
     with open(path, "rb") as f:
-        assert pose.dumps(pose.written).encode() == f.read()
-    assert np.allclose(halcon.matrix_to_abg(pose.matrix[:3, :3]), pose.r, atol=1e-9)
+        assert VPOSE.dumps(VPOSE.written).encode() == f.read()
+    assert np.allclose(halcon.matrix_to_abg(VPOSE.matrix[:3, :3]), VPOSE.r, atol=1e-9)
 
 
 def test_division_model_file_has_kappa_group(tmp_path):
@@ -69,97 +59,61 @@ def test_division_model_file_has_kappa_group(tmp_path):
     assert halcon.CamParam.read(str(p)) == cam
 
 
-# ------------------------------------------------------------------ the maths, against the vendor
+# ------------------------------------------------------------------ the plan
+def test_plan_spreads_and_ends_where_it_started():
+    here = [400.0, -30.0, 300.0, 0, 0, -2.0]
+    poses = plan.around(here)
+    assert 24 <= len(poses) <= 30 and poses[-1] == here
+    arr = np.array(poses[:-1])
+    assert len(set(arr[:, 2])) == 3 and len(set(arr[:, 5])) == 4
+    assert arr[:, 0].min() < here[0] - 30 < here[0] + 30 < arr[:, 0].max()
+    dropped = plan.around(here, check=lambda p: (_ for _ in ()).throw(ValueError()) if p[2] > 320 else None)
+    assert all(p[2] <= 320 for p in dropped) and dropped[-1] == here
+
+
+# ------------------------------------------------------------------ the solve, against the vendor
 @pytest.fixture(scope="module")
-def our_camparam():
-    with open(PLAN) as f:
-        n = len(json.load(f)["Offsets"])
-    return intrinsics.solve(INTR, limit=n)
+def solved(tmp_path_factory):
+    folder = str(tmp_path_factory.mktemp("captures"))
+    validate.synthetic_folder(VCAM, VPOSE, folder)
+    return solve.run(folder, START, validate.MARKER_M), folder
 
 
-def test_intrinsics_match_the_vendor(our_camparam):
-    vendor = halcon.CamParam.read(os.path.join(INTR, "CamParam.dat"))
-    cam = our_camparam
-    for name in ("focus", "cx", "cy"):
-        assert abs(getattr(cam, name) - getattr(vendor, name)) / getattr(vendor, name) < 0.005, name
-    assert cam.reprojection_px <= 0.162
-    assert np.sign(cam.poly) .tolist() == np.sign(vendor.poly).tolist()
+def test_capture_folder_looks_right(solved):
+    _, folder = solved
+    pngs = sorted(glob.glob(os.path.join(folder, "*.png")))
+    assert len(pngs) == len(plan.around(validate.START_POSE)) and os.path.basename(pngs[0]) == "001.png"
+    assert all(os.path.exists(p[:-4] + ".json") for p in pngs)
 
 
-def test_handeye_matches_the_vendor(our_camparam):
-    vendor = halcon.Pose.read(os.path.join(HAND, "CamInTool.dat"))
-    res = handeye.solve(HAND, our_camparam)
-    drot = np.degrees(np.linalg.norm(cv2.Rodrigues(res.matrix[:3, :3].T @ vendor.matrix[:3, :3])[0]))
-    assert drot < 0.5
-    assert np.abs((np.array(res.pose.t) - np.array(vendor.t)) * 1e3).max() < 1.0
-    assert res.unobservable == ("tool z",)
-    assert set(res.dropped) == {f"handeye_{i:03d}.png" for i in (14, 15, 16, 17)}
-    assert res.mean_error_m < 0.5e-3
+def test_joint_solve_matches_the_vendor(solved):
+    res, _ = solved
+    for name in ("focus", "sx", "cx", "cy"):
+        assert abs(getattr(res.camparam, name) - getattr(VCAM, name)) / getattr(VCAM, name) < 0.001, name
+    drot = np.degrees(np.linalg.norm(cv2.Rodrigues(res.camintool.matrix[:3, :3].T @ VPOSE.matrix[:3, :3])[0]))
+    assert drot < 0.05
+    assert np.abs((np.array(res.camintool.t) - np.array(VPOSE.t)) * 1e3).max() < 0.1
+    assert res.unobservable == ("tool z",) and res.images >= 16 and res.reprojection_px < 0.3
+    assert np.sign(res.camparam.poly).tolist() == np.sign(VCAM.poly).tolist()
+
+
+def test_result_writes_both_files(solved, tmp_path):
+    res, _ = solved
+    a, b = res.write(str(tmp_path))
+    cam, pose = halcon.CamParam.read(a), halcon.Pose.read(b)
+    assert np.isclose(cam.focus, res.camparam.focus) and np.allclose(cam.poly, res.camparam.poly) and cam.model == res.camparam.model
+    assert np.allclose(pose.r, res.camintool.r) and np.allclose(pose.t, res.camintool.t)
 
 
 # ------------------------------------------------------------------ capture on the fakes
-class FakeBox:
-    """Vendor frames back from the folder, marker readings fixed in the robot frame, teach API recorded."""
-
-    def __init__(self, frames=None):
-        self.frames = frames or sorted(glob.glob(os.path.join(HAND, "handeye_*.png")))[:3]
-        self.n = 0
-        self.calls = []
-        self.stored = []
-
-    def frame_full(self, camera, led=0):
-        img = cv2.imread(self.frames[self.n % len(self.frames)])
-        self.n += 1
-        return cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 92])[1].tobytes()
-
-    def aruco_pose(self, camera, marker_id=1, marker_size_m=None, led=0):
-        return ArucoPose([0, 0, 0, 0], [0] * 6, [300.0, -50.0, 20.0, 0, 0, 0], "robot")
-
-    def positions(self, workspace="autoteach", ptype="all"):
-        return [dict(type=t, name=n) for t, n in self.stored]
-
-    def delete_position(self, name, ptype, workspace="autoteach"):
-        self.calls.append(("delete", name, ptype))
-        self.stored.remove((ptype, name))
-
-    def add_teach(self, name, pose, pick="wide", workspace="autoteach"):
-        self.calls.append(("teach", name, list(pose), pick, workspace))
-        self.stored.append(("teach", name))
-
-    def add_trigger(self, name, pose, camera, marker="aruco", caltab_mm=150, pick="wide", workspace="autoteach", led=0):
-        self.calls.append(("trigger", name, list(pose), camera, marker, caltab_mm, pick, workspace, led))
-        self.stored.append(("trigger", name))
-
-    def add_relation(self, trigger_name, teach_name, relation_name, pick="wide", workspace="autoteach"):
-        self.calls.append(("relation", trigger_name, teach_name, relation_name, pick, workspace))
-
-
-def test_plan_offsets_compose_in_the_initial_frame():
-    plan = capture.load_plan(PLAN)
-    for i, off in enumerate(plan["Offsets"], start=1):
-        got = capture.compose(plan["InitialToolInBase"], off)
-        want = handeye.read_pose_file(os.path.join(HAND, f"pose_{i:03d}.txt"))
-        assert abs(got[2] - want[2]) < 1.0 and abs(got[5] - want[5]) < 0.5          # z, rz add
-        assert np.linalg.norm(np.array(got[:2]) - np.array(want[:2])) < 15.0         # plan re-saved off the start
-
-
-def test_capture_saves_like_the_vendor(tmp_path):
-    plan = capture.load_plan(PLAN)
-    plan["Offsets"] = plan["Offsets"][:3]
-    robot = SimRobot([0, 0, 0, 0, 0, 0])
-    box = FakeBox()
-    out = str(tmp_path / "HandEye")
-    files = capture.run_plan(plan, "scan_camera", robot, box, out)
-    assert [os.path.basename(f) for f in files] == ["handeye_001.png", "handeye_002.png", "handeye_003.png"]
-    assert robot._speed == capture.DEFAULT_SPEED and len(robot.trace) == 3
-    with open(os.path.join(out, "pose_002.txt"), "rb") as f:
-        text = f.read().decode()
-    assert text.count(",") == 5 and "\n" not in text
-    assert [round(float(v), 3) for v in text.split(",")] == [round(v, 3) for v in robot.trace[1][1]]
-    assert cv2.imread(files[0]).shape == (2464, 3280, 3)
-    assert plate.detect(files[0]).image_points.shape == (49, 2)
-    intr = capture.run_plan(plan, "scan_camera", robot, box, str(tmp_path / "intrinsic"), kind="intrinsic")
-    assert os.path.basename(intr[0]) == "intrinsic_001.png" and not glob.glob(str(tmp_path / "intrinsic" / "pose_*"))
+def test_capture_on_the_fake_arm_and_box(tmp_path):
+    robot = SimRobot(validate.START_POSE)
+    scene = synth.Scene(VCAM, VPOSE, synth.facing(validate.START_POSE, VPOSE, 0.2), 0.04)
+    poses = plan.around(validate.START_POSE)[:3]
+    n = capture.run_plan(poses, "scan_camera", robot, synth.FakeBox(scene, robot), str(tmp_path))
+    assert n == 3 and robot._speed == capture.DEFAULT_SPEED and [t[1] for t in robot.trace] == poses
+    assert cv2.imread(str(tmp_path / "002.png")).shape == (2464, 3280, 3)
+    assert capture.run_plan(None, "scan_camera", robot, synth.FakeBox(scene, robot), str(tmp_path)) == 4
 
 
 # ------------------------------------------------------------------ upload on a mocked SFTP
@@ -240,20 +194,45 @@ def test_upload_refuses_without_credentials():
     assert upload.credentials({"vision": {"ssh": {"user": "pi", "key_path": "/k"}}})["key_path"] == "/k"
 
 
-# ------------------------------------------------------------------ verify and teach-free on the fake box
+# ------------------------------------------------------------------ verify and teach-free on a fake box
+class TeachBox:
+    def __init__(self):
+        self.calls, self.stored = [], []
+
+    def aruco_pose(self, camera, marker_id=1, marker_size_m=None, led=0):
+        return ArucoPose([0, 0, 0, 0], [0] * 6, [300.0, -50.0, 20.0, 0, 0, 0], "robot")
+
+    def positions(self, workspace="autoteach", ptype="all"):
+        return [dict(type=t, name=n) for t, n in self.stored]
+
+    def delete_position(self, name, ptype, workspace="autoteach"):
+        self.calls.append(("delete", name, ptype))
+        self.stored.remove((ptype, name))
+
+    def add_teach(self, name, pose, pick="wide", workspace="autoteach"):
+        self.calls.append(("teach", name, list(pose), pick, workspace))
+        self.stored.append(("teach", name))
+
+    def add_trigger(self, name, pose, camera, marker="aruco", marker_mm=150, pick="wide", workspace="autoteach", led=0):
+        self.calls.append(("trigger", name, list(pose), camera, marker, marker_mm, pick, workspace, led))
+        self.stored.append(("trigger", name))
+
+    def add_relation(self, trigger_name, teach_name, relation_name, pick="wide", workspace="autoteach"):
+        self.calls.append(("relation", trigger_name, teach_name, relation_name, pick, workspace))
+
+
 def test_verify_reports_the_marker_drift_between_two_poses():
     robot = SimRobot([0, 0, 0, 0, 0, 0])
-    assert verify.check(FakeBox(), "auto_teach_camera", robot, [100, 0, 50, 0, 0, 0], [120, 0, 50, 0, 0, 0]) == 0.0
+    assert verify.check(TeachBox(), "auto_teach_camera", robot, [100, 0, 50, 0, 0, 0], [120, 0, 50, 0, 0, 0]) == 0.0
     assert len(robot.trace) == 2
 
 
 def test_teach_free_add_stores_teach_trigger_relation():
-    box = FakeBox()
+    box = TeachBox()
     box.stored.append(("teach", "slot-teach"))
     names = teach_free.add(box, "long", [1, 2, 3, 0, 0, 0], [4, 5, 6, 0, 0, 0], "auto_teach_camera", "slot")
     assert names == {"teach": "slot-teach", "trigger": "slot-trigger", "relation": "slot-rel"}
-    kinds = [c[0] for c in box.calls]
-    assert kinds == ["delete", "teach", "trigger", "relation"]
+    assert [c[0] for c in box.calls] == ["delete", "teach", "trigger", "relation"]
     assert box.calls[2][6] == "long" and box.calls[3][1:4] == ("slot-trigger", "slot-teach", "slot-rel")
     with pytest.raises(ValueError):
         teach_free.add(box, "narrow", [0] * 6, [0] * 6, "auto_teach_camera", "x")

@@ -240,3 +240,22 @@ def test_the_whole_test_runs_through(gui):
     assert any(x.startswith("slots:") for x in texts) and any(x.startswith("markers:") for x in texts)
     assert any(x.startswith("plates: 3 of 3") for x in texts), texts
     assert t["images"] and all(get(url, "/api/image?p=" + i["path"])[0] == 200 for i in t["images"][:2])
+
+
+def test_cameras_flow_on_the_fake_package(gui):
+    """Read the marker, Capture (the arm drives the plan, one solve per camera), Upload, Check: every row gets its numbers."""
+    cell, url = gui
+    post(url, "/api/read_marker")
+    wait_idle(cell)
+    code, out = post(url, "/api/capture", {"hand": False})
+    assert code == 200 and out["ok"]
+    wait_idle(cell, 120)
+    cams = state(url)["cameras"]["cameras"]
+    assert all(n["pictures"] >= 6 and n["px"] <= 0.5 and n["mm"] <= 1.0 for n in cams.values()), cams
+    assert os.path.exists(os.path.join(cell.ref_dir, "calibration", "auto_teach_camera", "CamInTool.dat"))
+    post(url, "/api/upload")
+    wait_idle(cell)
+    post(url, "/api/check")
+    wait_idle(cell)
+    cams = state(url)["cameras"]["cameras"]
+    assert all(n["uploaded_at"] and n["checked_mm"] <= 1.0 for n in cams.values()), cams
