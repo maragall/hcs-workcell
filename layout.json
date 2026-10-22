@@ -181,7 +181,14 @@
       "no_swing": true,
       "max_lateral_mm": 2.0,
       "max_yaw_change_deg": 0.5,
-      "_rule": "inside the zone only vertical linear moves with fixed yaw; elbow swings happen below y 152 or on the taught route"
+      "_rule": "inside the zone only vertical linear moves with fixed yaw; elbow swings happen below y 152 or on the taught route",
+      "needs_parked": true,
+      "_needs_parked_note": "the arm enters only while the microscope reports its stage parked (devices.squid parked); run.py homes the stage and waits for it inside the arm lock"
+    },
+    "stage_sweep": {
+      "box": null,
+      "keep_out": true,
+      "_note": "the Squid stage's full travel envelope at its closest approach to the arm's origin: a y band ('a horizontal asymptote on y') no part of the arm, tool point, elbow or links, may cross at any time. Measure on the cell: {x: [..], y: [..]} in the robot frame, optionally z. null = inactive and preflight refuses"
     },
     "polar": {
       "box": {
@@ -1933,7 +1940,16 @@
     "max_waypoint_pose_dev_mm": 6.0,
     "vision_retry_s": 300,
     "slow_zone_mm": 6.0,
-    "max_yaw_deviation_deg": 0.5
+    "max_yaw_deviation_deg": 0.5,
+    "stage_park_timeout_s": 120,
+    "_stage_park_timeout_note": "how long run.py waits after home() for the stage to report parked before stopping; same bound as step_timeout_s, not a measurement"
+  },
+  "squid": {
+    "microscope": {
+      "park_xy_mm": null,
+      "park_tolerance_mm": null,
+      "_note": "stage position (Squid stage frame, mm) where Microscope.home_xyz leaves it, and how far from it still counts as parked. Measure on the cell: home, read stage.get_pos(), repeat a few times. null = parked() refuses. base_path and experiment_id go here too (devices/squid.py)"
+    }
   },
   "_stress_profile_note": "stress = 50/25/10 %, grasp tolerance 0.08 (10x the measured sd), slow zone 6 mm; validate supervised before unattended"
 }

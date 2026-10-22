@@ -167,7 +167,7 @@ def cmd_normalise(args):
     traces = [trajectory.Trace.load(f) for f in files]
     wp = trajectory.normalise(traces, max_joint_step=layout["limits"]["max_waypoint_joint_step_deg"])
     from procedures.safety import Safety
-    safety = Safety(layout, "supervised")
+    safety = Safety(layout, "supervised")                 # offline: no arm, a keep-out is checked on both elbow branches
     for i, p in enumerate(wp["poses"], 1):
         safety.check_target(p, f"{args.name} waypoint {i}")
     layout["trajectories"][args.name] = wp
@@ -235,7 +235,7 @@ def cmd_move_z(args):
     here = robot.pose()
     target = list(here)
     target[2] += args.delta_mm
-    safety = Safety(layout, "supervised")
+    safety = Safety(layout, "supervised", robot.joints)
     region = safety.region_of(target)
     try:
         safety.check_segment(here, target, "move-z", allow_floor_regions=(region,) if args.allow_floor else ())
@@ -266,7 +266,7 @@ def cmd_replay(args):
         sys.exit("drag mode is on; turn it off first")
     if not st.enabled and not robot.enable():
         sys.exit("robot could not be enabled")
-    safety = Safety(layout, "supervised")
+    safety = Safety(layout, "supervised", robot.joints)
     pts = list(zip(wp["joints"], wp["poses"]))
     if args.reverse:
         pts.reverse()
@@ -324,7 +324,7 @@ def cmd_place_test(args):
         print("drag off")
     if not robot.enable():
         sys.exit("robot could not be enabled")
-    safety = Safety(layout, "supervised")
+    safety = Safety(layout, "supervised", robot.joints)
     geom = Cycle.__new__(Cycle)
     geom.L = layout
     slot_pose = Cycle.hotel_slot_pose(geom, args.slot)
@@ -387,7 +387,7 @@ def cmd_hotel_cycle_test(args):
         time.sleep(1.5)
     if not robot.enable():
         sys.exit("robot could not be enabled")
-    safety = Safety(layout, "supervised")
+    safety = Safety(layout, "supervised", robot.joints)
     g = layout["gripper"]
     geom = Cycle.__new__(Cycle)
     geom.L = layout
@@ -479,7 +479,7 @@ def cmd_scope_place_test(args):
         time.sleep(1.5)
     if not robot.enable():
         sys.exit("robot could not be enabled")
-    safety = Safety(layout, "supervised")
+    safety = Safety(layout, "supervised", robot.joints)
     g = layout["gripper"]
     m = layout["fixtures"]["microscope"]
     seat, hover = m["pose"], m["hover"]["pose"]
