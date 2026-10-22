@@ -65,6 +65,7 @@ Anything that fails in 1 or 2 is a refactor mistake: report it with the run fold
 - Never run anything against the real arm or the vision box from a session; the fakes exist for that.
 - Every arm move is gated: correlation check before lowering, jaw check after closing. Keep it that way when
   adding a procedure.
-- A new microscope is a new fixture entry in `layout.json` and a new name in `run.py --scopes`; no loop change.
+- The product is one microscope. The loop is written for several (one task each, one arm lock); a second one is a new
+  fixture entry in `layout.json` and a new name in `run.py --scopes`, nothing else.
 - A new plate type is one block in `lua/data_plate.lua` and the same numbers under `plates.types` in `layout.json`.
 - Tests: `python -m pytest tests -q`. `test_sim.py` takes minutes (real sleeps in the jaw procedures).

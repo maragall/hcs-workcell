@@ -1,7 +1,7 @@
 """
 hcs-workcell main loop, asyncio: one task per microscope, one arm shared, a list of where every plate is.
 
-    python run.py --sim                                              fake arm, two fake microscopes
+    python run.py --sim                                              fake arm, one fake microscope
     python run.py --scopes microscope --slots A1 --mode supervised   the one-microscope cell, real arm
     python run.py --scopes microscope,microscope_2 --fake-scopes microscope_2 --slots A1,A3
                                                                      the test rig: two nests, one imaging
@@ -142,9 +142,7 @@ def parser() -> argparse.ArgumentParser:
 def build(args, layout: dict, vision=None, tag: str = "", ref_dir: str = positions.REFS, state_dir: Optional[str] = None):
     """Everything a run needs from parsed args: (cell, robot, tele, slot_of). `vision` and `ref_dir` let a test
     pass a fake box and its own reference photos."""
-    names = [s for s in args.scopes.split(",") if s]
-    if args.sim and names == ["microscope"]:
-        names = ["microscope", "microscope_2"]
+    names = [s for s in args.scopes.split(",") if s]              # one microscope is the product; more are a flag
     fakes = {s for s in args.fake_scopes.split(",") if s}
     active = layout["fixtures"]["hotel"].get("active_slots", ["A1"])
     slots = [s for s in args.slots.split(",") if s] or active[:len(names)]
