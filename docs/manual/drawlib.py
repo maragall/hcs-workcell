@@ -67,7 +67,7 @@ def line(ax, a, b, color=C_INK, lw=1.2, dashed=False, z=4):
             solid_capstyle="round")
 
 
-def captions(ax, lines, x, y0, dy=0.42, size=10.5):
+def captions(ax, lines, x, y0, dy=0.42, size=9.5):
     """The short list under a drawing: one line per numbered mark."""
     for k, s in enumerate(lines):
         text(ax, x, y0 - k * dy, s, size=size, ha="left")
@@ -79,10 +79,10 @@ def cross(ax, x, y, r=0.25, lw=2.4):
     line(ax, (x - r, y + r), (x + r, y - r), color=C_RED, lw=lw, z=9)
 
 
-def button(ax, x, y, w, h, label, dark=False, primary=False, red=False, size=11):
-    fc = C_SQUID if dark else C_POLAR if primary else C_RED if red else "#eef0f3"
-    rbox(ax, x, y, w, h, fc=fc, ec="#9aa3ae" if not (dark or primary or red) else fc, r=0.12)
-    text(ax, x + w / 2, y + h / 2, label, size=size, color="white" if (dark or primary or red) else C_INK, bold=True)
+def button(ax, x, y, w, h, label, size=10, **_ignored):
+    """A button on screen: a plain white rectangle, thin dark outline, dark text. Nothing else."""
+    rbox(ax, x, y, w, h, fc="white", ec=C_INK, lw=1.0, r=0.08)
+    text(ax, x + w / 2, y + h / 2, label, size=size, color=C_INK, bold=True)
 
 
 # ------------------------------------------------------------------ the bench from above
