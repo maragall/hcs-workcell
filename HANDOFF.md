@@ -62,3 +62,22 @@ that drifted (teach it again).
 Everything after the 2026-10-22 refactor: the four packages, the asyncio loop, the occupancy detector, the front view,
 the stage check, the planner, the hub recording, the plate order, the speed hacks, the robustness fixes, the GUI.
 All of it passes offline on the fakes. The first real cycle (step 6) is the test of the refactor.
+
+## 7. To the AI session on the cell PC
+
+You are the first to run this code on hardware. Use everything you can see there, the arm, the box, the cameras,
+the run folders, the operator's words, to correct the codebase, and bring the corrections back to main.
+
+1. Work on a branch named `cell-<YYYY-MM-DD>` cut from main. Commit small, one cause per commit, each message saying
+   what the bench showed and what changed. Co-author line as in the git log.
+2. Every number you measure goes into `layout.json` (poses, widths, lift, safe height, speeds, the keep-out box, the
+   park tolerance) and into `reference_images/` (the photos the gates learn from); commit both. A number nobody
+   measured stays null.
+3. When a step refuses or a check disagrees with the bench, read `runs/<run>/events.jsonl` and the frames the gate
+   judged on before changing anything; fix the cause, never the check. Floors, speeds, tolerances and the number of
+   checks are changed only with a measured reason written in the commit.
+4. Keep `python -m pytest tests -q` green; add a test for every behaviour the bench taught you.
+5. Keep the shape: four packages, each calling only the ones below it; `perception` imports no device; the GUI lives
+   in `gui/` and calls commands, never devices.
+6. When the setup program's "Test everything" passes on the real cell: merge the branch into main, push, and write
+   what still does not match the bench into `CLAUDE.md` under "Hardware handoff" for the next session.
