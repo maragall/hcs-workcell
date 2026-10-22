@@ -13,7 +13,7 @@ MODES = ("wide", "long")
 
 
 def add(box, mode: str, teach_pose: Sequence[float], trigger_pose: Sequence[float], camera: str, name: str,
-        workspace: str = "autoteach", caltab_mm: float = 150, led: int = 0, marker: str = "aruco") -> Dict[str, str]:
+        workspace: str = "autoteach", marker_mm: float = 150, led: int = 0, marker: str = "aruco") -> Dict[str, str]:
     """Stores <name>-teach, <name>-trigger and <name>-rel, replacing same-named entries."""
     if mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}")
@@ -24,6 +24,6 @@ def add(box, mode: str, teach_pose: Sequence[float], trigger_pose: Sequence[floa
     if ("trigger", trigger) in existing:
         box.delete_position(trigger, "trigger", workspace)
     box.add_teach(teach, list(teach_pose), mode, workspace)
-    box.add_trigger(trigger, list(trigger_pose), camera, marker, caltab_mm, mode, workspace, led)
+    box.add_trigger(trigger, list(trigger_pose), camera, marker, marker_mm, mode, workspace, led)
     box.add_relation(trigger, teach, relation, mode, workspace)
     return {"teach": teach, "trigger": trigger, "relation": relation}

@@ -16,7 +16,7 @@ area_scan_division (one Kappa): u = u~ / (1 + Kappa r^2); projecting inverts it 
 
 Pose files (CamInTool.dat) are HALCON type 2 = "Rp+T, abg, point": p_tool = R p_cam + t with
 R = Rz(gamma) Ry(beta) Rx(alpha), angles in degrees, t in metres. Confirmed against the
-vendor's own CamInTool.dat in handeye.solve.
+vendor's own CamInTool.dat (validate.py).
 """
 from __future__ import annotations
 

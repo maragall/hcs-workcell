@@ -1,21 +1,15 @@
 """
-Drive the arm through a vendor capture plan and save what the vendor's tool saves.
+Drive the arm through the plan and keep a picture and the arm's pose at every stop.
 
-A plan (vendor_data/CalibrationPlans/<camera>.json) has InitialToolInBase (x y z rx ry rz,
-mm and deg) and Offsets, one per capture. An offset composes in the frame of the initial
-pose: its x, y are rotated by the initial rz and added, z and rz add. That is what the vendor's
-HandEye poses show (2 mm rms against the plan, the joint-space reading is 26 mm off; the
-residual is the plan file being re-saved from a slightly different start).
-
-Output, like the vendor's folders: <kind>_NNN.png (full-resolution frame, NNN from 001) and for
-hand-eye captures pose_NNN.txt with the arm's pose after the move, "x,y,z,rx,ry,rz" to 3
-decimals, no newline.
+Output: <out_dir>/NNN.png (the full-resolution frame) and NNN.json {"pose": [x y z rx ry rz]}
+with the pose the arm reports after the move. `poses` None means the operator moves the arm by
+hand: one picture is taken where it is, for every call.
 """
 from __future__ import annotations
 
 import json
 import os
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 import cv2
 import numpy as np
@@ -23,44 +17,30 @@ import numpy as np
 DEFAULT_SPEED = 0.1
 
 
-def load_plan(path: str) -> dict:
-    with open(path, "r", encoding="utf-8") as f:
-        plan = json.load(f)
-    if "InitialToolInBase" not in plan or "Offsets" not in plan:
-        raise ValueError(f"{path}: not a capture plan")
-    return plan
-
-
-def compose(initial: Sequence[float], offset: Sequence[float]) -> List[float]:
-    """Target pose for one offset of the plan (mm, deg)."""
-    x0, y0, z0, rx0, ry0, rz0 = (float(v) for v in initial)
-    dx, dy, dz, drx, dry, drz = (float(v) for v in offset)
-    c, s = np.cos(np.radians(rz0)), np.sin(np.radians(rz0))
-    rz = (rz0 + drz + 180.0) % 360.0 - 180.0
-    return [x0 + c * dx - s * dy, y0 + s * dx + c * dy, z0 + dz, rx0 + drx, ry0 + dry, rz]
-
-
-def pose_text(pose: Sequence[float]) -> str:
-    return ",".join(f"{float(v):.3f}" for v in pose)
-
-
-def run_plan(plan: dict, camera: str, robot, box, out_dir: str, kind: str = "handeye", led: int = 0) -> List[str]:
-    """Move, grab, save, for every offset. Returns the image paths. Raises on the first failed move."""
-    if kind not in ("intrinsic", "handeye"):
-        raise ValueError(kind)
+def run_plan(poses: Optional[Sequence[Sequence[float]]], camera: str, robot, box, out_dir: str,
+             led: int = 0, speed: float = DEFAULT_SPEED, stop=None) -> int:
+    """Returns how many captures the folder holds. Raises on the first failed move."""
     os.makedirs(out_dir, exist_ok=True)
-    robot.set_speed(float(plan.get("Speed", DEFAULT_SPEED)))
-    saved = []
-    for i, offset in enumerate(plan["Offsets"], start=1):
-        robot.move_linear(compose(plan["InitialToolInBase"], offset))
-        frame = box.frame_full(camera, led)
-        img = cv2.imdecode(np.frombuffer(frame, np.uint8), cv2.IMREAD_COLOR)
-        if img is None:
-            raise RuntimeError(f"capture {i}: the box returned no decodable frame")
-        path = os.path.join(out_dir, f"{kind}_{i:03d}.png")
-        cv2.imwrite(path, img)
-        if kind == "handeye":
-            with open(os.path.join(out_dir, f"pose_{i:03d}.txt"), "w", encoding="utf-8", newline="") as f:
-                f.write(pose_text(robot.pose()))
-        saved.append(path)
-    return saved
+    have = len([f for f in os.listdir(out_dir) if f.endswith(".png")])
+    if poses is None:
+        _grab(camera, robot, box, out_dir, have + 1, led)
+        return have + 1
+    robot.set_speed(speed)
+    for i, p in enumerate(poses, start=have + 1):
+        if stop is not None and stop.is_set():
+            return i - 1
+        robot.move_linear([float(v) for v in p])
+        _grab(camera, robot, box, out_dir, i, led)
+    return have + len(poses)
+
+
+def _grab(camera, robot, box, out_dir, i, led) -> str:
+    frame = box.frame_full(camera, led)
+    img = cv2.imdecode(np.frombuffer(frame, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        raise RuntimeError(f"capture {i}: the box returned no decodable frame")
+    path = os.path.join(out_dir, f"{i:03d}.png")
+    cv2.imwrite(path, img)
+    with open(os.path.join(out_dir, f"{i:03d}.json"), "w", encoding="utf-8") as f:
+        json.dump({"pose": [float(v) for v in robot.pose()]}, f)
+    return path

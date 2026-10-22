@@ -210,7 +210,7 @@ def _marker(cell, L: dict, fixture: dict, family: str, pose: List[float]) -> Non
             cell.vision.delete_position(trig, "trigger", ws)
         cell.vision.add_trigger(trig, pose, cam, "aruco", 150, vt["pick_method"], ws, v["led"])
         cell.vision.add_relation(trig, vt["name"], f"{trig}-rel", vt["pick_method"], ws)
-        fixture["vendor_triggers"] = [{"name": trig, "relation": f"{trig}-rel", "pose": [round(x, 4) for x in pose], "caltab_mm": 150}]
+        fixture["vendor_triggers"] = [{"name": trig, "relation": f"{trig}-rel", "pose": [round(x, 4) for x in pose], "marker_mm": 150}]
 
 
 def _route(cell, L: dict, trace: Optional[trajectory.Trace], frm: Optional[str], to: str) -> Optional[str]:

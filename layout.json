@@ -39,6 +39,7 @@
       "key_path": null,
       "_note": "SSH login of the box for calibration.upload (cli.py calibrate <camera> upload): user plus password or key_path. null refuses; nothing is hard-coded here or in the code"
     },
+    "marker_mm": 40,
     "max_correction_mm": 25.0,
     "led": 0,
     "lower_check": {

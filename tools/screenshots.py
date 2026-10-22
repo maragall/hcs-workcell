@@ -4,7 +4,7 @@ session on the cell PC.
 
     python tools/screenshots.py            -> docs/gui/<step>.png and docs/gui/setup-walkthrough.gif
 
-Starts `python gui.py --sim`, clicks through it over its own JSON endpoints (Setup, Cameras, Teach: a Record,
+Starts `python gui.py --sim`, clicks through it over its own JSON endpoints (Setup, Cameras: Read the marker and Capture, Teach: a Record,
 Test: Test everything), and photographs the page with headless Chrome once per step and once a second while the
 test runs. The GIF is assembled with Pillow; no ffmpeg.
 """
@@ -86,6 +86,11 @@ def main() -> int:
         wait_idle(30)                                    # discovery
         frame("setup", "setup")
         frame("cameras", "cameras")
+        api("read_marker", {})
+        wait_idle(30)
+        api("capture", {"hand": False})                   # the fake package: the arm moves, numbers appear
+        wait_idle(60)
+        frame("cameras", "cameras-captured")
         frame("teach", "teach")
         api("record", {"row": "slot:C10"})               # one Record: the row turns from red to ok (C10 alone changes no geometry)
         wait_idle(30)
@@ -104,7 +109,7 @@ def main() -> int:
     gif = os.path.join(OUT, "setup-walkthrough.gif")
     small[0].save(gif, save_all=True, append_images=small[1:], duration=[1500] * 4 + [900] * (len(small) - 5) + [3000], loop=0)
     print(f"{len(frames)} frames -> {gif}")
-    for name in ("setup", "cameras", "teach", "teach-recorded", "test", "test-done"):
+    for name in ("setup", "cameras", "cameras-captured", "teach", "teach-recorded", "test", "test-done"):
         print(os.path.join(OUT, f"{name}.png"))
     return 0
 

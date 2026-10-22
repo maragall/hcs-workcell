@@ -8,7 +8,7 @@ hcs-workcell command line (teaching, tests, one-microscope runs). The asyncio ma
   python cli.py record-ref FIXTURE STATE            save the down-camera view as a "safe to lower" reference
   python cli.py check-lower FIXTURE STATE           score the current view against the references
   python cli.py run --mode supervised|unsupervised --slot A1 [--cycles N] [--sim]
-  python cli.py calibrate CAMERA read|plate|hand|upload|check   camera calibration (package calibration/)
+  python cli.py calibrate CAMERA read|capture|upload|check      camera calibration (package calibration/)
 """
 from __future__ import annotations
 
@@ -135,14 +135,14 @@ def cmd_record_trigger(args):
     cam = layout["vision"]["down_camera"]
     if args.name in {p["name"] for p in v.positions(ws, "trigger")}:
         v.delete_position(args.name, "trigger", ws)
-    v.add_trigger(args.name, pose, cam, "aruco", args.caltab_mm, pick, ws, layout["vision"]["led"])
+    v.add_trigger(args.name, pose, cam, "aruco", args.marker_mm, pick, ws, layout["vision"]["led"])
     rel = f"{args.name}-rel"
     v.add_relation(args.name, teach_name, rel, pick, ws)
     node = layout["fixtures"]
     for key in args.fixture.split("."):
         node = node[key]
     node.setdefault("vendor_triggers", []).append({"name": args.name, "relation": rel, "pose": [round(x, 4) for x in pose],
-                                                   "caltab_mm": args.caltab_mm})
+                                                   "marker_mm": args.marker_mm})
     save_layout(layout)
     print(f"vision box: trigger '{args.name}' -> teach '{teach_name}' via relation '{rel}'")
 
@@ -837,18 +837,17 @@ def cmd_occupancy(args):
 
 
 def cmd_calibrate(args):
-    """Camera calibration in the vendor's steps, with the calibration package.
-      read    the box reads the marker on the practice plate (and a code, if any): ok / cannot read
-      plate   drive the plan, save intrinsic_NNN.png, fit CamParam.dat
-      hand    drive the plan, save handeye_NNN.png + pose_NNN.txt, solve CamInTool.dat
-      upload  SFTP both files to the box and reboot it (credentials: layout.json vision.ssh)
-      check   the marker from two tool poses: the box's robot-frame reading must not move"""
-    from calibration import capture, halcon, handeye, intrinsics, upload, verify
+    """Camera calibration with the calibration package, the marker on the practice plate as the target.
+      read     the box reads the marker (and a code, if any): ok / cannot read
+      capture  the arm drives the plan around the marker, one joint solve writes CamParam.dat and CamInTool.dat
+      upload   SFTP both files to the box and reboot it (credentials: layout.json vision.ssh)
+      check    the marker from two tool poses: the box's robot-frame reading must not move"""
+    from calibration import capture, halcon, plan, solve, upload, verify
     from devices.vision_box import VisionError
+    from procedures.safety import Safety
     layout = load_layout()
     cam = args.camera
     out = args.out or os.path.join(RUNS, "calibration", cam)
-    plan_path = args.plan or os.path.join(HERE, "calibration_plans", f"{cam}.json")
     v = nova.vision_box(layout)
     led = layout["vision"]["led"]
     if args.step == "read":
@@ -861,28 +860,26 @@ def cmd_calibrate(args):
         codes, _ = v.scan(cam, 3.0, "QR", led)
         print(f"code: {codes[0] if codes else 'none'}")
         return 0
-    if args.step in ("plate", "hand"):
-        plan = capture.load_plan(plan_path)
+    if args.step == "capture":
         robot = make_robot(layout, args, lambda *a: None)
         robot.connect()
         try:
-            kind = "intrinsic" if args.step == "plate" else "handeye"
-            folder = os.path.join(out, kind)
-            files = capture.run_plan(plan, cam, robot, v, folder, kind, led)
+            safety = Safety(layout, "supervised")
+            poses = plan.around(robot.pose(), lambda p: safety.check_target(p, "capture plan"))
+            folder = os.path.join(out, "capture")
+            n = capture.run_plan(poses, cam, robot, v, folder, led)
         finally:
             robot.disconnect()
-        print(f"{len(files)} captures in {folder}")
-        if args.step == "plate":
-            cp = intrinsics.solve(folder)
-            cp.write(os.path.join(out, "CamParam.dat"))
-            print(f"CamParam.dat: focus {cp.focus:.6g} m, cx {cp.cx:.1f}, cy {cp.cy:.1f}, {cp.reprojection_px:.3f} px ({cp.notes})")
-        else:
-            cp = halcon.CamParam.read(os.path.join(out, "CamParam.dat"))
-            res = handeye.solve(folder, cp)
-            res.write(os.path.join(out, "CamInTool.dat"))
-            print(f"CamInTool.dat: r {[round(x, 3) for x in res.pose.r]} t {[round(x, 5) for x in res.pose.t]} m, "
-                  f"mean error {res.mean_error_m * 1e3:.3f} mm, {res.images} captures, dropped {list(res.dropped)}, "
-                  f"unobservable {list(res.unobservable)}")
+        print(f"{n} captures in {folder}")
+        start = os.path.join(out, "CamParam.dat")
+        if not os.path.exists(start):
+            start = os.path.join(HERE, "vendor_data", "CalibrationData", "IniIntrinsic", "CamParam.dat")
+        res = solve.run(folder, halcon.CamParam.read(start), layout["vision"]["marker_mm"] / 1000.0, args.marker_id)
+        res.write(out)
+        print(f"CamParam.dat: focus {res.camparam.focus:.6g} m, cx {res.camparam.cx:.1f}, cy {res.camparam.cy:.1f}, "
+              f"{res.reprojection_px:.3f} px; CamInTool.dat: r {[round(x, 3) for x in res.camintool.r]} "
+              f"t {[round(x, 5) for x in res.camintool.t]} m, marker error {res.mean_error_m * 1e3:.3f} mm; "
+              f"{res.images} captures, skipped {list(res.skipped)}, unobservable {list(res.unobservable)}")
         return 0
     if args.step == "upload":
         creds = upload.credentials(layout)
@@ -901,6 +898,7 @@ def cmd_calibrate(args):
             b = list(a)
             b[0] += args.move_mm
             delta = verify.check(v, cam, robot, a, b, args.marker_id, led)
+            robot.move_linear(a)
         finally:
             robot.disconnect()
         print(f"verification {'passed' if delta <= args.tolerance_mm else 'FAILED'} (dT = {delta:.3f} mm over a {args.move_mm} mm move)")
@@ -915,7 +913,7 @@ def main():
     p = sub.add_parser("record-pose"); p.add_argument("name"); p.add_argument("--local-only", action="store_true")
     p.set_defaults(fn=cmd_record_pose)
     p = sub.add_parser("record-trigger"); p.add_argument("fixture", choices=sorted(VENDOR_TEACH))
-    p.add_argument("name"); p.add_argument("--caltab-mm", type=float, default=150)
+    p.add_argument("name"); p.add_argument("--marker-mm", type=float, default=150)
     p.set_defaults(fn=cmd_record_trigger)
     p = sub.add_parser("trace"); p.add_argument("name"); p.add_argument("--max-seconds", type=float, default=900)
     p.set_defaults(fn=cmd_trace)
@@ -973,9 +971,8 @@ def main():
     p.add_argument("fixture"); p.set_defaults(fn=cmd_marker_check)
     sub.add_parser("positions", help="every position, taught or not, and the hotel plate order").set_defaults(fn=cmd_positions)
     sub.add_parser("occupancy", help="slot occupancy detector: references, self-test, ready").set_defaults(fn=cmd_occupancy)
-    p = sub.add_parser("calibrate", help="camera calibration: read | plate | hand | upload | check")
-    p.add_argument("camera"); p.add_argument("step", choices=("read", "plate", "hand", "upload", "check"))
-    p.add_argument("--plan", help="capture plan json (default calibration_plans/<camera>.json)")
+    p = sub.add_parser("calibrate", help="camera calibration: read | capture | upload | check")
+    p.add_argument("camera"); p.add_argument("step", choices=("read", "capture", "upload", "check"))
     p.add_argument("--out", help="working folder (default runs/calibration/<camera>)")
     p.add_argument("--marker-id", type=int, default=1); p.add_argument("--move-mm", type=float, default=20.0)
     p.add_argument("--tolerance-mm", type=float, default=1.0); p.add_argument("--no-reboot", action="store_true")
