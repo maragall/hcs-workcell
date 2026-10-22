@@ -8,6 +8,7 @@ import os
 import sys
 import threading
 import time
+import types
 
 import pytest
 
@@ -51,8 +52,17 @@ class FakeController:
         pass
 
 
+class FakeStage:
+    def __init__(self, x=50.0, y=0.0):
+        self.x, self.y = x, y
+
+    def get_pos(self):
+        return types.SimpleNamespace(x_mm=self.x, y_mm=self.y, z_mm=1.0)
+
+
 class FakeMicroscope:
     homed = False
+    stage = FakeStage()
 
     def home_xyz(self):
         self.homed = True
@@ -81,6 +91,17 @@ def test_acquire_returns_at_once_and_done_follows_the_finished_signal():
     while not s.done() and time.monotonic() < deadline:
         time.sleep(0.01)
     assert s.done()                                        # the ack: Squid's own finished callback set it
+
+
+def test_parked_needs_measured_park_numbers_then_compares_the_stage_position():
+    scope = FakeMicroscope()
+    with pytest.raises(SquidError, match="park_xy_mm / park_tolerance_mm not set"):
+        Squid("microscope", {"park_xy_mm": [50.0, 0.0]}, microscope=scope).parked()
+    s = Squid("microscope", {"park_xy_mm": [50.0, 0.0], "park_tolerance_mm": 0.5}, microscope=scope)
+    scope.stage = FakeStage(50.3, -0.2)
+    assert s.parked()
+    scope.stage = FakeStage(50.0, 12.0)                     # the acquisition moved it
+    assert not s.parked()
 
 
 def test_a_rejected_acquisition_is_an_error_not_a_finished_one():

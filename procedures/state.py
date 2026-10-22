@@ -14,7 +14,7 @@ from typing import Dict, List, Optional
 
 @dataclass
 class CellState:
-    plate_at: str = "microscope"          # microscope | polar | hotel:<slot> | gripper
+    plate_at: str = "none"                # none (holder empty, plates in the hotel) | <microscope> | hotel:<slot> | gripper
     polar_angle: int = 0                  # 0 or 90
     grip: str = "none"                    # none | short_edges | long_edges
     step: str = "idle"                    # last step started

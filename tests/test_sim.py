@@ -36,6 +36,7 @@ class Rig:
                 lc.add_reference(gate, state, jpeg(SAFE))
         self.tele = Telemetry(os.path.join(self.tmp, "run"))
         self.store = StateStore(os.path.join(self.tmp, "state.json"))
+        self.store.s.plate_at = "microscope"                   # the rig starts with a plate on the microscope
         start = list(self.L["fixtures"]["microscope"]["pose"]); start[2] += self.L["fixtures"]["microscope"]["hover_mm"]
         self.robot = SimRobot(start, faults or SimFaults(), self.tele.log, jaw=10.0)
         self.robot.dis = {"P0": 1, "P90": 1}

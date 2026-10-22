@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 import threading
 import time
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from devices.arm import Robot
 from devices.stage import PolarError, PolarStage
@@ -37,26 +37,29 @@ class Cycle(Motion, Grasp, Gates, Hotel):
     """One plate cycle on one microscope. The four parents only split the methods over files by topic
     (moves, jaw, checks, hotel); every attribute they use is set here.
 
-    scope:        this cycle's microscope, a fixture name in the positions file
-    layout_path:  where learned poses and grasp widths are written back; None keeps them in memory
-    stop_event:   set by another task (run.py) when the cell must stop at the next step
-    clock:        time() and sleep() for every fixed wait (jaw settle, stage settle, retry pauses); the
-                  time module, or a fake the tests inject so the simulator does not wait in real seconds
+    scope:       this cycle's microscope, a fixture name in the positions file
+    layout_path: where learned poses and grasp widths are written back; None keeps them in memory
+    stop_event:  set by another task (run.py) when the cell must stop at the next step
+    clock:       time() and sleep() for every fixed wait (jaw settle, stage settle, retry pauses); the
+                 time module, or a fake the tests inject so the simulator does not wait in real seconds
     frame_source: where the checks take their camera frames; anything with vision_box's frame() signature.
                   Default: the box itself. The GUI passes its always-on frame buffer.
+    parked:      the microscope's stage-parked report; the arm enters a `needs_parked` region only while it is True.
+                 None: no microscope device to ask (cli runs, exercise), the region is entered as before
     """
 
     def __init__(self, layout: dict, robot: Robot, vision: VisionClient, tele: Telemetry, store: StateStore,
                  mode: str, run_dir: str, ref_dir: str, scope: str = "microscope",
                  layout_path: Optional[str] = None, stop_event: Optional[threading.Event] = None, clock=time,
-                 frame_source=None):
+                 parked: Optional[Callable[[], bool]] = None, frame_source=None):
         self.L, self.robot, self.vision, self.tele, self.store = layout, robot, vision, tele, store
         self.scope, self.run_dir, self.layout_path, self.clock = scope, run_dir, layout_path, clock
         self.frames = frame_source or vision
         self.stop_event = stop_event or threading.Event()
         self.ask_before_lower = None             # callable(label) -> bool; set by a supervisor that wants a word before every lowering
+        self.parked = parked or (lambda: True)
         self.supervised = mode == "supervised"
-        self.safety = Safety(layout, mode)
+        self.safety = Safety(layout, mode, robot.joints)
         self.plate = plates.default(layout)      # jaw widths and seat Z offset of the plate being handled
         self.checks = PreChecks(layout, self.plate.jaw_open, self.plate.jaw_closed)
         self.drift = DriftMonitor(os.path.join(run_dir, f"drift_{scope}.json"))
@@ -266,6 +269,15 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         """Carry the plate from hotel slot `slot` to the microscope."""
         self._run_steps(self._steps(slot)[1], from_step)
 
+    def _to_hotel(self):
+        """From the microscope hover or the stage hover to the hotel junction, along the taught routes."""
+        here = self._position_here()
+        if here and not here.startswith("polar"):          # at a microscope hover (this one, or one sharing its pose)
+            self._waypoints(self.L["fixtures"][here].get("trajectory", "microscope_to_polar"))
+            here = "polar"
+        if here and here.startswith("polar"):
+            self._waypoints("polar_to_hotel")
+
     def _check_resumable(self, slot: str, resume: bool = False):
         s, scope = self.store.s, self.scope
         self.hotel_slot_pose(slot)                   # a ledger from another hotel layout may name a slot this one lacks
@@ -280,7 +292,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         if not s.step_done:
             raise StopSafe(f"last step '{s.step}' did not finish; plate_at={s.plate_at} grip={s.grip}. "
                            "Inspect the cell, fix state.json, or rerun with --resume if the arm is still on its route.")
-        if s.plate_at != scope and not s.plate_at.startswith("hotel:"):
+        if s.plate_at not in (scope, "none") and not s.plate_at.startswith("hotel:"):
             raise StopSafe(f"plate_at={s.plate_at}: no automatic resume from here; move the plate by hand "
                            "and edit state.json")
         if s.last_safe_pose:
@@ -351,8 +363,10 @@ class Cycle(Motion, Grasp, Gates, Hotel):
                 self.store.save()
                 if s.plate_at == scope:
                     self.outbound(s.home_slot or self._choose_slot(slot))
+            if s.plate_at == "none":
+                self._to_hotel()                         # an empty holder: travel out before the first fetch
             nxt = self._current_hotel_slot() if slot == "random" else slot
-            if nxt and (s.plate_at.startswith("hotel:") or s.plate_at == "gripper" and not s.step_done):
+            if nxt and (s.plate_at in ("none",) or s.plate_at.startswith("hotel:") or s.plate_at == "gripper" and not s.step_done):
                 self.inbound(nxt)
             self.drift.save()
             dt = time.time() - t0

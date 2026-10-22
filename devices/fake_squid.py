@@ -16,9 +16,13 @@ class FakeSquid:
         self._log = log or (lambda *a: None)
         self._started: Optional[float] = None
         self.acquisitions = 0
+        self.stage_parked = True          # a test sets False for a stage that never parks
 
     def home(self) -> None:
         self._log("squid", self.name, "home (fake)")
+
+    def parked(self) -> bool:
+        return self.stage_parked
 
     def acquire(self) -> None:
         self._started = time.monotonic()

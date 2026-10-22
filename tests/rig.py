@@ -127,7 +127,7 @@ def layout() -> dict:
     L["fixtures"]["microscope"]["pose"] = [120.0, 40.0, 110.0, 0, 0, 0.5]
     L["fixtures"]["microscope"]["hover_mm"] = 25
     L["regions"]["microscope"] = {"box": {"x": [100, 140], "y": [20, 60]}, "z_floor": 108, "no_swing": True,
-                                  "max_lateral_mm": 2.0, "max_yaw_change_deg": 0.5}
+                                  "max_lateral_mm": 2.0, "max_yaw_change_deg": 0.5, "needs_parked": True}
     L["fixtures"]["polar"]["pose_at_0"]["pose"] = [125.4, 117.4, 67.9, 0, 0, 1.5632]
     scope_hover = [120.0, 40.0, 135.0, 0, 0, 0.5]
     wp_mp = {"joints": [[10, 0, 0, 0, 0, 0, 0, 0], [20, 0, 0, 0, 0, 0, 0, 0]],

@@ -68,6 +68,12 @@ class Motion:
             self._move("L", mid, f"{label} (fast part)", prof.approach, allow_floor)
         self._move("L", target, label, prof.contact, allow_floor)
 
+    def _check_parked(self, p: List[float], label: str):
+        """A region flagged needs_parked (the microscope) is entered only while its stage reports parked."""
+        r = self.safety.region_of(p)
+        if self.safety.regions.get(r, {}).get("needs_parked") and not self.parked():
+            raise StopSafe(f"{label}: the {r} stage is not parked; the arm stays out of the {r} zone")
+
     def _move(self, kind: str, target: List[float], label: str, speed: float, allow_floor=()):
         here = self.robot.pose()
         if kind == "L":
@@ -75,6 +81,7 @@ class Motion:
         else:
             self.safety.check_target(target, label, allow_floor)
             self.safety.check_joint_move(here, target, label)
+        self._check_parked(target, label)
         self.robot.set_speed(speed)
         t0 = time.time()
         try:
@@ -131,9 +138,13 @@ class Motion:
             self.resuming = False
         self.robot.set_speed(self.safety.profile.travel)
         tol = self.lim.get("max_waypoint_pose_dev_mm", 6.0)
+        prev = self.robot.joints()[:4]
         for i, (j, p) in enumerate(pts[start:], start + 1):
             label = f"{name}[{i}/{len(pts)}]"
             self.safety.check_target(p, label)
+            self.safety.check_joint_path(prev, list(j[:4]), label)       # the swing between waypoints, elbow included
+            self._check_parked(p, label)
+            prev = list(j[:4])
             ext = self.robot.joints()[4:]
             t0 = time.time()
             try:

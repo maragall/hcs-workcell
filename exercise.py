@@ -103,6 +103,8 @@ def main(argv=None) -> int:
         probe_stage(cyc, tele.log)
         along(cyc, scope_route, reverse=True)                        # stage -> microscope hover
         cyc._arrive(cyc._position(cyc.scope), "exercise: back at the microscope", cyc.safety.profile.approach)
+        if cyc.store.s.plate_at == "none":                           # a fresh cell: fetch the first plate
+            cyc.run(order[0], 1)
         trip_itself(cyc, order[1] if len(order) > 1 else order[0], tele.log)
         asyncio.run(cell.run(slot_of, args.cycles, False, args.stop_file, list(order)))
         tele.log("exercise", "finished", plates=cell.plates(), verdicts=verdicts)

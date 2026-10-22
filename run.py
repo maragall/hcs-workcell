@@ -49,20 +49,20 @@ class Workcell:
         if missing:
             raise KeyError(f"no fixture entry in the positions file for {missing}")
         self.scopes, self.tele, self.poll_s = scopes, tele, poll_s
+        self.park_timeout_s = layout["limits"]["stage_park_timeout_s"]
         self.arm_lock = asyncio.Lock()                   # the one shared physical resource
         self.stop = threading.Event()                    # set by the first task that faults
         self.fault: Optional[BaseException] = None       # that first fault, the one reported
         self.cycles: Dict[str, Cycle] = {}
         for name in scopes:
             store = StateStore(os.path.join(state_dir, f"state_{name}.json"))
-            if store.s.updated == 0.0:                   # never saved: a new ledger, the plate starts on its microscope
-                store.s.plate_at = name
+            if store.s.updated == 0.0:                   # never saved: a new ledger, the holder is empty
                 store.save()
-                tele.log("run", "ledger", f"{name}: new ledger, plate assumed on the microscope")
+                tele.log("run", "ledger", f"{name}: new ledger; the holder is assumed empty, plates in the hotel")
             scope_dir = os.path.join(run_dir, name)
             self.cycles[name] = Cycle(layout, robot, vision, Telemetry(scope_dir), store, mode, scope_dir, ref_dir,
                                       scope=name, layout_path=layout_path, stop_event=self.stop, clock=clock,
-                                      frame_source=frame_source)
+                                      parked=scopes[name].parked, frame_source=frame_source)
 
     def plates(self) -> Dict[str, str]:
         """Where every plate is, by microscope: the microscope name, 'hotel:<slot>' or 'gripper'."""
@@ -71,6 +71,19 @@ class Workcell:
     def close(self) -> None:
         for cyc in self.cycles.values():
             cyc.tele.close()
+
+    def park(self, name: str) -> None:
+        """Home the microscope's stage and wait until it reports parked; the arm does not move before that."""
+        scope = self.scopes[name]
+        scope.home()
+        deadline = time.monotonic() + self.park_timeout_s
+        while not scope.parked():
+            if self.stop.is_set():
+                return
+            if time.monotonic() > deadline:
+                raise StopSafe(f"{name}: stage not parked {self.park_timeout_s} s after home(); the arm stays out")
+            time.sleep(self.poll_s)
+        self.tele.log("run", "scope", f"{name}: stage parked")
 
     async def run_scope(self, name: str, slot: str, cycles: int, resume: bool = False,
                         stop_file: Optional[str] = None, order: Optional[list] = None) -> None:
@@ -87,6 +100,9 @@ class Workcell:
                     return
                 async with self.arm_lock:                # queued: one task moves the arm at a time
                     if self.stop.is_set():               # a fault landed while we waited for the arm
+                        return
+                    await asyncio.to_thread(self.park, name)      # the interlock: stage parked before the arm enters
+                    if self.stop.is_set():
                         return
                     self.tele.log("run", "arm", f"{name} takes the arm", plates=self.plates())
                     await asyncio.to_thread(cyc.run, slot, 1, resume, stop_file)
@@ -129,7 +145,7 @@ def borrow_fixture(layout: dict, name: str, source: str = "microscope") -> None:
 def _scopes(layout: dict, names, fake_names, acquisition_s: float, sim: bool, log) -> Dict[str, object]:
     """One device per microscope; a fake waits `acquisition_s` and does nothing."""
     return {name: FakeSquid(name, acquisition_s, log) if (sim or name in fake_names)
-            else Squid(name, layout.get("squid", {}).get(name, {}), log) for name in names}
+            else Squid(name, (layout.get("squid") or {}).get(name, {}), log) for name in names}
 
 
 def parser() -> argparse.ArgumentParser:
@@ -163,7 +179,7 @@ def build(args, layout: dict, vision=None, tag: str = "", ref_dir: str = positio
             if not layout["fixtures"].get(name, {}).get("pose"):      # missing or not taught yet
                 borrow_fixture(layout, name)
     else:
-        problems = preflight(layout, ref_dir, names)
+        problems = preflight(layout, ref_dir, names, squid=[n for n in names if n not in fakes])
         if problems:
             sys.exit("preflight failed:\n  " + "\n  ".join(problems))
     run_dir = os.path.join(positions.RUNS, time.strftime("%Y%m%d_%H%M%S") + tag + ("_sim" if args.sim else ""))

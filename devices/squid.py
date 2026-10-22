@@ -12,7 +12,8 @@ The controller needs the live and autofocus controllers and the objective store 
 is built where Squid runs and handed in: Squid(name, config, microscope=..., controller=...). Without them
 every call raises SquidNotWired, so a real microscope cannot be driven by accident. Tests use devices.fake_squid.
 
-config (layout.json squid.<name>): base_path, experiment_id (default: the microscope name).
+config (layout.json squid.<name>): base_path, experiment_id (default: the microscope name), park_xy_mm and
+park_tolerance_mm (where home_xyz leaves the stage, measured on the cell; null = parked() refuses).
 """
 from __future__ import annotations
 
@@ -54,6 +55,15 @@ class Squid:
         """Park the stage so the arm can reach the holder."""
         self._need(self._scope).home_xyz()
         self._log("squid", self.name, "homed")
+
+    def parked(self) -> bool:
+        """Stage within park_tolerance_mm of park_xy_mm, the place home() leaves it. Both are measured on the cell."""
+        xy, tol = self.config.get("park_xy_mm"), self.config.get("park_tolerance_mm")
+        if xy is None or tol is None:
+            raise SquidError(f"{self.name}: squid.{self.name}.park_xy_mm / park_tolerance_mm not set; "
+                             "home the stage on the cell, read its position and write both into layout.json")
+        pos = self._need(self._scope).stage.get_pos()
+        return max(abs(pos.x_mm - xy[0]), abs(pos.y_mm - xy[1])) <= tol
 
     def acquire(self) -> None:
         """Start the acquisition that is configured on this microscope; returns once Squid's worker thread runs.
