@@ -50,6 +50,18 @@ def test_decides_each_class_with_a_margin_and_is_ready():
         shutil.rmtree(tmp)
 
 
+def test_self_test_runs_once_per_reference_set_and_again_after_a_new_reference():
+    occ, tmp = detector()
+    try:
+        first = occ.self_test("A1")
+        assert occ.self_test("A1") is first and occ.ready("A1")
+        occ.add_reference("A1", "empty", jpeg(OCCUPIED))           # a wrong frame joins: the verdict must change
+        again = occ.self_test("A1")
+        assert again is not first and again.n == 11 and again.wrong >= 1 and not occ.ready("A1")
+    finally:
+        shutil.rmtree(tmp)
+
+
 def test_a_mislabelled_reference_keeps_the_detector_out_of_enforcement():
     occ, tmp = detector(n_empty=4)
     try:

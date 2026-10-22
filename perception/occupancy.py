@@ -45,6 +45,7 @@ class Occupancy:
     def __init__(self, ref_root: str, min_refs: int = 5, min_match: float = 0.75):
         self.ref_root, self.min_refs, self.min_match = ref_root, min_refs, min_match
         self._cache: Dict[tuple, List[np.ndarray]] = {}
+        self._tests: Dict[str, SelfTest] = {}          # per slot, for the references in _cache
 
     # ---------------------------------------------------------------- references
     def _dir(self, slot: str, state: str) -> str:
@@ -80,6 +81,7 @@ class Occupancy:
         with open(path, "wb") as f:
             f.write(img_bytes)
         self._cache.pop((slot, state), None)
+        self._tests.pop(slot, None)
         return path
 
     def slots(self) -> List[str]:
@@ -105,7 +107,10 @@ class Occupancy:
         return self._decide(_prep(img_bytes), empty, occupied)
 
     def self_test(self, slot: str) -> SelfTest:
-        """Leave one out: every reference must be classified as its own label by the others."""
+        """Leave one out: every reference must be classified as its own label by the others. Computed once per
+        reference set (ready() asks at every slot view; 24 + 24 references are 2000 correlations)."""
+        if slot in self._tests:
+            return self._tests[slot]
         empty, occupied = self._refs(slot, "empty"), self._refs(slot, "occupied")
         n = wrong = 0
         min_gap = float("inf")
@@ -121,7 +126,8 @@ class Occupancy:
                 min_gap = min(min_gap, gap)
                 if v.decision != label:
                     wrong += 1
-        return SelfTest(n, wrong, min_gap if n else 0.0)
+        self._tests[slot] = SelfTest(n, wrong, min_gap if n else 0.0)
+        return self._tests[slot]
 
     def ready(self, slot: str) -> bool:
         """Enough references of both kinds and a clean self-test: the verdict may block a move."""
