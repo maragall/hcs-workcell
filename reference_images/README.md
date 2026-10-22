@@ -1,0 +1,1 @@
+The cell's reference photos, one folder per check and state, taken by the cell itself (Record in the GUI, cli.py record-ref, and the first runs). They are this cell's learned state and travel with the repo.
