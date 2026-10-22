@@ -18,7 +18,7 @@ def _step_place(step: str) -> str:
     if m.group(2):
         return f"slot {what}"
     if what.startswith("polar"):
-        return "the stage"
+        return "the rotation module"
     return "the microscope" if what == "microscope" else what.replace("_", " ")
 
 
@@ -34,7 +34,7 @@ def plain(e: dict) -> Optional[str]:
             return "looked from above: clear" if e.get("safe") else f"looked from above: not clear ({msg})"
         if "_front" in step and "slot" not in step:
             if "collected" in msg:
-                return f"looked from the front: learning this view ({msg.split()[1]} so far)"
+                return f"looked from the front: learning this view, picture {msg.split()[1]}"
             return "looked from the front: clear" if e.get("safe") else f"looked from the front: not clear ({msg})"
         if step.endswith("slot_view"):
             d = e.get("decision", "unknown")
@@ -71,13 +71,15 @@ def plain(e: dict) -> Optional[str]:
     if kind == "cycle":
         return f"plate change done in {e.get('dt', 0):.0f} s"
     if kind == "polar":
-        return None if step in ("readback",) else f"stage: {msg}"
+        return None if step in ("readback",) else f"rotation module: {msg}"
     if kind == "correct":
         return f"adjusting: {msg}"
     if kind == "exercise":
         if step.startswith("probe:"):
             return None                     # the slot_view line already said it
         return msg
+    if kind == "squid":
+        return f"microscope: {'imaging' if msg.startswith('acquire') else msg.split(' (')[0]}"
     if kind == "run":
         if step == "start":
             return "run started"
@@ -98,7 +100,7 @@ def when(e: dict) -> str:
 CAPTIONS = [("_lower_", "from above, before lowering"), ("_front", "from the front, before lowering"),
             ("_slot_view", "the slot, from the front"), ("_lifted", "plate held"), ("_released_down", "after release, from above"),
             ("_seated_front", "after release, from the front"), ("_placed", "placed"), ("_aruco", "marker"),
-            ("barcode", "plate code"), ("_stage", "stage, before turning")]
+            ("barcode", "plate code"), ("_stage", "rotation module, before turning")]
 
 
 def caption(path: str) -> str:

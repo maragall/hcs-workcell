@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>hcs-workcell</title>
+<style>
+  :root{--ink:#1a1d21;--mute:#6b7177;--line:#c9cdd2;--dark:#1F3F5F;--red:#9b2c2c;--green:#2e7d4f;--pane:#2b2e33}
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+  header{display:grid;grid-template-columns:1fr 1fr 220px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .cam{position:relative;height:200px;background:var(--pane);border:1px solid #000;overflow:hidden}
+  .cam img{width:100%;height:100%;object-fit:cover;display:block}
+  .cam .t{position:absolute;left:8px;top:6px;color:#e6e8eb;font-size:13px}
+  .side{display:flex;flex-direction:column;gap:8px}
+  .stop{flex:0 0 auto;background:linear-gradient(#c43d3d,#8e2222);color:#fff;border:1px solid #5a1414;border-bottom:4px solid #4a0f0f;
+        font-weight:700;font-size:22px;letter-spacing:2px;padding:14px 0;text-align:center;cursor:pointer;user-select:none}
+  .stop:active{border-bottom-width:1px;transform:translateY(3px)}
+  .pose{flex:1;border:1px solid var(--line);padding:8px 10px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre}
+  .pose b{font:12px system-ui;color:var(--mute);display:block}
+  nav{display:flex;gap:0;padding:12px 16px 0;border-bottom:1px solid var(--line)}
+  nav button{background:#fff;border:1px solid var(--line);border-bottom:none;padding:8px 18px;font:inherit;font-weight:600;color:var(--mute);cursor:pointer;margin-bottom:-1px}
+  nav button.on{color:var(--ink);border-bottom:1px solid #fff}
+  .status{padding:8px 16px;color:var(--mute);font-size:14px;min-height:34px;border-bottom:1px solid var(--line)}
+  .status b{color:var(--ink);font-weight:600}
+  .question{margin:12px 16px 0;border:1px solid var(--ink);padding:12px 16px;display:flex;gap:16px;align-items:center}
+  .question span{flex:1;font-weight:600}
+  section{display:none;margin:0 16px 24px;padding:16px 0}
+  section.on{display:block}
+  h2{margin:0 0 4px;font-size:20px;font-weight:600} .lead{margin:0 0 16px;color:var(--mute)}
+  .step{display:grid;grid-template-columns:24px 1fr;gap:8px;margin:10px 0;align-items:baseline}
+  .step .k{color:var(--mute);font-weight:600}
+  button.btn{background:#fff;border:1px solid var(--ink);padding:7px 14px;font:inherit;font-weight:600;cursor:pointer;margin:2px 8px 2px 0}
+  button.btn.primary{background:var(--dark);color:#fff;border-color:var(--dark)}
+  button.btn.big{font-size:17px;padding:10px 22px}
+  button.btn[disabled]{opacity:.45;cursor:default}
+  table{border-collapse:collapse;width:100%;margin:8px 0}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+  th{color:var(--mute);font-weight:600}
+  td.ok,.ok{color:var(--green);font-weight:600} td.bad,.bad{color:var(--red);font-weight:600} td.warn{color:var(--mute);font-weight:600}
+  td.mute{color:var(--mute)}
+  .done{margin-top:14px;color:var(--mute);font-size:14px}
+  details{margin:10px 0;font-size:14px} summary{cursor:pointer;color:var(--mute)} pre{border:1px solid var(--line);padding:8px;font-size:12px;display:inline-block}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+  .matrix{display:inline-grid;grid-template-columns:28px repeat(3,52px);gap:5px;margin:8px 0}
+  .matrix div{height:32px;border:1px solid var(--line);font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;position:relative}
+  .matrix div.lab{border:none;color:var(--mute);font-weight:600;cursor:default}
+  .matrix div.plate{background:var(--dark);color:#fff;font-weight:600;border-color:var(--dark)}
+  .matrix div.learned::after{content:'';position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--green)}
+  .matrix div.agree{outline:3px solid var(--green)} .matrix div.disagree{outline:3px solid var(--red)} .matrix div.unsure{outline:3px dashed var(--mute)}
+  .matrix div.unreachable{color:var(--mute);border-style:dashed}
+  .legend{font-size:13px;color:var(--mute)}
+  .order{font:14px ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:6px 10px;margin:6px 0;display:inline-block;min-width:260px}
+  .log{font:13px/1.5 ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:10px;height:220px;overflow:auto;white-space:pre-wrap}
+  .frames{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .frames figure{margin:0;width:176px} .frames img{width:176px;height:99px;object-fit:cover;display:block;background:var(--pane);border:1px solid #000}
+  .frames figcaption{font-size:12px;color:var(--mute);margin-top:2px}
+  input[type=number]{border:1px solid var(--line);padding:6px 8px;font:inherit;width:64px}
+  .teach td:nth-child(2){color:var(--mute)}
+</style></head>
+<body>
+<header>
+  <div class="cam"><img id="cam-down" alt=""><span class="t">Down camera</span></div>
+  <div class="cam"><img id="cam-front" alt=""><span class="t">Front camera</span></div>
+  <div class="side"><div class="stop" onclick="post('stop')">STOP</div><div class="pose" id="pose"><b>arm</b>not connected</div></div>
+</header>
+<nav>
+  <button onclick="go('setup')" id="tab-setup">Setup</button>
+  <button onclick="go('teach')" id="tab-teach">Teach</button>
+  <button onclick="go('test')" id="tab-test">Test</button>
+</nav>
+<div class="status" id="status"></div>
+<div class="question" id="question" style="display:none"><span id="qtext"></span>
+  <button class="btn primary" onclick="post('answer',{yes:true})">Yes</button><button class="btn" onclick="post('answer',{yes:false})">No</button></div>
+
+<section id="setup">
+  <h2>Setup</h2><p class="lead">Check that every device is found.</p>
+  <table><tr><th style="width:28%">device</th><th style="width:30%">found</th><th>state</th></tr><tbody id="devices"></tbody></table>
+  <button class="btn" data-busy onclick="post('discover')">Search again</button>
+  <details><summary>Not found? What to check</summary>
+    <ol><li>Power the arm on and turn the key switch to Auto.</li>
+      <li>Plug the arm's LAN 1 port and the vision box into this PC. Plug the microscope's USB in.</li>
+      <li>Press Search again. Still nothing: run this and send the output.</li></ol>
+    <pre>python cli.py status</pre></details>
+  <table><tr><th>cameras</th></tr><tr><td>Do not touch the focus rings. Moved or refocused a camera? Calibrate again with the vendor's tool, then come back here.</td></tr></table>
+  <table><tr><th>bench</th><th></th></tr>
+    <tr><td style="width:28%">Microscope</td><td id="scopes"></td></tr>
+    <tr><td>Hotel</td><td><button class="btn" id="h15" onclick="post('hotel',{size:15})">15 slots</button><button class="btn" id="h30" onclick="post('hotel',{size:30})">30 slots</button></td></tr></table>
+  <div class="done">Done when every device reads ok and the hotel size matches the bench.</div>
+</section>
+
+<section id="teach">
+  <h2>Teach</h2><p class="lead">Move the arm by hand to where each row says, then press Record.</p>
+  <div class="step"><span class="k">1</span><span><button class="btn primary" id="dragbtn" data-busy onclick="post('drag',{on:!S.teach.dragging})">Let me move the arm</button>
+    The jaw closes, then the arm goes loose. Press again to lock it. The path you drag becomes the route; the camera takes its picture when you press Record.</span></div>
+  <div class="step"><span class="k">2</span><span>Go down the list.</span></div>
+  <table class="teach"><tr><th style="width:20%">row</th><th>put the arm</th><th style="width:26%">recorded</th><th style="width:16%"></th></tr><tbody id="rows"></tbody></table>
+  <div class="step"><span class="k">3</span><span><button class="btn" data-busy data-move onclick="post('replay')">Replay slowly</button> The arm repeats every route at low speed. STOP at any time.</span></div>
+  <div class="done" id="problems">Done when no row is red.</div>
+</section>
+
+<section id="test">
+  <h2>Test</h2><p class="lead">Click the slots that hold plates, then press Test everything.</p>
+  <div class="grid"><div>
+    <div class="matrix" id="matrix"></div>
+    <div class="legend">Row 10 is the top shelf. Dark = plate. Green dot = the camera has learned this slot. Green ring = the camera agrees with you. Red ring = it disagrees. Dashed = not sure.</div>
+    <div>The arm will take them in this order:</div><div class="order" id="order"></div>
+    <div class="step" style="margin-top:14px"><span class="k"></span><span>Plate changes <input type="number" id="cycles" min="1" value="1"> &nbsp;
+      <button class="btn primary big" data-busy data-move onclick="post('test',{cycles:+document.getElementById('cycles').value})">Test everything</button></span></div>
+    <div class="legend">Looks into every slot, reads every marker, drives to the rotation module and back slowly, turns it, trips itself on a taken slot on purpose, then moves the plates in turn through the microscope.</div>
+  </div><div>
+    <table><tr><th>microscope</th><th>plate</th><th>now</th></tr><tbody id="plates"></tbody></table>
+    <div class="log" id="log"></div>
+    <div class="frames" id="frames"></div>
+  </div></div>
+  <div class="done">STOP at any time. The arm ends at its next step.</div>
+</section>
+
+<script>
+let S = {teach:{dragging:false}};
+const $ = id => document.getElementById(id);
+function go(name){ location.hash = name; for (const t of ['setup','teach','test']) { $(t).classList.toggle('on', t===name); $('tab-'+t).classList.toggle('on', t===name); } }
+go((location.hash||'#setup').slice(1));
+
+async function post(name, body){
+  const r = await fetch('/api/'+name, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{})});
+  const j = await r.json();
+  if (!j.ok) $('status').innerHTML = '<b>not done:</b> ' + esc(j.error||'');
+  poll();
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function video(id, cam){ const img = $(id); const next = () => { img.src = '/frame/'+cam+'?t='+Date.now(); };
+  img.onload = () => setTimeout(next, 400); img.onerror = () => setTimeout(next, 1500); next(); }
+video('cam-down','down'); video('cam-front','front');
+
+function render(s){
+  S = s;
+  const a = s.arm;
+  $('pose').innerHTML = '<b>arm</b>' + (a.ok ? `x ${a.pose[0].toFixed(1)}  y ${a.pose[1].toFixed(1)}  z ${a.pose[2].toFixed(1)}\nyaw ${a.pose[5].toFixed(1)}  jaw ${a.jaw.toFixed(2)} mm\n` +
+      (a.drag ? 'loose, hand-guided' : (a.enabled ? 'enabled' : 'not enabled') + (a.moving ? ', moving' : ', holding still')) : esc(a.error));
+  $('status').innerHTML = (s.busy ? `<b>${esc(s.busy)}</b> ` : '') + (s.message ? `${s.message.t}  ${esc(s.message.text)}` : '') + (s.sim ? '   (simulator)' : '');
+  $('question').style.display = s.question ? 'flex' : 'none';
+  if (s.question) $('qtext').textContent = s.question.text;
+  for (const b of document.querySelectorAll('[data-busy]')) b.disabled = !!s.busy && !(b.id==='dragbtn' && s.busy==='hand-guiding');
+  for (const b of document.querySelectorAll('[data-move]')) if (!a.ok || a.drag) b.disabled = true;
+  // setup
+  $('devices').innerHTML = s.devices.map(d => `<tr><td>${esc(d.name)}</td><td class="${d.found==='not found'?'warn':''}">${esc(d.found)}</td><td class="${d.ok?'ok':'warn'}">${esc(d.state)}</td></tr>`).join('')
+      || '<tr><td colspan=3 class="mute">searching</td></tr>';
+  const bench = s.test.bench;
+  $('scopes').textContent = bench.microscopes.length === 1 ? '1' : bench.microscopes.join(', ');
+  $('h15').className = 'btn' + (bench.size===15?' primary':''); $('h30').className = 'btn' + (bench.size===30?' primary':'');
+  // teach
+  $('dragbtn').textContent = s.teach.dragging ? 'Lock the arm' : 'Let me move the arm';
+  $('dragbtn').className = 'btn' + (s.teach.dragging ? '' : ' primary');
+  $('rows').innerHTML = s.teach.rows.map(r => `<tr><td>${esc(r.label)}</td><td>${esc(r.put)}</td><td class="${r.level}">${esc(r.done)}</td><td>${
+      r.action==='measure' ? `<button class="btn" data-busy onclick="post('measure',{grip:'short_edges'})">Measure short</button><button class="btn" data-busy onclick="post('measure',{grip:'long_edges'})">Measure long</button>`
+      : `<button class="btn${r.level==='bad'?' primary':''}" data-busy onclick="post('record',{row:'${r.id}'})">Record</button>`}</td></tr>`).join('');
+  for (const b of $('rows').querySelectorAll('[data-busy]')) b.disabled = !!s.busy || !a.ok;
+  $('problems').innerHTML = s.teach.problems.length ? 'Done when no row is red. The run will refuse on:<br>' + s.teach.problems.map(esc).join('<br>') : 'Done: nothing missing.';
+  // test
+  matrix(bench, s.test);
+  $('order').textContent = bench.order.length ? bench.order.join('  ') : 'no plates yet';
+  const t = s.test.test;
+  $('plates').innerHTML = t ? t.plates.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.plate)}</td><td>${esc(p.now)}</td></tr>`).join('') : '<tr><td colspan=3 class="mute">not started</td></tr>';
+  const log = $('log'); const atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+  log.textContent = t ? t.log.map(l => `${l.t}  ${l.text}`).join('\n') : '';
+  if (atEnd) log.scrollTop = log.scrollHeight;
+  const imgs = t ? t.images : [];
+  const key = imgs.map(i => i.path).join('|');
+  if ($('frames').dataset.key !== key) { $('frames').dataset.key = key;
+    $('frames').innerHTML = imgs.map(i => `<figure><img src="/api/image?p=${encodeURIComponent(i.path)}"><figcaption>${i.t}  ${esc(i.caption)}</figcaption></figure>`).join(''); }
+}
+
+let clicked = null;   // slots the user has toggled since the last poll answered
+function matrix(bench, test){
+  const m = $('matrix'); m.innerHTML = '';
+  const lab = t => { const d = document.createElement('div'); d.className='lab'; d.textContent=t; m.appendChild(d); };
+  lab(''); for (const c of bench.columns) lab(c);
+  const loaded = new Set(clicked || bench.loaded), rings = (test.test && test.test.rings) || test.slots || {};
+  for (const r of [...bench.rows].reverse()) { lab(String(r));
+    for (const c of bench.columns) { const slot = c+r, d = document.createElement('div'); d.textContent = slot;
+      if (loaded.has(slot)) d.classList.add('plate');
+      if (test.learned.includes(slot)) d.classList.add('learned');
+      if (rings[slot]) d.classList.add(rings[slot]);
+      d.onclick = () => { if (S.busy) return; const set = new Set(clicked || bench.loaded); set.has(slot) ? set.delete(slot) : set.add(slot); clicked = [...set];
+        post('loaded', {slots: clicked}).then(() => { clicked = null; }); };
+      m.appendChild(d); } }
+}
+
+async function poll(){ try { render(await (await fetch('/api/state')).json()); } catch (e) { $('status').innerHTML = '<b>no answer from the program</b>'; } }
+poll(); setInterval(poll, 700);
+</script>
+</body></html>

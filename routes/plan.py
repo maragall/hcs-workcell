@@ -56,7 +56,11 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
         raise SafetyViolation("no taught route between these positions and routes.safe_z_mm is not set")
     up = list(here[:2]) + [safe_z] + list(here[3:])
     across = list(target[:2]) + [safe_z] + list(target[3:])
-    poses = [p for p in (up, across, target) if p != here]
+    poses, prev = [], here
+    for p in (up, across, target):            # a zero-length leg is skipped; the route always ends at the target
+        if p != prev:
+            poses.append(p)
+            prev = p
     prev = here
     for i, p in enumerate(poses, 1):
         safety.check_segment(prev, p, f"route {i}/{len(poses)}")

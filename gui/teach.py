@@ -51,6 +51,10 @@ class Tracer:
         self.on = False
 
 
+def F_taught(L: dict, scope: str) -> bool:
+    return bool(L["fixtures"][scope].get("pose"))
+
+
 def _teach(cell):
     """Per-cell teaching state, created on first use."""
     if not hasattr(cell, "teach"):
@@ -67,7 +71,7 @@ def _family(row_id: str) -> str:
 def rows(cell) -> dict:
     L, lc = cell.layout(), LowerCheck(cell.ref_dir)
     need = L["vision"]["lower_check"]["min_refs"]
-    scopes = bench.microscopes(L)
+    scopes = [s for s in bench.microscopes(L) if s == "microscope" or F_taught(L, s)]
     problems = preflight(L, cell.ref_dir, scopes)
     h, F = L["fixtures"]["hotel"], L["fixtures"]
     top = max(h["rows"])
@@ -77,7 +81,7 @@ def rows(cell) -> dict:
         return f"picture {n} of {need}" if n < need else "pictures"
 
     def row(rid, label, put, done, level, action="record", needs=()):
-        bad = any(p.startswith(n) for p in problems for n in needs)
+        bad = any(p == n or (n.endswith((":", "/")) and p.startswith(n)) for p in problems for n in needs)
         return {"id": rid, "label": label, "put": put, "done": done, "level": "bad" if bad else level, "action": action}
 
     out = []
@@ -86,9 +90,9 @@ def rows(cell) -> dict:
         pose_words = "pose from the camera" if fx.get("pose_from_camera") else "pose"
         out.append(row(f"hover:{s}", f"{name}, hover", "above the holder, a hand's width up, with a plate in the holder",
                        f"{pose_words}, {pics(s, 'plate_present')}" if fx.get("pose") else "nothing yet",
-                       "ok" if fx.get("pose") else "bad", needs=(f"pose not taught: {s}", f"reference images {s}/plate_present")))
+                       "ok" if fx.get("pose") else "bad", needs=(f"pose not taught: {s}", f"reference images {s}/plate_present:")))
         out.append(row(f"empty:{s}", f"{name}, hover, empty", "same place, take the plate out",
-                       pics(s, "empty") if lc.count(s, "empty") else "nothing yet", "ok", needs=(f"reference images {s}/empty",)))
+                       pics(s, "empty") if lc.count(s, "empty") else "nothing yet", "ok", needs=(f"reference images {s}/empty:",)))
         out.append(row(f"marker:{s}", f"{name}, marker", "screw the marker tab onto the holder, hover so the down camera sees it whole",
                        "marker seen" if fx.get("aruco_reference") else "no marker yet", "ok" if fx.get("aruco_reference") else "warn"))
     P = F["polar"]
@@ -96,27 +100,27 @@ def rows(cell) -> dict:
     route_words = ", ".join(f"route from {bench.label(r[:-len('_to_polar')]).lower()}" for r in routes)
     for deg, grip in ((0, "short edges"), (90, "long edges")):
         node = P[f"pose_at_{deg}"]
-        put = "drag over to the stage, plate seated, short edges in the fingers" if deg == 0 else "turn the stage, long edges in the fingers"
+        put = "drag over to the rotation module, plate seated, short edges in the fingers" if deg == 0 else "turn the module, long edges in the fingers"
         done = ", ".join(x for x in ("pose", route_words if deg == 0 else "", pics(f"polar@{deg}", "plate_present")) if x)
-        out.append(row(f"seat:polar.pose_at_{deg}", f"Stage at {deg}, seat", put, done if node.get("pose") else "nothing yet",
+        out.append(row(f"seat:polar.pose_at_{deg}", f"Rotation module at {deg}, seat", put, done if node.get("pose") else "nothing yet",
                        "ok" if node.get("pose") else "bad",
-                       needs=(f"pose not taught: polar.pose_at_{deg}", f"reference images polar@{deg}/plate_present") +
+                       needs=(f"pose not taught: polar.pose_at_{deg}", f"reference images polar@{deg}/plate_present:") +
                        (("trajectory not taught:",) if deg == 0 else ())))
-        out.append(row(f"empty:polar@{deg}", f"Stage at {deg}, empty", "same place, take the plate off the stage",
+        out.append(row(f"empty:polar@{deg}", f"Rotation module at {deg}, empty", "same place, take the plate off the module",
                        pics(f"polar@{deg}", "empty") if lc.count(f"polar@{deg}", "empty") else "nothing yet", "ok",
-                       needs=(f"reference images polar@{deg}/empty",)))
-    out.append(row("marker:polar", "Stage, marker", "marker tab on the stage, hover so the down camera sees it whole",
+                       needs=(f"reference images polar@{deg}/empty:",)))
+    out.append(row("marker:polar", "Rotation module, marker", "marker tab on the module, hover so the down camera sees it whole",
                    "marker seen" if P.get("aruco_reference") else "no marker yet", "ok" if P.get("aruco_reference") else "warn"))
     for slot in (f"A1", f"A{top}", "C1", f"C{top}"):
         taught = slot in h["taught"]
-        extra = ", route from the stage" if slot == "A1" and L["trajectories"].get("polar_to_hotel") else ""
+        extra = ", route from the rotation module" if slot == "A1" and L["trajectories"].get("polar_to_hotel") else ""
         out.append(row(f"slot:{slot}", f"Hotel {slot}", f"drag to the hotel, plate seated in {slot}",
                        f"pose{extra}" if taught else "nothing yet", "ok" if taught else "bad",
                        needs=("trajectory not taught: polar_to_hotel",) if slot == "A1" else ()))
     g = L["gripper"]["closed"]
     words = [f"{k.split('_')[0]} {v:.2f} mm" if v else f"{k.split('_')[0]} not yet" for k, v in g.items()]
     out.append(row("grip", "Grip", "plate between the fingers, short edges, then long edges", ", ".join(words),
-                   "ok" if all(g.values()) else "bad", action="measure", needs=("grip width not measured", "reference images gripper/")))
+                   "ok" if all(g.values()) else "bad", action="measure", needs=("grip width not measured:", "reference images gripper/")))
     z = L.get("routes", {}).get("safe_z_mm")
     out.append(row("travel", "Travel height", "lift the arm to a height that clears everything",
                    f"{z:.0f} mm" if z else "nothing yet", "ok" if z else "bad"))

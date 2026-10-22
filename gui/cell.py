@@ -121,7 +121,7 @@ class Cell:
             self.devices = [
                 {"name": "Arm", "found": "simulator", "state": "enabled, holding still", "ok": True},
                 {"name": "Vision box", "found": "simulator", "state": f"{st.cameras} cameras, video above", "ok": True},
-                {"name": "Rotating stage", "found": "through the arm", "state": self._stage_words(L), "ok": True},
+                {"name": "Rotation module", "found": "through the arm", "state": self._stage_words(L), "ok": True},
                 {"name": "Microscope", "found": "simulator", "state": "pretends to image", "ok": True}]
             return
         arm, box, squid = discover.arm(L), discover.vision_box(L), discover.squid()
@@ -145,7 +145,7 @@ class Cell:
              "state": arm.get("error") or (self.arm_error or self._arm_words(a))},
             {"name": "Vision box", "found": box.get("host", "not found"), "ok": "cameras" in box,
              "state": box.get("error") or f"{box['cameras']} cameras, video above"},
-            {"name": "Rotating stage", "found": "through the arm", "ok": a.get("ok", False),
+            {"name": "Rotation module", "found": "through the arm", "ok": a.get("ok", False),
              "state": self._stage_words(L) if a.get("ok") else "needs the arm"},
             {"name": "Microscope", "found": squid.get("module", "not found"), "ok": "module" in squid,
              "state": squid.get("error", "software present") if "error" in squid else
