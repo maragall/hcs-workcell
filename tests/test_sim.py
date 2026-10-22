@@ -270,6 +270,24 @@ def test_ledger_naming_a_slot_the_hotel_does_not_have_is_refused():
         r.close()
 
 
+def test_hotel_place_stops_when_nothing_can_see_the_slot():
+    """At the approach point the vision box stops answering: no front frame, no vendor live detection. Placing blind
+    into a slot is what the occupancy check exists to prevent; 'nobody looked' must not pass as 'empty'."""
+    r = Rig()
+    orig = r.cyc._hotel_go_to_approach
+
+    def arrive(slot, step):
+        orig(slot, step)
+        r.vis.frame_error = r.vis.live_error = OSError("vision box gone")
+    r.cyc._hotel_go_to_approach = arrive
+    try:
+        r.expect_stop("no view")
+        assert r.store.s.plate_at == "gripper" and not r.store.s.step_done    # the plate was never released
+        assert r.robot._jaw < 3.0
+    finally:
+        r.close()
+
+
 def test_resume_refuses_moved_arm():
     r = Rig()
     r.store.s.last_safe_pose = [300.0, 0.0, 300.0, 0, 0, 0]
