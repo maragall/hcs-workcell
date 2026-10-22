@@ -82,6 +82,38 @@ def test_two_microscopes_share_the_arm_and_image_while_the_other_moves():
         close(cell, tmp)
 
 
+def reopen(cell, tmp):
+    """A second Workcell on the same robot, ledgers and run folder: what `run.py --resume` builds."""
+    a = cell.cycles[A]
+    cell.close()
+    return run.Workcell(a.L, a.robot, a.vision, cell.scopes, cell.tele, "unsupervised", os.path.join(tmp, "run"),
+                        a.lower.ref_root, tmp, poll_s=0.01)
+
+
+def test_resume_gives_the_arm_first_to_the_microscope_whose_plate_is_in_the_gripper():
+    """The run stopped while B carried its plate to the hotel. A's ledger is clean and A is first in the list, so A
+    would take the arm with B's plate between the fingers: at best a stop telling the operator to jog the loaded arm
+    back to A's hover, at worst A's pick opening the jaw there. The unfinished microscope must go first."""
+    cell, tmp = make_cell()
+    try:
+        asyncio.run(cell.run(SLOTS, cycles=1))
+        b, robot = cell.cycles[B], cell.cycles[B].robot
+        b.store.begin(f"place:hotel:{SLOTS[B]}")                  # B stopped at the approach point, plate in hand
+        b.store.s.plate_at, b.store.s.grip, b.store.s.polar_angle = "gripper", "long_edges", 90
+        b.store.save()
+        robot.set_pose_for_test(b._hotel_geometry(SLOTS[B])[1])
+        robot._jaw = 2.92
+        ax = b.L["polar"]["ext_axis"]
+        robot._ext[1] = ax["zero_reading"] + ax["direction"] * 90
+        cell = reopen(cell, tmp)
+        asyncio.run(cell.run(SLOTS, cycles=1, resume=True))
+        assert cell.plates() == {A: A, B: B}
+        takes = [e["msg"] for e in events(tmp) if e["step"] == "arm" and "takes" in e["msg"]]
+        assert takes[-2:] == [f"{B} takes the arm", f"{A} takes the arm"]
+    finally:
+        close(cell, tmp)
+
+
 def test_a_fault_in_one_task_stops_the_other_before_it_moves():
     cell, tmp = make_cell()
     try:
