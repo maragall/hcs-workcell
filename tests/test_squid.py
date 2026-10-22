@@ -86,7 +86,7 @@ def test_acquire_returns_at_once_and_done_follows_the_finished_signal():
     s.acquire()
     assert time.monotonic() - t0 < 0.05                    # the call does not wait for the acquisition
     assert not s.done() and mpc.acquisition_in_progress()
-    assert s.last_dataset.startswith("/data/run/microscope_2026")
+    assert s.last_dataset.replace("\\", "/").startswith("/data/run/microscope_2026")
     deadline = time.monotonic() + 2
     while not s.done() and time.monotonic() < deadline:
         time.sleep(0.01)
