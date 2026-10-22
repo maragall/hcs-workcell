@@ -54,7 +54,7 @@ class CamParam:
     model: str = "area_scan_polynomial"
     poly: Tuple[float, ...] = (0.0, 0.0, 0.0, 0.0, 0.0)   # file values: K1 K2 K3 P1*1000 P2*1000
     kappa: float = 0.0                                     # division model only
-    reprojection_px: float = float("nan")
+    reprojection_px: float = field(default=float("nan"), compare=False)
     written: str = field(default="", compare=False)        # the timestamp line, kept on read
     notes: str = field(default="", compare=False)          # which captures the fit used
 

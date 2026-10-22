@@ -150,6 +150,8 @@ def closed_form(T_bt: List[np.ndarray], T_cp: List[np.ndarray]) -> Tuple[np.ndar
             raise np.linalg.LinAlgError("no rotation between the captures")
         a = np.mean(alphas[big] / np.linalg.norm(alphas[big], axis=1, keepdims=True), axis=0)
         b = np.mean(betas[big] / np.linalg.norm(betas[big], axis=1, keepdims=True), axis=0)
+        if min(np.linalg.norm(a), np.linalg.norm(b)) < 1e-6:
+            raise np.linalg.LinAlgError("rotation axes cancel")
         a, b = a / np.linalg.norm(a), b / np.linalg.norm(b)
         R0 = _align(b, a)
         R = min((cv2.Rodrigues(a * np.radians(th))[0] @ R0 for th in range(0, 360, 3)),

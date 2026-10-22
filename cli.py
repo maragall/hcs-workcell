@@ -8,6 +8,7 @@ hcs-workcell command line (teaching, tests, one-microscope runs). The asyncio ma
   python cli.py record-ref FIXTURE STATE            save the down-camera view as a "safe to lower" reference
   python cli.py check-lower FIXTURE STATE           score the current view against the references
   python cli.py run --mode supervised|unsupervised --slot A1 [--cycles N] [--sim]
+  python cli.py calibrate CAMERA read|plate|hand|upload|check   camera calibration (package calibration/)
 """
 from __future__ import annotations
 
@@ -835,6 +836,77 @@ def cmd_occupancy(args):
     return 0
 
 
+def cmd_calibrate(args):
+    """Camera calibration in the vendor's steps, with the calibration package.
+      read    the box reads the marker on the practice plate (and a code, if any): ok / cannot read
+      plate   drive the plan, save intrinsic_NNN.png, fit CamParam.dat
+      hand    drive the plan, save handeye_NNN.png + pose_NNN.txt, solve CamInTool.dat
+      upload  SFTP both files to the box and reboot it (credentials: layout.json vision.ssh)
+      check   the marker from two tool poses: the box's robot-frame reading must not move"""
+    from calibration import capture, halcon, handeye, intrinsics, upload, verify
+    from devices.vision_box import VisionError
+    layout = load_layout()
+    cam = args.camera
+    out = args.out or os.path.join(RUNS, "calibration", cam)
+    plan_path = args.plan or os.path.join(HERE, "calibration_plans", f"{cam}.json")
+    v = nova.vision_box(layout)
+    led = layout["vision"]["led"]
+    if args.step == "read":
+        try:
+            a = v.aruco_pose(cam, args.marker_id, None, led)
+            print(f"ok: marker {args.marker_id} at {[round(x, 2) for x in a.target[:3]]} ({a.frame})")
+        except VisionError as e:
+            print(f"cannot read the marker: {e}")
+            return 2
+        codes, _ = v.scan(cam, 3.0, "QR", led)
+        print(f"code: {codes[0] if codes else 'none'}")
+        return 0
+    if args.step in ("plate", "hand"):
+        plan = capture.load_plan(plan_path)
+        robot = make_robot(layout, args, lambda *a: None)
+        robot.connect()
+        try:
+            kind = "intrinsic" if args.step == "plate" else "handeye"
+            folder = os.path.join(out, kind)
+            files = capture.run_plan(plan, cam, robot, v, folder, kind, led)
+        finally:
+            robot.disconnect()
+        print(f"{len(files)} captures in {folder}")
+        if args.step == "plate":
+            cp = intrinsics.solve(folder)
+            cp.write(os.path.join(out, "CamParam.dat"))
+            print(f"CamParam.dat: focus {cp.focus:.6g} m, cx {cp.cx:.1f}, cy {cp.cy:.1f}, {cp.reprojection_px:.3f} px ({cp.notes})")
+        else:
+            cp = halcon.CamParam.read(os.path.join(out, "CamParam.dat"))
+            res = handeye.solve(folder, cp)
+            res.write(os.path.join(out, "CamInTool.dat"))
+            print(f"CamInTool.dat: r {[round(x, 3) for x in res.pose.r]} t {[round(x, 5) for x in res.pose.t]} m, "
+                  f"mean error {res.mean_error_m * 1e3:.3f} mm, {res.images} captures, dropped {list(res.dropped)}, "
+                  f"unobservable {list(res.unobservable)}")
+        return 0
+    if args.step == "upload":
+        creds = upload.credentials(layout)
+        host = layout["vision"]["host"]
+        backups = upload.push(host, cam, os.path.join(out, "CamParam.dat"), os.path.join(out, "CamInTool.dat"), creds)
+        print(f"uploaded to {upload.remote_dir(cam)}; backups {backups}")
+        if not args.no_reboot:
+            upload.reboot(host, creds)
+            print("box rebooting")
+        return 0
+    if args.step == "check":
+        robot = make_robot(layout, args, lambda *a: None)
+        robot.connect()
+        try:
+            a = robot.pose()
+            b = list(a)
+            b[0] += args.move_mm
+            delta = verify.check(v, cam, robot, a, b, args.marker_id, led)
+        finally:
+            robot.disconnect()
+        print(f"verification {'passed' if delta <= args.tolerance_mm else 'FAILED'} (dT = {delta:.3f} mm over a {args.move_mm} mm move)")
+        return 0 if delta <= args.tolerance_mm else 2
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -901,6 +973,13 @@ def main():
     p.add_argument("fixture"); p.set_defaults(fn=cmd_marker_check)
     sub.add_parser("positions", help="every position, taught or not, and the hotel plate order").set_defaults(fn=cmd_positions)
     sub.add_parser("occupancy", help="slot occupancy detector: references, self-test, ready").set_defaults(fn=cmd_occupancy)
+    p = sub.add_parser("calibrate", help="camera calibration: read | plate | hand | upload | check")
+    p.add_argument("camera"); p.add_argument("step", choices=("read", "plate", "hand", "upload", "check"))
+    p.add_argument("--plan", help="capture plan json (default calibration_plans/<camera>.json)")
+    p.add_argument("--out", help="working folder (default runs/calibration/<camera>)")
+    p.add_argument("--marker-id", type=int, default=1); p.add_argument("--move-mm", type=float, default=20.0)
+    p.add_argument("--tolerance-mm", type=float, default=1.0); p.add_argument("--no-reboot", action="store_true")
+    p.add_argument("--sim", action="store_true"); p.set_defaults(fn=cmd_calibrate)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
     p.add_argument("run_dir"); p.add_argument("--fps", type=float, default=2.0)
     p.set_defaults(fn=cmd_to_mp4)

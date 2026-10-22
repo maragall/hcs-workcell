@@ -2,3 +2,4 @@ numpy>=1.26
 pillow>=10
 pythonnet>=3.0        # robot only: loads the vendor BR.PC.BYSDK (.NET 8 runtime required)
 # the vendor wheel bioyondsdk-0.1.1 must be installed for the real robot; the simulator needs nothing else
+paramiko>=3.4          # calibration.upload: SFTP of CamParam.dat / CamInTool.dat to the vision box
