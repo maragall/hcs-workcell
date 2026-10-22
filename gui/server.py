@@ -8,7 +8,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from gui import bench, checks, runs, teach
+from gui import bench, cameras, checks, runs, teach
 
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "application/javascript", ".png": "image/png"}
@@ -16,6 +16,7 @@ TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "applic
 
 def full_state(cell) -> dict:
     s = cell.state()
+    s["cameras"] = cameras.state(cell)
     s["teach"] = teach.rows(cell)
     s["test"] = checks.state(cell)
     return s
@@ -39,6 +40,14 @@ def act(cell, name: str, body: dict) -> dict:
         return {"ok": True}
     if not cell.arm.get("ok"):
         return {"ok": False, "error": f"arm not connected: {cell.arm.get('error')}"}
+    if name == "read_marker":
+        return {"ok": cell.start("reading the marker", lambda: cameras.read_marker(cell))}
+    if name == "teach_free":
+        return {"ok": cell.start("teach-free point", lambda: cameras.teach_free(cell, str(body["step"])))}
+    if name == "upload":
+        return {"ok": cell.start("uploading to the box", lambda: cameras.upload(cell))}
+    if name == "check":
+        return {"ok": cell.start("checking the cameras", lambda: cameras.check(cell))}
     if name == "drag":
         return {"ok": cell.start("hand-guiding", lambda: teach.drag(cell, bool(body.get("on"))))}
     if name == "record":
@@ -48,10 +57,14 @@ def act(cell, name: str, body: dict) -> dict:
     why = cell.ready_to_move()
     if why:
         return {"ok": False, "error": why}
+    if name == "capture_plate":
+        return {"ok": cell.start("capturing the plate", lambda: cameras.capture_plate(cell, bool(body.get("hand"))))}
+    if name == "capture_hand":
+        return {"ok": cell.start("capturing the hand", lambda: cameras.capture_hand(cell, bool(body.get("hand"))))}
     if name == "replay":
         return {"ok": cell.start("replaying the routes", lambda: teach.replay(cell))}
     if name == "test":
-        return {"ok": cell.start("testing everything", lambda: checks.test(cell, max(1, int(body.get("cycles", 1)))))}
+        return {"ok": cell.start("testing everything", lambda: checks.test(cell))}
     return {"ok": False, "error": f"unknown action {name}"}
 
 

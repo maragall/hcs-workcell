@@ -81,6 +81,7 @@ def read_every_marker(cell, cyc, log) -> None:
     """Go to each marker's hover and say how far the position has drifted (cli marker-check)."""
     L = cell.layout()
     v, limit = L["vision"], L["vision"]["max_correction_mm"]
+    said, far = [], []
     for m in markers(L):
         _stopped(cell)
         node = L["fixtures"][m["fixture"]]
@@ -88,10 +89,13 @@ def read_every_marker(cell, cyc, log) -> None:
             cyc.move_to(m["position"])
         off = cell.vision.pose_offset(v["down_camera"], node["aruco_reference"], v["workspace"], node.get("aruco_marker_id", 1), None, v["led"])
         mag = math.sqrt(sum(x * x for x in off.d[:3]))
-        log("exercise", "marker", f"marker at the {m['label'].lower()}: shift {mag:.1f} mm, limit {limit:.0f} mm: "
-            f"{'ok' if mag <= limit else 'too far, teach it again'}", mag=round(mag, 2))
-    if not markers(L):
-        log("exercise", "marker", "no markers taught; the arm will use the taught poses as they are")
+        said.append(f"{m['label']} {mag:.1f} mm")
+        if mag > limit:
+            far.append(m["label"])
+    if not said:
+        log("exercise", "markers", "markers: none taught; the arm uses the taught poses as they are")
+    else:
+        log("exercise", "markers", f"markers: {', '.join(said)}: " + (f"all within {limit:.0f} mm" if not far else f"{', '.join(far)} over {limit:.0f} mm, teach again"))
 
 
 def path_words(route, here: List[float]) -> str:
@@ -114,14 +118,14 @@ def drive(cell, cyc, log, to: str, label: str) -> None:
     if cyc._position_here() == to:
         return
     route = plan(cell.layout(), cyc.safety, here, cyc._position(to), cyc._position_here(), to)
-    log("exercise", "path", f"path to the {label}: {path_words(route, here)}")
+    words = path_words(route, here)
     travel, approach = cyc.safety.profile.travel, cyc.safety.profile.approach
     cyc.safety.profile.travel = cyc.safety.profile.approach = SLOW
     try:
         cyc.move_to(to)
     finally:
         cyc.safety.profile.travel, cyc.safety.profile.approach = travel, approach
-    log("exercise", "path", f"at the {label}")
+    log("exercise", "path", f"path to the {label}: {words}, driven")
 
 
 def drive_to_the_module_and_back(cell, cyc, log) -> None:
@@ -135,7 +139,7 @@ def drive_to_the_module_and_back(cell, cyc, log) -> None:
 
 
 # --------------------------------------------------------------------------------------------- the button
-def test(cell, cycles: int) -> None:
+def test(cell) -> None:
     L = cell.layout()
     scopes = [s for s in bench.microscopes(L) if L["fixtures"][s].get("pose")] or ["microscope"]
     order = plate_order(L)
@@ -149,16 +153,19 @@ def test(cell, cycles: int) -> None:
     r.scope_route = L["fixtures"][cyc.scope].get("trajectory", "microscope_to_polar")
     log = r.tele.log
     slot_of = {s: order[i % len(order)] for i, s in enumerate(scopes)}
+    cycles = len(order)                                   # every plate once; the shared order runs out
     try:
-        log("exercise", "start", f"{len(order)} plates: {' '.join(order)}", scopes=scopes, cycles=cycles)
+        log("exercise", "start", f"{len(order)} plates: {' '.join(order)}", scopes=scopes)
         look_at_every_slot(cell, r, cyc, log)
         read_every_marker(cell, cyc, log)
         drive_to_the_module_and_back(cell, cyc, log)
         _stopped(cell)
         exercise.trip_itself(cyc, order[1] if len(order) > 1 else order[0], log)
-        log("exercise", "plates", f"now the plates in turn, {cycles} time{'s' if cycles != 1 else ''} each microscope")
+        log("exercise", "plates", "now every plate in turn")
+        before = sum(c.store.s.cycle for c in r.wc.cycles.values())      # the trip counted as one
         asyncio.run(r.wc.run(slot_of, cycles, False, r.stop_file, list(order)))
-        log("exercise", "finished", "test finished", plates=r.wc.plates(), slots=r.slot_views)
+        done = sum(c.store.s.cycle for c in r.wc.cycles.values()) - before
+        log("exercise", "finished", f"plates: {done} of {len(order)} cycled", plates=r.wc.plates(), slots=r.slot_views)
         r.close("finished")
         cell.note("test finished")
     except (StopSafe, SafetyViolation) as e:

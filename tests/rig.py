@@ -9,7 +9,7 @@ import time
 import numpy as np
 from PIL import Image
 
-from devices.vision_box import PoseOffset, Status
+from devices.vision_box import ArucoPose, PoseOffset, Status
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SAFE, BAD = 1, 99
@@ -90,6 +90,9 @@ class FakeVision:
     # the teaching side of the box, as the GUI uses it
     def version(self):
         return "fake vision box"
+
+    def aruco_pose(self, *a, **k):
+        return ArucoPose([640.0, 360.0, 0.0, 0.0], [0.0] * 6, [0.0] * 6, "robot", jpeg(6))
 
     def set_reference(self, *a, **k):
         return []

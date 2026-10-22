@@ -1,122 +1,136 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>hcs-workcell</title>
+<html lang="en"><head><meta charset="utf-8"><title>hcs-workcell setup</title>
 <style>
-  :root{--ink:#1a1d21;--mute:#6b7177;--line:#c9cdd2;--dark:#1F3F5F;--red:#9b2c2c;--green:#2e7d4f;--pane:#2b2e33}
-  *{box-sizing:border-box}
-  body{margin:0;background:#fff;color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
-  header{display:grid;grid-template-columns:1fr 1fr 220px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
-  .cam{position:relative;height:200px;background:var(--pane);border:1px solid #000;overflow:hidden}
+  :root{--ink:#1f2933;--mute:#6b7280;--line:#d0d4da;--dark:#1F3F5F;--ok:#2e7d4f;--bad:#b23a3a}
+  *{box-sizing:border-box} body{margin:0;background:#fff;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
+  header{display:grid;grid-template-columns:1fr 1fr 230px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:5}
+  .cam{height:200px;background:#3a3f46;color:#e6e8eb;position:relative;overflow:hidden}
   .cam img{width:100%;height:100%;object-fit:cover;display:block}
-  .cam .t{position:absolute;left:8px;top:6px;color:#e6e8eb;font-size:13px}
+  .cam .t{position:absolute;left:10px;top:8px;font-weight:600;font-size:14px;text-shadow:0 0 4px #000}
+  .cam .outline{display:none;position:absolute;left:20%;top:15%;width:60%;height:70%;border:2px dashed #fff;opacity:.8}
+  body.cameras .cam .outline{display:block}
   .side{display:flex;flex-direction:column;gap:8px}
-  .stop{flex:0 0 auto;background:linear-gradient(#c43d3d,#8e2222);color:#fff;border:1px solid #5a1414;border-bottom:4px solid #4a0f0f;
-        font-weight:700;font-size:22px;letter-spacing:2px;padding:14px 0;text-align:center;cursor:pointer;user-select:none}
-  .stop:active{border-bottom-width:1px;transform:translateY(3px)}
-  .pose{flex:1;border:1px solid var(--line);padding:8px 10px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre}
-  .pose b{font:12px system-ui;color:var(--mute);display:block}
-  nav{display:flex;gap:0;padding:12px 16px 0;border-bottom:1px solid var(--line)}
-  nav button{background:#fff;border:1px solid var(--line);border-bottom:none;padding:8px 18px;font:inherit;font-weight:600;color:var(--mute);cursor:pointer;margin-bottom:-1px}
-  nav button.on{color:var(--ink);border-bottom:1px solid #fff}
-  .status{padding:8px 16px;color:var(--mute);font-size:14px;min-height:34px;border-bottom:1px solid var(--line)}
-  .status b{color:var(--ink);font-weight:600}
-  .question{margin:12px 16px 0;border:1px solid var(--ink);padding:12px 16px;display:flex;gap:16px;align-items:center}
+  .pose{border:1px solid var(--line);padding:8px 10px;font-family:ui-monospace,Menlo,monospace;font-size:12px;flex:1;white-space:pre}
+  .pose b{font-family:system-ui;font-size:12px;color:var(--mute);display:block;margin-bottom:3px}
+  .stop{background:linear-gradient(180deg,#c94a4a,#8f2a2a);color:#fff;font-weight:700;font-size:18px;padding:14px 0;text-align:center;letter-spacing:1px;cursor:pointer;border:1px solid #6e1f1f;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 3px rgba(0,0,0,.25);user-select:none}
+  .stop:active{box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
+  nav{display:flex;gap:0;padding:0 16px;border-bottom:1px solid var(--line)}
+  nav button{background:none;border:none;border-bottom:3px solid transparent;padding:12px 18px;font-weight:600;font-size:15px;color:var(--mute);cursor:pointer}
+  nav button.on{color:var(--ink);border-bottom-color:var(--dark)} nav button .n{color:var(--mute);margin-right:8px;font-weight:400}
+  .status{padding:6px 16px;color:var(--mute);font-size:14px;min-height:30px}
+  .status b{color:var(--ink)}
+  .question{margin:8px 16px 0;border:1px solid var(--ink);padding:12px 16px;display:flex;gap:16px;align-items:center}
   .question span{flex:1;font-weight:600}
-  section{display:none;margin:0 16px 24px;padding:16px 0}
+  section{display:none;margin:0 16px 16px;padding:12px 8px 20px}
   section.on{display:block}
-  h2{margin:0 0 4px;font-size:20px;font-weight:600} .lead{margin:0 0 16px;color:var(--mute)}
-  .step{display:grid;grid-template-columns:24px 1fr;gap:8px;margin:10px 0;align-items:baseline}
-  .step .k{color:var(--mute);font-weight:600}
-  button.btn{background:#fff;border:1px solid var(--ink);padding:7px 14px;font:inherit;font-weight:600;cursor:pointer;margin:2px 8px 2px 0}
-  button.btn.primary{background:var(--dark);color:#fff;border-color:var(--dark)}
-  button.btn.big{font-size:17px;padding:10px 22px}
-  button.btn[disabled]{opacity:.45;cursor:default}
-  table{border-collapse:collapse;width:100%;margin:8px 0}
-  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
-  th{color:var(--mute);font-weight:600}
-  td.ok,.ok{color:var(--green);font-weight:600} td.bad,.bad{color:var(--red);font-weight:600} td.warn{color:var(--mute);font-weight:600}
-  td.mute{color:var(--mute)}
-  .done{margin-top:14px;color:var(--mute);font-size:14px}
-  details{margin:10px 0;font-size:14px} summary{cursor:pointer;color:var(--mute)} pre{border:1px solid var(--line);padding:8px;font-size:12px;display:inline-block}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+  h2{margin:0 0 6px;font-size:22px;font-weight:600} h3{margin:22px 0 6px;font-weight:600;font-size:16px} .lead{margin:0 0 18px;color:var(--mute);font-size:15px}
+  .row{display:grid;grid-template-columns:30px 1fr;gap:12px;margin:12px 0;align-items:start}
+  .row .k{color:var(--mute);font-weight:600;font-size:14px;line-height:26px}
+  .btn{display:inline-block;background:#fff;border:1px solid var(--ink);padding:7px 16px;font:inherit;font-weight:600;cursor:pointer;margin:2px 6px 2px 0}
+  .btn.primary{background:var(--dark);color:#fff;border-color:var(--dark)}
+  .btn.big{font-size:17px;padding:11px 26px}
+  .btn[disabled]{opacity:.4;cursor:default}
+  table{border-collapse:collapse;width:100%;margin:8px 0} th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top} th{color:var(--mute);font-weight:600}
+  .ok{color:var(--ok);font-weight:600} .bad{color:var(--bad);font-weight:600} .warn{color:var(--mute);font-weight:600} .mute{color:var(--mute)}
+  .done{margin-top:16px;color:var(--mute);font-size:14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:26px}
   .matrix{display:inline-grid;grid-template-columns:28px repeat(3,52px);gap:5px;margin:8px 0}
-  .matrix div{height:32px;border:1px solid var(--line);font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;position:relative}
+  .matrix div{height:34px;border:1px solid var(--line);background:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;position:relative}
   .matrix div.lab{border:none;color:var(--mute);font-weight:600;cursor:default}
-  .matrix div.plate{background:var(--dark);color:#fff;font-weight:600;border-color:var(--dark)}
-  .matrix div.learned::after{content:'';position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--green)}
-  .matrix div.agree{outline:3px solid var(--green)} .matrix div.disagree{outline:3px solid var(--red)} .matrix div.unsure{outline:3px dashed var(--mute)}
+  .matrix div.learned::after{content:'';position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  .matrix div.plate{background:var(--dark);color:#fff;font-weight:600}
+  .matrix div.agree{outline:2px solid var(--ok)} .matrix div.disagree{outline:2px solid var(--bad)} .matrix div.unsure{outline:2px dashed var(--mute)}
   .matrix div.unreachable{color:var(--mute);border-style:dashed}
   .legend{font-size:13px;color:var(--mute)}
-  .order{font:14px ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:6px 10px;margin:6px 0;display:inline-block;min-width:260px}
-  .log{font:13px/1.5 ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:10px;height:220px;overflow:auto;white-space:pre-wrap}
-  .frames{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-  .frames figure{margin:0;width:176px} .frames img{width:176px;height:99px;object-fit:cover;display:block;background:var(--pane);border:1px solid #000}
-  .frames figcaption{font-size:12px;color:var(--mute);margin-top:2px}
-  input[type=number]{border:1px solid var(--line);padding:6px 8px;font:inherit;width:64px}
+  .frames{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px} .frames figure{margin:0;width:170px} .frames img{width:170px;height:110px;object-fit:cover;display:block;background:#3a3f46}
+  .frames figcaption{font-size:12px;color:var(--mute)}
+  .log{font-family:ui-monospace,Menlo,monospace;font-size:13px;border:1px solid var(--line);padding:10px;max-height:190px;overflow:auto;white-space:pre-wrap;margin-top:6px}
+  .log.inline{display:inline-block;padding:4px 8px;margin:0}
+  details{margin:8px 0;font-size:14px} details summary{cursor:pointer;color:var(--mute)} pre{border:1px solid var(--line);padding:8px;font-size:12px;display:inline-block}
   .teach td:nth-child(2){color:var(--mute)}
 </style></head>
 <body>
 <header>
-  <div class="cam"><img id="cam-down" alt=""><span class="t">Down camera</span></div>
-  <div class="cam"><img id="cam-front" alt=""><span class="t">Front camera</span></div>
+  <div class="cam"><img id="cam-down" alt=""><span class="t">Down camera, video</span><div class="outline"></div></div>
+  <div class="cam"><img id="cam-front" alt=""><span class="t">Front camera, video</span></div>
   <div class="side"><div class="stop" onclick="post('stop')">STOP</div><div class="pose" id="pose"><b>arm</b>not connected</div></div>
 </header>
 <nav>
-  <button onclick="go('setup')" id="tab-setup">Setup</button>
-  <button onclick="go('teach')" id="tab-teach">Teach</button>
-  <button onclick="go('test')" id="tab-test">Test</button>
+  <button onclick="go('setup')" id="tab-setup"><span class="n">1</span>Setup</button>
+  <button onclick="go('cameras')" id="tab-cameras"><span class="n">2</span>Cameras</button>
+  <button onclick="go('teach')" id="tab-teach"><span class="n">3</span>Teach</button>
+  <button onclick="go('test')" id="tab-test"><span class="n">4</span>Test</button>
 </nav>
 <div class="status" id="status"></div>
 <div class="question" id="question" style="display:none"><span id="qtext"></span>
   <button class="btn primary" onclick="post('answer',{yes:true})">Yes</button><button class="btn" onclick="post('answer',{yes:false})">No</button></div>
 
-<section id="setup">
-  <h2>Setup</h2><p class="lead">Check that every device is found.</p>
-  <table><tr><th style="width:28%">device</th><th style="width:30%">found</th><th>state</th></tr><tbody id="devices"></tbody></table>
-  <button class="btn" data-busy onclick="post('discover')">Search again</button>
+<section id="sec-setup">
+  <h2>Setup</h2><p class="lead">Nothing to type. The program looks for the arm and the vision box. Then say what is on the bench.</p>
+  <table><tr><th style="width:28%">device</th><th style="width:28%">found</th><th>state</th></tr><tbody id="devices"></tbody></table>
   <details><summary>Not found? What to check</summary>
-    <ol><li>Power the arm on and turn the key switch to Auto.</li>
-      <li>Plug the arm's LAN 1 port and the vision box into this PC. Plug the microscope's USB in.</li>
-      <li>Press Search again. Still nothing: run this and send the output.</li></ol>
+    <ol><li>Arm power on, the key switch at Auto.</li><li>Cable from the arm's LAN 1 port to this PC. Cable from the vision box to this PC. Squid controller USB to this PC.</li>
+      <li>Then press Search again. If still nothing, run this and send the output:</li></ol>
     <pre>python cli.py status</pre></details>
-  <table><tr><th>cameras</th></tr><tr><td>Do not touch the focus rings. Moved or refocused a camera? Calibrate again with the vendor's tool, then come back here.</td></tr></table>
-  <table><tr><th>bench</th><th></th></tr>
-    <tr><td style="width:28%">Microscope</td><td id="scopes"></td></tr>
-    <tr><td>Hotel</td><td><button class="btn" id="h15" onclick="post('hotel',{size:15})">15 slots</button><button class="btn" id="h30" onclick="post('hotel',{size:30})">30 slots</button></td></tr></table>
-  <div class="done">Done when every device reads ok and the hotel size matches the bench.</div>
+  <table><tr><th>cameras</th><th style="width:10%"></th></tr><tr><td id="camline"></td><td id="camok"></td></tr></table>
+  <div class="done">Devices you do not have are skipped.</div>
+  <h3>The bench</h3>
+  <div class="row"><div class="k">1</div><div>Microscope: <span id="scopes">1</span></div></div>
+  <div class="row"><div class="k">2</div><div>Hotel <button class="btn" id="h15" onclick="post('hotel',{size:15})">15 slots</button><button class="btn" id="h30" onclick="post('hotel',{size:30})">30 slots</button></div></div>
+  <div class="done">Which slots hold plates is never typed in: the arm looks for itself when it runs. You check that it looks right in Test.</div>
 </section>
 
-<section id="teach">
-  <h2>Teach</h2><p class="lead">Move the arm by hand to where each row says, then press Record.</p>
-  <div class="step"><span class="k">1</span><span><button class="btn primary" id="dragbtn" data-busy onclick="post('drag',{on:!S.teach.dragging})">Let me move the arm</button>
-    The jaw closes, then the arm goes loose. Press again to lock it. The path you drag becomes the route; the camera takes its picture when you press Record.</span></div>
-  <div class="step"><span class="k">2</span><span>Go down the list.</span></div>
+<section id="sec-cameras">
+  <h2>Cameras</h2><p class="lead">Once, when the arm is new or a camera was moved. The arm does the moving; you place the plates.</p>
+  <div id="cam-tool" class="row"><div class="k"></div><div id="cam-tool-text"></div></div>
+  <div id="cam-flow" style="display:none">
+  <div class="row"><div class="k">1</div><div>Put the practice plate with the marker under the hand. <button class="btn" data-busy onclick="post('read_marker')">Read the marker</button> <span id="c-marker"></span></div></div>
+  <div class="row"><div class="k">2</div><div>Put the dotted plate on the bench. Drag the arm so the plate fills the frame above, as the outline shows.
+    <button class="btn primary" data-busy data-move onclick="post('capture_plate',{hand:$('byhand').checked})">Capture plate</button>
+    <span class="legend">the arm moves around the plate by itself and takes its pictures</span>
+    <label class="legend" style="margin-left:10px"><input type="checkbox" id="byhand"> I move the arm by hand instead</label>
+    <div class="log" id="c-plate"></div></div></div>
+  <div class="row"><div class="k">3</div><div>Keep the dotted plate still. <button class="btn primary" data-busy data-move onclick="post('capture_hand',{hand:$('byhand').checked})">Capture hand</button>
+    <span class="legend">same, for how the camera sits on the hand</span><div class="log" id="c-hand"></div></div></div>
+  <div class="row"><div class="k">4</div><div><button class="btn primary" data-busy onclick="post('upload')">Upload</button> <span class="legend">the box restarts, about a minute</span> &nbsp; then
+    <button class="btn" data-busy onclick="post('check')">Check</button> <span class="log inline" id="c-check"></span></div></div>
+  <div class="row"><div class="k">5</div><div>Grip the practice plate on its <b id="c-grip">short edges</b>, put it down flat. <button class="btn" data-busy onclick="post('teach_free',{step:'teach'})">Add</button> &nbsp;
+    Open the fingers, hover a hand's width above it. <button class="btn" data-busy onclick="post('teach_free',{step:'trigger'})">Add</button> &nbsp;
+    <button class="btn primary" data-busy onclick="post('teach_free',{step:'link'})">Link</button> &nbsp; <span class="legend" id="c-tf">then once more on the long edges</span></div></div>
+  <div class="done">Done when every row shows ok. Do this again only if a camera is moved.</div>
+  </div>
+</section>
+
+<section id="sec-teach">
+  <h2>Teach</h2><p class="lead">One list. Move the arm by hand to where each row says, press Record. The path you dragged becomes the route; the camera takes its picture at the same time. Marker rows let the camera correct small shifts later; they use the marker tab from the kit.</p>
+  <div class="row"><div class="k">1</div><div><button class="btn primary" id="dragbtn" data-busy onclick="post('drag',{on:!S.teach.dragging})">Let me move the arm</button> &nbsp; the jaw closes, then the arm goes loose. Press it again to lock the arm.</div></div>
+  <div class="row"><div class="k">2</div><div>Go down the list. Each row: put the arm where it says, press <b>Record</b>.</div></div>
   <table class="teach"><tr><th style="width:20%">row</th><th>put the arm</th><th style="width:26%">recorded</th><th style="width:16%"></th></tr><tbody id="rows"></tbody></table>
-  <div class="step"><span class="k">3</span><span><button class="btn" data-busy data-move onclick="post('replay')">Replay slowly</button> The arm repeats every route at low speed. STOP at any time.</span></div>
-  <div class="done" id="problems">Done when no row is red.</div>
+  <div class="row"><div class="k">3</div><div><button class="btn" data-busy data-move onclick="post('replay')">Replay slowly</button> &nbsp; the arm repeats every route at low speed while you watch. STOP at any time.</div></div>
+  <div class="done" id="problems">Done when no row is red. Red rows are exactly what Run will refuse on.</div>
 </section>
 
-<section id="test">
-  <h2>Test</h2><p class="lead">Click the slots that hold plates, then press Test everything.</p>
+<section id="sec-test">
+  <h2>Test</h2><p class="lead">Before anything runs on its own. This is the only place you tell the program where plates are.</p>
   <div class="grid"><div>
-    <div class="matrix" id="matrix"></div>
-    <div class="legend">Row 10 is the top shelf. Dark = plate. Green dot = the camera has learned this slot. Green ring = the camera agrees with you. Red ring = it disagrees. Dashed = not sure.</div>
-    <div>The arm will take them in this order:</div><div class="order" id="order"></div>
-    <div class="step" style="margin-top:14px"><span class="k"></span><span>Plate changes <input type="number" id="cycles" min="1" value="1"> &nbsp;
-      <button class="btn primary big" data-busy data-move onclick="post('test',{cycles:+document.getElementById('cycles').value})">Test everything</button></span></div>
-    <div class="legend">Looks into every slot, reads every marker, drives to the rotation module and back slowly, turns it, trips itself on a taken slot on purpose, then moves the plates in turn through the microscope.</div>
-  </div><div>
+    <div class="row"><div class="k">1</div><div>Click the slots that hold a plate.</div></div>
+    <div class="row"><div class="k">2</div><div><button class="btn big primary" data-busy data-move onclick="post('test')">Test everything</button></div></div>
+    <div class="legend">The arm looks at every slot and compares with your clicks, checks the marker at every taught position, drives the path slowly between the microscope and the rotation module, turns the module, tries a taken slot on purpose and backs out, then takes every plate to the microscope and back in turn. STOP at any time.</div>
+    <div class="log" id="log" style="margin-top:12px"></div>
     <table><tr><th>microscope</th><th>plate</th><th>now</th></tr><tbody id="plates"></tbody></table>
-    <div class="log" id="log"></div>
+  </div><div>
+    <div class="matrix" id="matrix"></div>
+    <div class="legend">Green ring = camera agrees with you. Red = disagrees. Dashed = the camera has not learned that slot yet. Green dot = learned.</div>
     <div class="frames" id="frames"></div>
   </div></div>
-  <div class="done">STOP at any time. The arm ends at its next step.</div>
 </section>
 
 <script>
 let S = {teach:{dragging:false}};
 const $ = id => document.getElementById(id);
-function go(name){ location.hash = name; for (const t of ['setup','teach','test']) { $(t).classList.toggle('on', t===name); $('tab-'+t).classList.toggle('on', t===name); } }
-go((location.hash||'#setup').slice(1));
+const TABS = ['setup','cameras','teach','test'];
+function go(name){ location.hash = name; for (const t of TABS) { $('sec-'+t).classList.toggle('on', t===name); $('tab-'+t).classList.toggle('on', t===name); } document.body.className = name; window.scrollTo(0,0); }
+go(TABS.includes((location.hash||'').slice(1)) ? location.hash.slice(1) : 'setup');
 
 async function post(name, body){
   const r = await fetch('/api/'+name, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{})});
@@ -128,23 +142,38 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>]/g, c => ({'&':'&amp;
 function video(id, cam){ const img = $(id); const next = () => { img.src = '/frame/'+cam+'?t='+Date.now(); };
   img.onload = () => setTimeout(next, 400); img.onerror = () => setTimeout(next, 1500); next(); }
 video('cam-down','down'); video('cam-front','front');
+const verdict = (v, limit, unit, bad) => v == null ? '<span class="mute">not yet</span>' : `error ${v} ${unit} &nbsp; <span class="${v<=limit?'ok':'bad'}">${v<=limit?'ok':bad}</span>`;
 
 function render(s){
   S = s;
   const a = s.arm;
   $('pose').innerHTML = '<b>arm</b>' + (a.ok ? `x ${a.pose[0].toFixed(1)}  y ${a.pose[1].toFixed(1)}  z ${a.pose[2].toFixed(1)}\nyaw ${a.pose[5].toFixed(1)}  jaw ${a.jaw.toFixed(2)} mm\n` +
-      (a.drag ? 'loose, hand-guided' : (a.enabled ? 'enabled' : 'not enabled') + (a.moving ? ', moving' : ', holding still')) : esc(a.error));
-  $('status').innerHTML = (s.busy ? `<b>${esc(s.busy)}</b> ` : '') + (s.message ? `${s.message.t}  ${esc(s.message.text)}` : '') + (s.sim ? '   (simulator)' : '');
+      (a.drag ? 'loose, hand-guided' : `<span class="${a.enabled?'ok':'bad'}">${a.enabled ? 'enabled' : 'not enabled'}</span>` + (a.moving ? ', moving' : ', holding still')) : esc(a.error));
+  $('status').innerHTML = (s.busy ? `<b>${esc(s.busy)}</b> &nbsp; ` : '') + (s.message ? `${s.message.t}  ${esc(s.message.text)}` : '') + (s.sim ? ' &nbsp; (simulator)' : '');
   $('question').style.display = s.question ? 'flex' : 'none';
   if (s.question) $('qtext').textContent = s.question.text;
-  for (const b of document.querySelectorAll('[data-busy]')) b.disabled = !!s.busy && !(b.id==='dragbtn' && s.busy==='hand-guiding');
+  for (const b of document.querySelectorAll('[data-busy]')) b.disabled = (!!s.busy && !(b.id==='dragbtn' && s.busy==='hand-guiding')) || !a.ok;
   for (const b of document.querySelectorAll('[data-move]')) if (!a.ok || a.drag) b.disabled = true;
   // setup
   $('devices').innerHTML = s.devices.map(d => `<tr><td>${esc(d.name)}</td><td class="${d.found==='not found'?'warn':''}">${esc(d.found)}</td><td class="${d.ok?'ok':'warn'}">${esc(d.state)}</td></tr>`).join('')
-      || '<tr><td colspan=3 class="mute">searching</td></tr>';
+      + `<tr><td></td><td></td><td><button class="btn" onclick="post('discover')" ${s.busy?'disabled':''}>Search again</button></td></tr>`;
   const bench = s.test.bench;
   $('scopes').textContent = bench.microscopes.length === 1 ? '1' : bench.microscopes.join(', ');
   $('h15').className = 'btn' + (bench.size===15?' primary':''); $('h30').className = 'btn' + (bench.size===30?' primary':'');
+  // cameras
+  const C = s.cameras, cams = C.cameras;
+  $('cam-flow').style.display = C.installed ? '' : 'none';
+  $('cam-tool').style.display = C.installed ? 'none' : '';
+  $('cam-tool-text').textContent = `Cameras calibrated with Bioyond's VIB tool on ${C.calibrated_on || 'a date not recorded'}; to calibrate again use that tool.`;
+  $('camline').textContent = C.installed ? 'Both cameras read the marker on the practice plate: sharp enough. Calibration is the Cameras tab.' : `Calibrated with Bioyond's VIB tool on ${C.calibrated_on || 'a date not recorded'}. Do not touch the cameras; moved one? Calibrate again with that tool.`;
+  $('camok').innerHTML = C.installed ? (C.marker_ok ? '<span class="ok">ok</span>' : '<span class="warn">not yet</span>') : (C.calibrated_on ? '<span class="ok">ok</span>' : '');
+  $('c-marker').innerHTML = Object.entries(cams).map(([k, n]) => n.marker ? `<span class="${n.marker==='ok'?'ok':'bad'}">${k} camera: ${n.marker==='ok' ? 'reads it' : 'cannot read the marker: clean the lens, move the plate closer'}</span>` : '').join(' &nbsp; ');
+  $('c-plate').innerHTML = Object.entries(cams).map(([k, n]) => `${k} camera: ${n.plate_pictures ? n.plate_pictures + ' pictures &nbsp; ' : ''}${verdict(n.plate_px, C.limits.px, 'px', 'redo')}`).join('<br>');
+  $('c-hand').innerHTML = Object.entries(cams).map(([k, n]) => `${k} camera: ${n.hand_pictures ? n.hand_pictures + ' pictures &nbsp; ' : ''}${verdict(n.hand_mm, C.limits.mm, 'mm', 'redo')}`).join('<br>');
+  $('c-check').innerHTML = Object.entries(cams).map(([k, n]) => `${k}: ${n.uploaded_at ? verdict(n.checked_mm, C.limits.mm, 'mm', 'too far') : '<span class="mute">not uploaded</span>'}`).join(' &nbsp; ');
+  const tf = C.teach_free;
+  $('c-grip').textContent = (tf.grip || 'short_edges').replace('_', ' ');
+  $('c-tf').textContent = tf.grip === null ? 'both grips linked' : (tf.done.length ? 'short edges linked; ' : '') + (tf.current.teach_pose ? 'grip point recorded. ' : '') + (tf.current.trigger_pose ? 'hover point recorded. ' : '') + (tf.grip === 'short_edges' ? 'then once more on the long edges' : '');
   // teach
   $('dragbtn').textContent = s.teach.dragging ? 'Lock the arm' : 'Let me move the arm';
   $('dragbtn').className = 'btn' + (s.teach.dragging ? '' : ' primary');
@@ -152,10 +181,9 @@ function render(s){
       r.action==='measure' ? `<button class="btn" data-busy onclick="post('measure',{grip:'short_edges'})">Measure short</button><button class="btn" data-busy onclick="post('measure',{grip:'long_edges'})">Measure long</button>`
       : `<button class="btn${r.level==='bad'?' primary':''}" data-busy onclick="post('record',{row:'${r.id}'})">Record</button>`}</td></tr>`).join('');
   for (const b of $('rows').querySelectorAll('[data-busy]')) b.disabled = !!s.busy || !a.ok;
-  $('problems').innerHTML = s.teach.problems.length ? 'Done when no row is red. The run will refuse on:<br>' + s.teach.problems.map(esc).join('<br>') : 'Done: nothing missing.';
+  $('problems').innerHTML = s.teach.problems.length ? 'Done when no row is red. Red rows are exactly what Run will refuse on. Still missing:<br>' + s.teach.problems.map(esc).join('<br>') : 'Done: nothing missing.';
   // test
   matrix(bench, s.test);
-  $('order').textContent = bench.order.length ? bench.order.join('  ') : 'no plates yet';
   const t = s.test.test;
   $('plates').innerHTML = t ? t.plates.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.plate)}</td><td>${esc(p.now)}</td></tr>`).join('') : '<tr><td colspan=3 class="mute">not started</td></tr>';
   const log = $('log'); const atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;

@@ -75,16 +75,18 @@ def plain(e: dict) -> Optional[str]:
     if kind == "correct":
         return f"adjusting: {msg}"
     if kind == "exercise":
-        if step.startswith("probe:"):
+        if step.startswith("probe:") and "out of reach" not in msg:
             return None                     # the slot_view line already said it
+        if step == "probe:stage":
+            return "rotation module: turned 0 to 90 to 0 with its camera check"
+        if step == "trip":
+            return f"trip: {msg}"
         return msg
     if kind == "squid":
         return f"microscope: {'imaging' if msg.startswith('acquire') else msg.split(' (')[0]}"
     if kind == "run":
-        if step == "start":
-            return "run started"
-        if step == "finished":
-            return "run finished"
+        if step in ("start", "finished", "ledger"):
+            return None
         if step == "slot_occupied":
             return f"slot taken, using another: {msg}"
         if step == "stop_file":

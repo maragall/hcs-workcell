@@ -22,6 +22,7 @@ from gui import bench, words
 
 ACQUISITION_S = {True: 3.0, False: 5.0}      # how long a pretend microscope images: sim, real
 LOG_LINES, FRAMES = 60, 8
+SUMMARY_KINDS = {"exercise", "fault", "alert", "stop", "run", "cycle"}
 
 
 class Run:
@@ -86,9 +87,12 @@ class Run:
         out.sort(key=lambda e: e.get("t", 0))
         return out
 
-    def log(self) -> List[dict]:
+    def log(self, summary: bool = True) -> List[dict]:
+        """The Test page shows the summary lines; every event is in the run folder."""
         lines = []
         for e in self._events():
+            if summary and e.get("kind") not in SUMMARY_KINDS:
+                continue
             text = words.plain(e)
             if text:
                 lines.append({"t": words.when(e), "text": text})
