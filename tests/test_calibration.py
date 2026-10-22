@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import glob
-import io
 import json
 import os
 import sys
