@@ -239,6 +239,24 @@ def test_resume_refuses_unknown_plate_location():
     r.close()
 
 
+def test_resume_refuses_to_restart_a_pick_while_the_jaw_is_closed():
+    """Power lost after the fingers closed on the plate but before the ledger said so: grip is still 'none' and the
+    rule 'a pick interrupted before the grasp restarts' would open the jaw at the hover, dropping the plate."""
+    import pytest
+    r = Rig()
+    seat = list(r.L["fixtures"]["microscope"]["pose"])
+    r.robot.set_pose_for_test(seat)
+    r.robot._jaw = 2.92                                 # closed on the plate
+    r.store.s.last_safe_pose = seat
+    r.store.begin("pick:microscope")
+    try:
+        with pytest.raises(StopSafe, match="jaw"):
+            r.cyc.run("A1", 1, resume=True)
+        assert r.robot._moves == 0 and r.robot._jaw == 2.92
+    finally:
+        r.close()
+
+
 def test_resume_refuses_moved_arm():
     r = Rig()
     r.store.s.last_safe_pose = [300.0, 0.0, 300.0, 0, 0, 0]

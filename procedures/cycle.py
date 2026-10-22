@@ -256,6 +256,10 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         if resume and not s.step_done and s.plate_at == "gripper" and s.step.startswith("place:"):
             return                                   # a carry was interrupted on a route; continue that step
         if resume and not s.step_done and s.grip == "none" and s.step.startswith("pick:"):
+            problems = self.checks.before_grasp(self.robot.jaw(), self.robot.state())
+            if problems:                             # the ledger learns of a grasp only after it; the jaw knows now
+                raise StopSafe(f"{s.step} was interrupted and cannot restart: {'; '.join(problems)}. "
+                               "The fingers may hold the plate; inspect the cell and open them by hand first.")
             return                                   # a pick was interrupted before the grasp; the step restarts
         if not s.step_done:
             raise StopSafe(f"last step '{s.step}' did not finish; plate_at={s.plate_at} grip={s.grip}. "
