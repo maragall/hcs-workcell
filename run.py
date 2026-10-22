@@ -105,8 +105,14 @@ class Workcell:
     async def run(self, slots: Dict[str, str], cycles: int, resume: bool = False,
                   stop_file: Optional[str] = None, order: Optional[list] = None) -> None:
         """Waits for every task, so no arm thread is left running when the caller disconnects the robot,
-        then raises the first fault. (A cancelled task cannot stop its thread; it finishes its current step.)"""
-        await asyncio.gather(*(self.run_scope(n, slots[n], cycles, resume, stop_file, order) for n in self.scopes),
+        then raises the first fault. (A cancelled task cannot stop its thread; it finishes its current step.)
+        The microscope whose ledger says its step did not finish, or whose plate is in the gripper, takes the arm
+        first: the other ledgers know nothing of what the gripper holds."""
+        def arm_is_free(name: str) -> bool:
+            s = self.cycles[name].store.s
+            return s.step_done and s.plate_at != "gripper"
+        names = sorted(self.scopes, key=arm_is_free)
+        await asyncio.gather(*(self.run_scope(n, slots[n], cycles, resume, stop_file, order) for n in names),
                              return_exceptions=True)
         if self.fault is not None:
             raise self.fault

@@ -88,8 +88,8 @@ class Gates:
 
     def _record(self, check: str, frame_path: str, verdict: str, step: str) -> None:
         """Opt-in (vision.hub.record): the photo, the verdict and the step, for training later."""
-        if self.hub_cfg.get("record") and frame_path:
-            hub.record(check, frame_path, verdict, step, self.hub_cfg.get("outbox", hub.OUTBOX))
+        if frame_path:
+            self._hub(hub.record, check, frame_path, verdict, step)
 
     def _learned_gate(self, step: str, name: str, state: str, cam: str, cfg: dict, fault: str, question: str,
                       roi=None) -> Optional[bool]:
@@ -98,10 +98,13 @@ class Gates:
         view looks right. Blocks (through the corrector) only when enforced: cfg.enforce "auto" = once trained."""
         img = self._frame(cam)
         path = self.tele.image(f"{step}_{name}", img)
-        if img is None:
-            return None
         n = self.lower.count(name, state)
-        if n < cfg.get("auto_refs", 12):
+        trained = n >= cfg.get("auto_refs", 12)
+        if img is None:
+            if self._enforce(cfg, trained):          # a gate that may block treats no frame as doubt, and doubt blocks
+                raise StopSafe(f"{step}: no frame from {cam} for the {name} check")
+            return None
+        if not trained:
             self.lower.add_reference(name, state, img)
             self.tele.log("vision", f"{step} {name}", f"reference {n + 1} collected", state=state)
             return None

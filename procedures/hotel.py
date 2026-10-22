@@ -116,6 +116,8 @@ class Hotel:
             ready, _ = self.vision.live_detection(self.front_cam, aruco=False, led=self.led)
         except Exception:
             ready = None
+        if sv is None and ready is None:                     # nobody looked: not the same as "empty"
+            raise StopSafe(f"{step}: no view of {slot}; the front camera and the live detection both failed")
         occupied = sv is not None and sv.decision == "occupied"          # placing onto a plate: always blocks
         if not occupied and (sv is None or sv.decision == "unknown") and ready:
             occupied = not self.corr.operator_or_stop(step, f"{slot} may be occupied (vendor live detection)",

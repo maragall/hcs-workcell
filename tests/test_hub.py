@@ -47,6 +47,23 @@ def test_record_and_outcome_rows_share_the_step(tmp_path):
     assert outcomes[0]["time"].endswith("+00:00")
 
 
+def test_an_unwritable_outbox_never_stops_the_arm():
+    """Recording for the hub is opt-in telemetry. With the outbox path taken by a file, every record() and outcome()
+    raises; the cycle must finish and say so in the events, not crash with the plate in the gripper."""
+    from procedures.cycle import Cycle
+    r = Rig()
+    outbox = os.path.join(r.tmp, "outbox")
+    open(outbox, "w").close()                                     # a file where the directory should be
+    r.L["vision"]["hub"] = {"record": True, "outbox": outbox}
+    r.cyc = Cycle(r.L, r.robot, r.vis, r.tele, r.store, "unsupervised", r.cyc.run_dir, r.cyc.lower.ref_root)
+    try:
+        r.run()
+        assert r.store.s.plate_at == "microscope" and r.store.s.step_done
+        assert any(e["kind"] == "hub" for e in r.events())
+    finally:
+        r.close()
+
+
 def test_the_cell_records_gate_verdicts_and_step_outcomes_when_opted_in():
     r = Rig(refs=GATES + [("stage", "to_90")])
     outbox = os.path.join(r.tmp, "outbox")
