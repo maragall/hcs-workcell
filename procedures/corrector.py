@@ -43,9 +43,9 @@ class Budget:
 
 
 class Corrector:
-    def __init__(self, layout: dict, vision, robot, safety, tele, supervised: bool):
+    def __init__(self, layout: dict, vision, robot, safety, tele, supervised: bool, clock=time):
         self.layout, self.vision, self.robot, self.safety, self.tele = layout, vision, robot, safety, tele
-        self.supervised = supervised
+        self.supervised, self.clock = supervised, clock
         self.budget = Budget()
         self.led_levels = [layout["vision"]["led"], 30, 60, 90]
         self.enables_this_run = 0
@@ -67,7 +67,7 @@ class Corrector:
         if attempt < attempts - 1:
             level = self.led_levels[min(attempt + 1, len(self.led_levels) - 1)]
             self.tele.log("correct", "lower_check", f"retry {attempt + 1} with LED {level}", score=verdict.best)
-            time.sleep(1.0)
+            self.clock.sleep(1.0)
             return level
         if self.operator_or_stop("lower_check", f"{fixture}: scene does not match safe references ({verdict.reason})",
                                  "You looked at the fixture and it is safe to lower?"):

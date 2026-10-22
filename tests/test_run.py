@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
-from rig import GATES, SAFE, FakeVision, jpeg, layout  # noqa: E402
+from rig import GATES, SAFE, FakeClock, FakeVision, jpeg, layout  # noqa: E402
 
 import run  # noqa: E402
 from devices.fake_arm import SimFaults, SimRobot  # noqa: E402
@@ -47,7 +47,7 @@ def make_cell(acquisition_s=0.2):
             robot.joint_pose_map[tuple(round(v, 3) for v in j[:4])] = pose
     scopes = {n: FakeSquid(n, acquisition_s, tele.log) for n in (A, B)}
     cell = run.Workcell(L, robot, FakeVision(), scopes, tele, "unsupervised", os.path.join(tmp, "run"), ref_dir, tmp,
-                        poll_s=0.01)
+                        poll_s=0.01, clock=FakeClock())
     return cell, tmp
 
 

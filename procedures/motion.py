@@ -21,11 +21,11 @@ class Motion:
 
     # -------------------------------------------------------------- primitives
     def _wait_still(self, label: str):
-        t0 = time.time()
+        t0 = self.clock.time()
         while self.robot.state().moving:
-            if time.time() - t0 > self.lim["step_timeout_s"]:
+            if self.clock.time() - t0 > self.lim["step_timeout_s"]:
                 raise StopSafe(f"{label}: still moving after {self.lim['step_timeout_s']} s")
-            time.sleep(0.05)
+            self.clock.sleep(0.05)
 
     def _settle(self, label: str, target_xyz: List[float]) -> float:
         self._wait_still(label)

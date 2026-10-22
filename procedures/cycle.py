@@ -40,21 +40,23 @@ class Cycle(Motion, Grasp, Gates, Hotel):
     scope:       this cycle's microscope, a fixture name in the positions file
     layout_path: where learned poses and grasp widths are written back; None keeps them in memory
     stop_event:  set by another task (run.py) when the cell must stop at the next step
+    clock:       time() and sleep() for every fixed wait (jaw settle, stage settle, retry pauses); the
+                 time module, or a fake the tests inject so the simulator does not wait in real seconds
     """
 
     def __init__(self, layout: dict, robot: Robot, vision: VisionClient, tele: Telemetry, store: StateStore,
                  mode: str, run_dir: str, ref_dir: str, scope: str = "microscope",
-                 layout_path: Optional[str] = None, stop_event: Optional[threading.Event] = None):
+                 layout_path: Optional[str] = None, stop_event: Optional[threading.Event] = None, clock=time):
         self.L, self.robot, self.vision, self.tele, self.store = layout, robot, vision, tele, store
-        self.scope, self.run_dir, self.layout_path = scope, run_dir, layout_path
+        self.scope, self.run_dir, self.layout_path, self.clock = scope, run_dir, layout_path, clock
         self.stop_event = stop_event or threading.Event()
         self.supervised = mode == "supervised"
         self.safety = Safety(layout, mode)
         self.plate = plates.default(layout)      # jaw widths and seat Z offset of the plate being handled
         self.checks = PreChecks(layout, self.plate.jaw_open, self.plate.jaw_closed)
         self.drift = DriftMonitor(os.path.join(run_dir, f"drift_{scope}.json"))
-        self.corr = Corrector(layout, vision, robot, self.safety, tele, self.supervised)
-        self.polar = PolarStage(layout["polar"], robot, tele.log, self.supervised, store.s.polar_angle)
+        self.corr = Corrector(layout, vision, robot, self.safety, tele, self.supervised, clock)
+        self.polar = PolarStage(layout["polar"], robot, tele.log, self.supervised, store.s.polar_angle, clock)
         lc = layout["vision"]["lower_check"]
         self.lower = LowerCheck(ref_dir, lc["min_refs"], lc["margin"], lc["floor"])
         self.slot_cfg = layout["vision"].get("slot_check", {})
