@@ -75,6 +75,15 @@
   <table><tr><th>cameras</th><th style="width:10%"></th></tr><tr><td id="camline"></td><td id="camok"></td></tr></table>
   <div class="done">Devices you do not have are skipped.</div>
   <h3>The bench</h3>
+  <div class="row"><div class="k">1</div><div>Microscope: <span id="scopes">1</span></div></div>
+  <div class="row"><div class="k">2</div><div>Hotel <button class="btn" id="h15" onclick="post('hotel',{size:15})">15 slots</button><button class="btn" id="h30" onclick="post('hotel',{size:30})">30 slots</button></div></div>
+  <div class="done">Which slots hold plates is never typed in: the arm looks for itself when it runs. You check that it looks right in Test.</div>
+</section>
+
+<section id="sec-cameras">
+  <h2>Cameras</h2><p class="lead">Once, when the arm is new or a camera was moved. The arm starts loose, so you can move it by hand to where a step needs it; a step that moves the arm locks it first. You place the practice plate.</p>
+  <div id="cam-tool" class="row"><div class="k"></div><div id="cam-tool-text"></div></div>
+  <div id="cam-flow" style="display:none">
   <div class="row"><div class="k">1</div><div><b>Down camera.</b> Put the practice plate flat with the marker under the hand, the marker inside the outline on the down view.
     <button class="btn" data-busy onclick="post('read_marker',{camera:'down'})">Read the marker</button> <span id="c-marker-down"></span><br>
     <button class="btn primary" data-busy data-move onclick="post('capture',{camera:'down',hand:$('byhand-down').checked})">Capture</button>
