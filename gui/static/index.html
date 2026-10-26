@@ -82,6 +82,7 @@
 
 <section id="sec-cameras">
   <h2>Cameras</h2><p class="lead">Once, when the arm is new or a camera was moved. The arm starts loose, so you can move it by hand to where a step needs it; a step that moves the arm locks it first. You place the practice plate.</p>
+  <div class="row"><div class="k"></div><div><button class="btn primary dragbtn" data-busy onclick="post('drag',{on:!S.teach.dragging})">Let me move the arm</button> &nbsp; the jaw closes, then the arm goes loose. Press it again to lock the arm.</div></div>
   <div id="cam-tool" class="row"><div class="k"></div><div id="cam-tool-text"></div></div>
   <div id="cam-flow" style="display:none">
   <div class="row"><div class="k">1</div><div><b>Down camera.</b> Put the practice plate flat with the marker under the hand, the marker inside the outline on the down view.
@@ -107,7 +108,7 @@
 
 <section id="sec-teach">
   <h2>Teach</h2><p class="lead">One list. Move the arm by hand to where each row says, press Record. The path you dragged becomes the route; the camera takes its picture at the same time. Marker rows let the camera correct small shifts later; they use the marker tab from the kit.</p>
-  <div class="row"><div class="k">1</div><div><button class="btn primary" id="dragbtn" data-busy onclick="post('drag',{on:!S.teach.dragging})">Let me move the arm</button> &nbsp; the jaw closes, then the arm goes loose. Press it again to lock the arm.</div></div>
+  <div class="row"><div class="k">1</div><div><button class="btn primary dragbtn" id="dragbtn" data-busy onclick="post('drag',{on:!S.teach.dragging})">Let me move the arm</button> &nbsp; the jaw closes, then the arm goes loose. Press it again to lock the arm.</div></div>
   <div class="row"><div class="k">2</div><div>Go down the list. Each row: put the arm where it says, press <b>Record</b>.</div></div>
   <table class="teach"><tr><th style="width:20%">row</th><th>put the arm</th><th style="width:26%">recorded</th><th style="width:16%"></th></tr><tbody id="rows"></tbody></table>
   <div class="row"><div class="k">3</div><div><button class="btn" data-busy data-move onclick="post('replay')">Replay slowly</button> &nbsp; the arm repeats every route at low speed while you watch. STOP at any time.</div></div>
@@ -157,7 +158,7 @@ function render(s){
   $('status').innerHTML = (s.busy ? `<b>${esc(s.busy)}</b> &nbsp; ` : '') + (s.message ? `${s.message.t}  ${esc(s.message.text)}` : '') + (s.sim ? ' &nbsp; (simulator)' : '');
   $('question').style.display = s.question ? 'flex' : 'none';
   if (s.question) $('qtext').textContent = s.question.text;
-  for (const b of document.querySelectorAll('[data-busy]')) b.disabled = (!!s.busy && !(b.id==='dragbtn' && s.busy==='hand-guiding')) || !a.ok;
+  for (const b of document.querySelectorAll('[data-busy]')) b.disabled = (!!s.busy && !(b.classList.contains('dragbtn') && s.busy==='hand-guiding')) || !a.ok;
   for (const b of document.querySelectorAll('[data-move]')) if (!a.ok || a.drag) b.disabled = true;
   // setup
   $('devices').innerHTML = s.devices.map(d => `<tr><td>${esc(d.name)}</td><td class="${d.found==='not found'?'warn':''}">${esc(d.found)}</td><td class="${d.ok?'ok':'warn'}">${esc(d.state)}${d.browse ? ` &nbsp; <button class="btn" onclick="post('browse_squid')" title="Choose the Squid software folder">&#128193; Browse</button>` : ''}</td></tr>`).join('')
@@ -181,8 +182,10 @@ function render(s){
   $('c-grip').textContent = (tf.grip || 'short_edges').replace('_', ' ');
   $('c-tf').textContent = tf.grip === null ? 'both grips linked' : (tf.done.length ? 'short edges linked; ' : '') + (tf.current.teach_pose ? 'grip point recorded. ' : '') + (tf.current.trigger_pose ? 'hover point recorded. ' : '') + (tf.grip === 'short_edges' ? 'then once more on the long edges' : '');
   // teach
-  $('dragbtn').textContent = s.teach.dragging ? 'Lock the arm' : 'Let me move the arm';
-  $('dragbtn').className = 'btn' + (s.teach.dragging ? '' : ' primary');
+  for (const b of document.querySelectorAll('.dragbtn')) {
+    b.textContent = s.teach.dragging ? 'Lock the arm' : 'Let me move the arm';
+    b.className = 'btn dragbtn' + (s.teach.dragging ? '' : ' primary');
+  }
   $('rows').innerHTML = s.teach.rows.map(r => `<tr><td>${esc(r.label)}</td><td>${esc(r.put)}</td><td class="${r.level}">${esc(r.done)}</td><td>${
       r.action==='measure' ? `<button class="btn" data-busy onclick="post('measure',{grip:'short_edges'})">Measure short</button><button class="btn" data-busy onclick="post('measure',{grip:'long_edges'})">Measure long</button>`
       : `<button class="btn${r.level==='bad'?' primary':''}" data-busy onclick="post('record',{row:'${r.id}'})">Record</button>`}</td></tr>`).join('');
