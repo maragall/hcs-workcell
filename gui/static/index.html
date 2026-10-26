@@ -13,6 +13,7 @@
   .pose{border:1px solid var(--line);padding:8px 10px;font-family:ui-monospace,Menlo,monospace;font-size:12px;flex:1;white-space:pre}
   .pose b{font-family:system-ui;font-size:12px;color:var(--mute);display:block;margin-bottom:3px}
   .stop{background:linear-gradient(180deg,#c94a4a,#8f2a2a);color:#fff;font-weight:700;font-size:18px;padding:14px 0;text-align:center;letter-spacing:1px;cursor:pointer;border:1px solid #6e1f1f;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 3px rgba(0,0,0,.25);user-select:none}
+  .sbtns{display:flex;gap:6px}.sbtns .btn{flex:1;padding:8px 4px;font-size:13px}
   .stop:active{box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
   nav{display:flex;gap:0;padding:0 16px;border-bottom:1px solid var(--line)}
   nav button{background:none;border:none;border-bottom:3px solid transparent;padding:12px 18px;font-weight:600;font-size:15px;color:var(--mute);cursor:pointer}
@@ -53,7 +54,7 @@
 <header>
   <div class="cam"><img id="cam-down" alt=""><span class="t">Down camera, video</span><div class="outline"></div></div>
   <div class="cam"><img id="cam-front" alt=""><span class="t">Front camera, video</span></div>
-  <div class="side"><div class="stop" onclick="post('stop')">STOP</div><div class="pose" id="pose"><b>arm</b>not connected</div></div>
+  <div class="side"><div class="stop" onclick="post('stop')">STOP</div><div class="sbtns"><button class="btn dragbtn" data-busy onclick="post('drag',{on:!S.teach.dragging})">Let me move the arm</button><button class="btn" data-busy onclick="if(confirm('Clear the controller errors and enable the arm? Nothing moves. Check the plate first.'))post('recover')" title="After a hard stop: clear errors, enable, leave the arm loose">Recover from stop</button></div><div class="pose" id="pose"><b>arm</b>not connected</div></div>
 </header>
 <nav>
   <button onclick="go('setup')" id="tab-setup"><span class="n">1</span>Setup</button>

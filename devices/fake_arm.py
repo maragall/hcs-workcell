@@ -147,5 +147,9 @@ class SimRobot:
     def read_di(self, signal):
         return self.dis.get(signal, 0)
 
+    def clear_errors(self):
+        self.faults.controller_errors = []
+        self.enable()
+
     def errors(self):
         return list(self.faults.controller_errors)

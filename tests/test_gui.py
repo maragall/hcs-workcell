@@ -291,3 +291,15 @@ def test_the_page_video_is_the_whole_field_not_the_cropped_check_frame(gui):
     finally:
         cell.vision.frame = real
     assert code == 200 and body and (1280, 960) in seen
+
+
+def test_recover_from_a_stop_clears_the_errors_and_leaves_the_arm_loose(gui):
+    cell, url = gui
+    cell.robot.faults.controller_errors = [{"errCode": 3892, "errMsg": "servo error"}]
+    code, out = post(url, "/api/recover")
+    assert code == 200 and out["ok"]
+    wait_idle(cell)
+    assert cell.robot.errors() == []
+    assert cell.robot.state().enabled and cell.arm.get("drag")
+    post(url, "/api/drag", {"on": False})
+    wait_idle(cell)

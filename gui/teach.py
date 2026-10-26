@@ -149,6 +149,22 @@ def drag(cell, on: bool, close_jaw: bool = True) -> None:
         cell.note("arm locked")
 
 
+def recover(cell) -> None:
+    """After a hard stop or a controller fault: clear the errors, auto, enabled, then loose again so the person can
+    move the arm. Nothing moves. The cell's own state (where the plate is) is the person's to check."""
+    t = _teach(cell)
+    t["tracer"].stop()
+    cell.robot.clear_errors()
+    left = [e for e in (cell.robot.errors() or []) if e.get("errCode")]
+    if left:
+        cell.note("the controller still reports: " + "; ".join(f"{e.get('errCode')} {e.get('errMsg', '')}" for e in left))
+        return
+    cell.stop_event.clear()
+    cell.note("errors cleared, arm enabled")
+    cell.arm = dict(cell.arm, drag=False)
+    loosen(cell)
+
+
 def loosen(cell) -> None:
     """The arm's default state in the setup program: loose, so the person can move it (the microscope's practice
     plate, the camera views) without pressing anything. A step that moves the arm locks it first (Cell.ready_to_move).

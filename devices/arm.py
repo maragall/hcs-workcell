@@ -55,6 +55,7 @@ class Robot(Protocol):
     def write_do(self, signal: str, value: int) -> None: ...
     def read_di(self, signal: str) -> int: ...
     def errors(self) -> list: ...
+    def clear_errors(self) -> None: ...
 
 
 # ============================================================================ real arm
@@ -229,6 +230,22 @@ class VendorRobot:
 
     def read_di(self, signal: str) -> int:
         return int(self._r.ReadDIAsync(signal))
+
+    def clear_errors(self) -> None:
+        """The hard-stop recovery, no motion: clear the controller's errors, back to auto, enabled (the order the
+        controller accepts; drag mode blocks enabling, so the caller leaves drag until after this)."""
+        from devices.controller import Brcapi
+        b = Brcapi(self.ip, log=None)
+        b.connect()
+        try:
+            b.clear_error()
+            time.sleep(1.0)
+            b.switch_auto()
+            time.sleep(1.0)
+            b.enable()
+            time.sleep(1.5)
+        finally:
+            b.close()
 
     def errors(self) -> list:
         """Controller error list over BRCAPI (one short connection); empty when unreachable, the SDK path still guards."""

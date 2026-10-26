@@ -70,6 +70,8 @@ def act(cell, name: str, body: dict) -> dict:
         return {"ok": cell.start("uploading to the box", lambda: cameras.upload(cell))}
     if name == "check":
         return {"ok": cell.start("checking the cameras", lambda: cameras.check(cell))}
+    if name == "recover":
+        return {"ok": cell.start("recovering from a stop", lambda: teach.recover(cell))}
     if name == "drag":
         return {"ok": cell.start("hand-guiding", lambda: teach.drag(cell, bool(body.get("on"))))}
     if name == "record":
