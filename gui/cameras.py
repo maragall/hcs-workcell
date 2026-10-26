@@ -31,7 +31,10 @@ def package(cell):
     if cell.sim:
         return calibration_fake
     try:
-        return importlib.import_module("calibration")
+        pkg = importlib.import_module("calibration")
+        for sub in ("capture", "halcon", "marker", "plan", "solve", "teach_free", "upload", "verify"):
+            importlib.import_module(f"calibration.{sub}")      # the package's __init__ imports none of them
+        return pkg
     except ImportError:
         return calibration_fake
 

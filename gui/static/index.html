@@ -9,6 +9,8 @@
   .cam .t{position:absolute;left:10px;top:8px;font-weight:600;font-size:14px;text-shadow:0 0 4px #000}
   .cam .outline{display:none;position:absolute;left:20%;top:15%;width:60%;height:70%;border:2px dashed #fff;opacity:.8}
   body.cameras .cam .outline{display:block}
+  .cam .cross{display:none;position:absolute;inset:0;pointer-events:none;background:linear-gradient(#0f0,#0f0) center/100% 1px no-repeat,linear-gradient(#0f0,#0f0) center/1px 100% no-repeat;opacity:.85}
+  body.cameras .cam .cross{display:block}
   .side{display:flex;flex-direction:column;gap:8px}
   .pose{border:1px solid var(--line);padding:8px 10px;font-family:ui-monospace,Menlo,monospace;font-size:12px;flex:1;white-space:pre}
   .pose b{font-family:system-ui;font-size:12px;color:var(--mute);display:block;margin-bottom:3px}
@@ -52,8 +54,8 @@
 </style></head>
 <body>
 <header>
-  <div class="cam"><img id="cam-down" alt=""><span class="t">Down camera, video</span><div class="outline"></div></div>
-  <div class="cam"><img id="cam-front" alt=""><span class="t">Front camera, video</span></div>
+  <div class="cam"><img id="cam-down" alt=""><span class="t">Down camera, video</span><div class="outline"></div><div class="cross"></div></div>
+  <div class="cam"><img id="cam-front" alt=""><span class="t">Front camera, video</span><div class="cross"></div></div>
   <div class="side"><div class="stop" onclick="post('stop')">STOP</div><div class="sbtns"><button class="btn dragbtn" data-busy onclick="post('drag',{on:!S.teach.dragging})">Let me move the arm</button><button class="btn" data-busy onclick="if(confirm('Clear the controller errors and enable the arm? Nothing moves. Check the plate first.'))post('recover')" title="After a hard stop: clear errors, enable, leave the arm loose">Recover from stop</button></div><div class="pose" id="pose"><b>arm</b>not connected</div></div>
 </header>
 <nav>
@@ -86,14 +88,14 @@
   <div class="row"><div class="k"></div><div><button class="btn primary dragbtn" data-busy onclick="post('drag',{on:!S.teach.dragging})">Let me move the arm</button> &nbsp; the jaw closes, then the arm goes loose. Press it again to lock the arm.</div></div>
   <div id="cam-tool" class="row"><div class="k"></div><div id="cam-tool-text"></div></div>
   <div id="cam-flow" style="display:none">
-  <div class="row"><div class="k">1</div><div><b>Down camera.</b> Put the practice plate flat with the marker under the hand, the marker inside the outline on the down view.
-    <button class="btn" data-busy onclick="post('read_marker',{camera:'down'})">Read the marker</button> <span id="c-marker-down"></span><br>
+  <div class="row"><div class="k">1</div><div><b>Down camera.</b> Place the marker beside the rotation module. Put the practice plate flat under the hand, inside the outline on the down view, its centre on the crosshairs.
+    <button class="btn" data-busy onclick="post('read_marker',{camera:'down'})">Read</button> <span id="c-marker-down"></span><br>
     <button class="btn primary" data-busy data-move onclick="post('capture',{camera:'down',hand:$('byhand-down').checked})">Capture</button>
     <span class="legend">the arm moves around the marker by itself and takes its pictures; one solve for this camera</span>
     <label class="legend" style="margin-left:10px"><input type="checkbox" id="byhand-down"> I move the arm by hand instead</label>
     <div class="log" id="c-capture-down"></div></div></div>
   <div class="row"><div class="k">2</div><div><b>Front camera.</b> This camera looks the other way, so it cannot see that marker. Now put the practice plate where the front view sees the marker, with the hand in front of it.
-    <button class="btn" data-busy onclick="post('read_marker',{camera:'front'})">Read the marker</button> <span id="c-marker-front"></span><br>
+    <button class="btn" data-busy onclick="post('read_marker',{camera:'front'})">Read</button> <span id="c-marker-front"></span><br>
     <button class="btn primary" data-busy data-move onclick="post('capture',{camera:'front',hand:$('byhand-front').checked})">Capture</button>
     <span class="legend">the arm moves around the marker by itself and takes its pictures; one solve for this camera</span>
     <label class="legend" style="margin-left:10px"><input type="checkbox" id="byhand-front"> I move the arm by hand instead</label>
