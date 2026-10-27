@@ -107,32 +107,51 @@ def read_marker(cell, camera=None) -> None:
     cell.note("; ".join(said))
 
 
-def capture(cell, by_hand: bool, camera=None) -> None:
-    """Pictures of the marker from around it for one camera, one solve: lens numbers and where the camera sits on
-    the hand. Redo above LIMIT_PX or LIMIT_MM."""
+def pictures(cell, by_hand: bool, camera=None) -> dict:
+    """Pictures of the marker from around it for one camera (the arm drives the plan, or the user moves it by hand).
+    Returns {camera name: number of pictures}."""
     calib, L = package(cell), cell.layout()
     here = cell.robot.pose()
+    got = {}
     for label, cam in _picked(L, camera):
         if cell.stop_event.is_set():
-            return
-        folder = _dir(cell, cam, "capture")
-        n = calib.capture.run_plan(None if by_hand else plan_around(cell, L, here), cam, cell.robot, cell.vision, folder,
-                                   L["vision"]["led"], stop=cell.stop_event)
+            break
+        got[cam] = calib.capture.run_plan(None if by_hand else plan_around(cell, L, here), cam, cell.robot, cell.vision,
+                                          _dir(cell, cam, "capture"), L["vision"]["led"], stop=cell.stop_event)
+    return got
+
+
+def solve(cell, camera=None) -> dict:
+    """One joint solve per camera from its pictures: lens numbers and where the camera sits on the hand. Redo above
+    LIMIT_PX or LIMIT_MM. Returns {camera name: {"px", "mm", "pictures", "ok"}}."""
+    calib, L = package(cell), cell.layout()
+    out = {}
+    for label, cam in _picked(L, camera):
         camparam, _ = _files(cell, cam)
         start = camparam if os.path.exists(camparam) else VENDOR_START
-        res = calib.solve.run(folder, calib.halcon.CamParam.read(start), L["vision"]["marker_mm"] / 1000.0)
+        res = calib.solve.run(_dir(cell, cam, "capture"), calib.halcon.CamParam.read(start), L["vision"]["marker_mm"] / 1000.0)
         res.write(_dir(cell, cam))
         px, mm = round(float(res.reprojection_px), 3), round(float(res.mean_error_m) * 1000.0, 3)
+        ok = px <= LIMIT_PX and mm <= LIMIT_MM
         cell.edit(lambda L, cam=cam: _node(L, cam).update(pictures=res.images, px=px, mm=mm, captured_at=_stamp()))
-        verdict = "ok" if px <= LIMIT_PX and mm <= LIMIT_MM else f"redo, above {LIMIT_PX} px or {LIMIT_MM:.0f} mm"
-        cell.note(f"{label} camera: {res.images} pictures, error {px} px, {mm} mm: {verdict}")
+        cell.note(f"{label} camera: {res.images} pictures, error {px} px, {mm} mm: "
+                  f"{'ok' if ok else f'redo, above {LIMIT_PX} px or {LIMIT_MM:.0f} mm'}")
+        out[cam] = {"px": px, "mm": mm, "pictures": res.images, "ok": ok}
+    return out
 
 
-def upload(cell) -> None:
-    """Both cameras' files to the box, then the box restarts (about a minute)."""
+def capture(cell, by_hand: bool, camera=None) -> None:
+    """Pictures, then the solve (the Cameras tab's one button)."""
+    pictures(cell, by_hand, camera)
+    if not cell.stop_event.is_set():
+        solve(cell, camera)
+
+
+def upload(cell, camera=None) -> None:
+    """The cameras' files (one camera, or both) to the box, then the box restarts (about a minute)."""
     calib, L = package(cell), cell.layout()
     creds = calib.upload.credentials(L)
-    for label, cam in _cams(L):
+    for label, cam in _picked(L, camera):
         camparam, camintool = _files(cell, cam)
         if not (os.path.exists(camparam) and os.path.exists(camintool)):
             cell.note(f"{label} camera: capture first")
@@ -152,13 +171,13 @@ def upload(cell) -> None:
     cell.note("the box did not come back; check its power and cable")
 
 
-def check(cell) -> None:
+def check(cell, camera=None) -> None:
     """After the upload: the box reads the marker from here and from CHECK_MOVE_MM further along x; with the new
     numbers it reports the same place both times."""
     calib, L = package(cell), cell.layout()
     here = cell.robot.pose()
     there = [here[0] + CHECK_MOVE_MM] + list(here[1:])
-    for label, cam in _cams(L):
+    for label, cam in _picked(L, camera):
         if not _node(L, cam).get("uploaded_at"):
             cell.note(f"{label} camera: upload first")
             return

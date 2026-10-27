@@ -65,6 +65,11 @@ class Squid:
         pos = self._need(self._scope).stage.get_pos()
         return max(abs(pos.x_mm - xy[0]), abs(pos.y_mm - xy[1])) <= tol
 
+    def position(self) -> tuple:
+        """The stage's (x, y) in Squid's frame, mm."""
+        pos = self._need(self._scope).stage.get_pos()
+        return (pos.x_mm, pos.y_mm)
+
     def acquire(self) -> None:
         """Start the acquisition that is configured on this microscope; returns once Squid's worker thread runs.
         Squid fires signal_acquisition_finished without starting when its settings fail validation: that is an error here."""

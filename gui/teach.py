@@ -141,11 +141,13 @@ def drag(cell, on: bool, close_jaw: bool = True) -> None:
                 pass                               # the fingers met the plate: that is a closed jaw too
         cell.robot.drag(True)
         t["tracer"].start()
+        cell.arm = dict(cell.arm, drag=True)             # the readout thread catches up in half a second: do not wait for it
         cell.note("arm loose: move it by hand")
     else:
         t["tracer"].stop()
         cell.robot.drag(False)
         cell.robot.enable()
+        cell.arm = dict(cell.arm, drag=False)
         cell.note("arm locked")
 
 

@@ -17,12 +17,16 @@ class FakeSquid:
         self._started: Optional[float] = None
         self.acquisitions = 0
         self.stage_parked = True          # a test sets False for a stage that never parks
+        self.park_xy = (0.0, 0.0)         # where home() leaves the stage in Squid's frame
 
     def home(self) -> None:
         self._log("squid", self.name, "home (fake)")
 
     def parked(self) -> bool:
         return self.stage_parked
+
+    def position(self) -> tuple:
+        return self.park_xy
 
     def acquire(self) -> None:
         self._started = time.monotonic()

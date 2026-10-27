@@ -9,6 +9,7 @@ hcs-workcell command line (teaching, tests, one-microscope runs). The asyncio ma
   python cli.py check-lower FIXTURE STATE           score the current view against the references
   python cli.py run --mode supervised|unsupervised --slot A1 [--cycles N] [--sim]
   python cli.py calibrate CAMERA read|capture|upload|check      camera calibration (package calibration/)
+  python cli.py setup [--sim] [--from SECTION]      the one-click setup: printed steps, Enter after each of yours
 """
 from __future__ import annotations
 
@@ -907,6 +908,36 @@ def cmd_calibrate(args):
         return 0 if delta <= args.tolerance_mm else 2
 
 
+def cmd_setup(args):
+    """The one-click setup in the terminal: each line printed, Enter on the user's, the machine's run in order."""
+    import tempfile
+
+    from bringup.runner import Runner
+    from bringup.sections import Bringup
+    from devices.fake_squid import FakeSquid
+    from gui import sim
+    from gui.cell import Cell
+    if args.sim:
+        cell = Cell(*sim.build(), sim=True)
+    else:
+        layout = load_layout()
+        cell = Cell(LAYOUT, REFS, HERE, RUNS, make_robot(layout, args, lambda *a: None), nova.vision_box(layout), sim=False)
+    squid = FakeSquid("microscope", args.acquisition_s)       # the practice Squid until the real one is wired in (devices/squid.py)
+    cell.connect()
+    cell.discover()
+    if not args.sim and cell.arm_error:
+        sys.exit(f"the arm is not reachable: {cell.arm_error}. Close the GUI and RobStudio (one client at a time) and run again")
+    runner = Runner(ask=(lambda prompt: "") if args.yes else input, stop=cell.stop_event)
+    todo = Bringup(cell, squid, runner.ask).sections()
+    stopped = runner.run(todo, args.start)
+    cell.frames.stop()
+    if stopped:
+        print(f"\nstopped in '{stopped}'. Fix what it said, then: python cli.py setup --from \"{stopped}\"")
+        return 2
+    print("\nsetup done")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -979,6 +1010,11 @@ def main():
     p.add_argument("--marker-id", type=int, default=1); p.add_argument("--move-mm", type=float, default=20.0)
     p.add_argument("--tolerance-mm", type=float, default=1.0); p.add_argument("--no-reboot", action="store_true")
     p.add_argument("--sim", action="store_true"); p.set_defaults(fn=cmd_calibrate)
+    p = sub.add_parser("setup", help="the one-click setup: follow the printed steps, Enter after each of yours")
+    p.add_argument("--sim", action="store_true"); p.add_argument("--from", dest="start", help="continue from this section")
+    p.add_argument("--yes", action="store_true", help="answer every prompt with Enter (simulator tests)")
+    p.add_argument("--acquisition-s", type=float, default=0.0, help="how long the practice Squid pretends to image")
+    p.set_defaults(fn=cmd_setup)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
     p.add_argument("run_dir"); p.add_argument("--fps", type=float, default=2.0)
     p.set_defaults(fn=cmd_to_mp4)

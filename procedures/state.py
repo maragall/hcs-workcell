@@ -22,6 +22,7 @@ class CellState:
     cycle: int = 0
     hotel: Dict[str, str] = field(default_factory=dict)     # slot -> plate id ("" if unknown)
     plate_id: str = ""                    # barcode if scanned
+    contents: Dict[str, str] = field(default_factory=dict)   # location -> "empty" | "full" | "unknown": hotel slots, module, gripper, microscope (written by the setup script)
     home_slot: str = ""                   # the hotel slot the plate on the microscope came from
     faults: List[dict] = field(default_factory=list)
     last_safe_pose: Optional[List[float]] = None

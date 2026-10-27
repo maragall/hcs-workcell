@@ -5,7 +5,9 @@
     "width_over_skirt": 85.14,
     "length_between_short_edges": 125.03,
     "length_over_skirt": 127.46,
-    "height": null,
+    "height": 14.42,
+    "height_practice": 14.5,
+    "height_with_lid": 16.85,
     "groove_offset_from_bottom": null,
     "_note": "production plate measured with calipers 2026-10-19 (operator). Grip grooves are small: jaw width reads the same on the wall and in the groove (see gripper.readings). Height and groove position still to measure"
   },
@@ -17,7 +19,7 @@
         "id": 1,
         "length_mm": 127.46,
         "width_mm": 85.14,
-        "height_mm": null,
+        "height_mm": 14.42,
         "grab_height_mm": 0.0
       }
     }
@@ -85,7 +87,13 @@
       "enforce": "auto",
       "_note": "down camera at the clear pose above the stage, before it rotates: the plate must look seated and nothing else in view. References collected by the cell per direction (to_0, to_90); auto: blocks once auto_refs are collected"
     },
-    "_marker_note": "the marker tab (aruco标定板 drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks"
+    "_marker_note": "the marker tab (aruco\u6807\u5b9a\u677f drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
+    "calibration": {
+      "auto_teach_camera": {
+        "marker": "ok",
+        "marker_at": "2026-10-25 23:09:42"
+      }
+    }
   },
   "gripper": {
     "open": {
@@ -411,8 +419,8 @@
       },
       "pose_at_90": {
         "pose": [
-          312.41,
-          305.828,
+          313.014,
+          337.497,
           65.575,
           0.0,
           -0.0,
@@ -433,7 +441,16 @@
           3.83
         ],
         "stage_axis_at_teach": -0.099,
-        "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\polar_pose_at_90"
+        "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\polar_pose_at_90",
+        "_before_back_grip_2026_10_22": [
+          312.41,
+          305.828,
+          65.575,
+          0.0,
+          -0.0,
+          -91.0933
+        ],
+        "_back_grip_note": "2026-10-22 new plate is gripped 31.675 mm further back along its long axis (operator; same shift as the hotel slots in world x). At the stage at 90 the tool x points along world -y (yaw -91), so the shift is +y: the fingers hold the plate nearer its far end."
       },
       "hover_mm": 34.4,
       "clear_mm": 60,
@@ -472,7 +489,11 @@
         "max_deg": 1.5,
         "adopt_max_mm": 1.0,
         "_note": "yaw removed: the wrist is near its limit at the stage seat and yaw moves were refused (22:27 loop, collision stop 22:57)"
-      }
+      },
+      "grasp_width": {
+        "short_edges": 24.88
+      },
+      "_grasp_note_2026_10_22": "new plate, plate hand-centered on the stage at 0 then regripped 4x by the arm: 24.87/24.88/24.87/24.88 (flat, square); equals the hand reading 24.87"
     },
     "hotel": {
       "approach": {
@@ -487,6 +508,10 @@
       "lift_mm": 25.0,
       "max_lift_mm": 30,
       "headroom_mm": 17,
+      "grip_back_mm": {
+        "30": 31.675,
+        "15": null
+      },
       "_headroom_note": "30-plate hotel, 2026-10-22: 17 mm above a seated plate. preflight refuses a run while lift_mm is not below it; lift_mm 25 predates this hotel and must be re-taught from the plate height and the finger stand-off",
       "columns": [
         "A",
@@ -657,13 +682,6 @@
           5,
           7,
           9
-        ],
-        "C": [
-          2,
-          4,
-          6,
-          8,
-          10
         ]
       },
       "_loaded_note": "2026-10-22: 30-slot hotel, 10 real plates (colour and weight vary, grip position the same): odd rows in A, even rows in C. procedures.hotel.plate_order interleaves them: A1, C2, A3, C4, ... (run.py --order interleave). Row poses are interpolated from the taught row-1 and row-9 points per column (row_vector_from); re-teach them on this hotel",
@@ -2006,6 +2024,7 @@
     "microscope": {
       "park_xy_mm": null,
       "park_tolerance_mm": null,
+      "stage_limits_mm": null,
       "_note": "stage position (Squid stage frame, mm) where Microscope.home_xyz leaves it, and how far from it still counts as parked. Measure on the cell: home, read stage.get_pos(), repeat a few times. null = parked() refuses. base_path and experiment_id go here too (devices/squid.py)"
     }
   },

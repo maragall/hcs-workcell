@@ -192,7 +192,10 @@ class Motion:
     def move_to(self, name: str) -> None:
         """Go to a position's hover: a taught route when one exists, else lift, travel at the safe height, lower.
         Never to the seat itself; the seat is the job of pick and place, behind their gates."""
-        target = self._position(name)
+        self.go_to(self._position(name), name)
+
+    def go_to(self, target: List[float], name: str) -> None:
+        """move_to for a pose that is not a taught position (the setup script's computed views)."""
         route = plan(self.L, self.safety, self.robot.pose(), target, self._position_here(), name)
         self.tele.log("move", f"move_to {name}", route.name, taught=route.taught, waypoints=len(route.poses))
         if route.taught:
