@@ -12,20 +12,17 @@ prediction models train on.
 - `ANALYSIS.md`: results of the first 90-hour unattended run and the plan derived from it.
 - `STATUS.md`, `review_queue.py`: current state and decisions awaiting review.
 
-## Placing the microscope
+## Setup
 
-![where to put the microscope](docs/placement.png)
+1. **Place the microscope** as in the diagram: its plate holder within about 20 mm of (123, 400), 240 to 420 mm from
+   the arm base, clear air above it and nothing in the corridor to the rotation module. The hotel slots open toward -x.
+   (`docs/PLACEMENT.md` has the table and the rules; `python tools/placement_diagram.py` redraws the figure.)
 
-Top view in the robot's base frame, millimetres, from the Shanghai cell (`docs/PLACEMENT.md` has the table and the
-rules). Put the microscope seat within about 20 mm of (123, 400), at least 240 and at most 420 mm from the arm base,
-with clear air above it and nothing in the corridor to the rotation module. The hotel slots open toward -x. A new
-site reproduces this layout and then re-measures its own seats.
+   ![where to put the microscope](docs/placement.png)
 
-## One-click setup
-
-`python cli.py setup` (add `--sim` to try it on the simulator). It prints every step, waits for Enter after the ones
-that are yours, and runs the rest. Before it: put the microscope on the marked area, connect Squid, the arm and the
-vision box, and put the aruco practice plate on the rotation module.
+2. **Connect** Squid, the arm and the vision box, and put the aruco practice plate on the rotation module.
+3. **Run** `python cli.py setup` (add `--sim` to try it on the simulator). It prints every step, waits for Enter after
+   the ones that are yours, and runs the rest.
 
 | section | what happens | where the result goes |
 |---|---|---|
