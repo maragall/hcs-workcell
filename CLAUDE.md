@@ -31,6 +31,10 @@ Four packages plus the main loop. Each box calls only the boxes below it; `perce
   `/home/pi/Nova/data/calibration/<camera>/active/` with credentials from `layout.json vision.ssh`, `verify` reads the
   marker from two poses. `python3 -m calibration.validate` renders the marker through the vendor's files in
   `vendor_data/` and solves it back (`synth.py`). `cli.py calibrate <camera> read|capture|upload|check`.
+- `bringup/` (`python cli.py setup [--sim] [--from SECTION]`): the one-click setup as a terminal program. `runner.py` prints the
+  steps and waits for Enter on the user's; `sections.py` is the sections in order, each line calling what the GUI, `Cycle` and
+  `exercise` already call; `geometry.py` the arithmetic (stage seat from the practice plate's marker). `perception/hotel_size.py`
+  tells 15 from 30 slots by pictures. Tests: `tests/test_bringup.py`.
 - `routes/`: `plan.py` picks a taught trajectory or lift / travel at `routes.safe_z_mm` / lower, every leg checked;
   `Motion.move_to(position)` executes it, to the hover only. `cli.py goto NAME` drives it by hand.
 - `gui/` (`python gui.py [--sim]`): the setup program, one page on http.server: Setup, Cameras, Teach, Test. Calls the

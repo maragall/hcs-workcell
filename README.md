@@ -12,6 +12,39 @@ prediction models train on.
 - `ANALYSIS.md`: results of the first 90-hour unattended run and the plan derived from it.
 - `STATUS.md`, `review_queue.py`: current state and decisions awaiting review.
 
+## Placing the microscope
+
+![where to put the microscope](docs/placement.png)
+
+Top view in the robot's base frame, millimetres, from the Shanghai cell (`docs/PLACEMENT.md` has the table and the
+rules). Put the microscope seat within about 20 mm of (123, 400), at least 240 and at most 420 mm from the arm base,
+with clear air above it and nothing in the corridor to the rotation module. The hotel slots open toward -x. A new
+site reproduces this layout and then re-measures its own seats.
+
+## One-click setup
+
+`python cli.py setup` (add `--sim` to try it on the simulator). It prints every step, waits for Enter after the ones
+that are yours, and runs the rest. Before it: put the microscope on the marked area, connect Squid, the arm and the
+vision box, and put the aruco practice plate on the rotation module.
+
+| section | what happens | where the result goes |
+|---|---|---|
+| connect | ports found, Squid homed, module to 0 deg, hand over the module | |
+| cameras.toml | down camera calibrated from the aruco (lens and camera-to-gripper in one solve), refused above 0.5 px / 1 mm, uploaded, checked from two poses | `vision.calibration` |
+| hotel.toml | front camera looks into the hotel; 15 or 30 slots recognised from pictures (it asks once, then remembers) | `setup.hotel`, `fixtures.hotel.rows` |
+| swap | plate offset read on the aruco plate; **you** move the aruco plate to the microscope stage and put a real plate on the module | `setup.plate_offset`, `setup.marker_to_grip` |
+| grips.toml | short and long grip closed on the real plate, accept bands, three carry-seat-regrip cycles | `gripper.closed`, `gripper.accept_band`, `setup.grips` |
+| microscope.toml | stage limits and park position from Squid; aruco on the stage found from above; seat re-seated if it moved less than the zone allows | `squid.<name>`, `fixtures.<name>.pose`, `setup.microscope` |
+| clear the stage | **you** take the aruco plate off the stage | |
+| system_state.json | every hotel slot, module, microscope and gripper looked at | `contents` in `state_microscope.json` |
+| test | module to stage, acquire, back, long-edge grip, to a free hotel slot | |
+
+A refused check stops the run, prints what to fix and leaves that section's values as they were. Continue with
+`python cli.py setup --from "grips.toml"`. The Squid it drives is the practice one until `devices/squid.py` is wired in.
+Not yet automatic: the keep-out box around the stage (needs the Squid-to-arm axis mapping), a route to a microscope that
+stands more than the zone's 2 mm from the taught seat, and the 15-slot grip offset (`fixtures.hotel.grip_back_mm`).
+Plate heights, measured with the caliper 2026-10-26: practice 14.50 mm, real 14.42 mm, real with lid 16.85 mm.
+
 ## Architecture
 
 ![hcs-workcell architecture](docs/architecture.png)
