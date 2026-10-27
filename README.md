@@ -20,6 +20,20 @@ prediction models train on.
 
    ![where to put the microscope](docs/placement.png)
 
+   Distances in the robot base frame, mm (arm base at (126, 0), x to the right, y up), from the coordinates in the diagram:
+
+   | from | to | distance | along x, along y |
+   |---|---|---|---|
+   | arm base | microscope seat (123, 400) | 400.0 | -3, +400 |
+   | arm base | rotation module (317, 305) | 359.9 | +191, +305 |
+   | microscope seat | rotation module | 216.0 | +194, -95 |
+   | arm base | hotel column A (293, 137.5) | 216.3 | +167, +137.5 |
+   | arm base | hotel column C (293, -137.5) | 216.3 | +167, -137.5 |
+   | rotation module | hotel column A | 169.2 | -24, -167.5 |
+   | hotel column A | hotel column C | 275.0 | 0, -275 |
+
+   Slot x is 293 for the plate's centre; the slots open toward -x, so the arm approaches from the base side.
+
 2. **Connect** Squid, the arm and the vision box, and put the aruco practice plate on the rotation module.
 3. **Run** `python cli.py setup` (add `--sim` to try it on the simulator). It prints every step, waits for Enter after
    the ones that are yours, and runs the rest.
