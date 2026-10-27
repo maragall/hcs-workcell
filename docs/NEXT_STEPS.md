@@ -7,7 +7,7 @@ Each item: what it means here, what exists, what is missing, and the test that c
 **Error detection.** Deciding, from an image, that a step did not end as intended: plate not seated on the
 microscope, plate absent or skewed on the stage, slot occupied, plate shifted in the fingers.
 - Exists: normalised cross-correlation gate (`lower_check.py`) with reference library tooling
-  (`build_refs_from_runs.py`), threshold set from the references' own spread, biased to refusing.
+  (`tools/build_refs_from_runs.py`), threshold set from the references' own spread, biased to refusing.
 - Missing: a camera that sees the seat. From the taught hovers neither gripper camera sees the plate
   (ANALYSIS section 9). Decision needed: fixed external camera on the microscope holder (recommended), or
   inspection poses 90 mm along the gripper axis. The stage-empty check can use the existing route point above
@@ -35,7 +35,7 @@ microscope, plate absent or skewed on the stage, slot occupied, plate shifted in
 
 **Stress test of the current script, random slot.**
 - Exists: 492-cycle baseline at 20/10/5 %; `fast` 40/20/8 and `stress` 50/25/10 profiles; staged
-  lowers and slides; 13-via-point route B; grasp tolerance 0.08; `run_matrix.py`.
+  lowers and slides; 13-via-point route B; grasp tolerance 0.08; `tools/run_matrix.py`.
 - Missing: rows above 1 need the retreat-then-climb approach, which needs the rack front face and side
   taught by touch (`record-pose hotel.rack_front`, `hotel.rack_side`); A9 re-verified; random slot selection in
   `run_forever.py` (one flag).
@@ -74,7 +74,7 @@ the cell. The proxy that fixes its preview stays available.
 - Use: slot occupied/empty classifier from the approach view; per-pose "normal scene" baselines for anomaly
   detection on the route; stage-empty gate references; mp4 material for mentors.
 - Not usable for: microscope seated check, plate-in-gripper check.
-- First deliverable: `build_refs_from_runs.py` already labels frames; add the slot-occupancy pair (place
+- First deliverable: `tools/build_refs_from_runs.py` already labels frames; add the slot-occupancy pair (place
   approach = empty, pick approach = occupied) and report separation the same way.
 
 **Which models latch onto Bioyond's software.** Their box offers ArUco pose, pose offset against a stored

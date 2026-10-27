@@ -1,6 +1,6 @@
 # Analysis of the first unattended run (2026-10-15 03:01 to 2026-10-18 21:23)
 
-Source: `runs/analysis.json` (from `analyze_runs.py`), `runs/forever.log`, `state.json`.
+Source: `runs/analysis.json` (from `tools/analyze_runs.py`), `runs/forever.log`, `state.json`.
 
 ## 1. What happened
 

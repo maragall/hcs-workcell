@@ -1,7 +1,7 @@
 """
 Run the cycle over a list of hotel slots, one `cli.py run` per slot, stopping at the first stop or crash.
 
-    python run_matrix.py A3 A5 A7 A9 B1 B3 --extra "--no-gates --no-vision-correction"
+    python tools/run_matrix.py A3 A5 A7 A9 B1 B3 --extra "--no-gates --no-vision-correction"
 
 Each run starts from the state the previous one left (plate on the microscope).
 """
@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))     # the repo root; this file is in tools/
 
 
 def main():

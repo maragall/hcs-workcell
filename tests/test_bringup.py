@@ -14,8 +14,8 @@ from bringup import geometry  # noqa: E402
 from bringup.runner import Runner  # noqa: E402
 from bringup.sections import Bringup  # noqa: E402
 from devices.fake_squid import FakeSquid  # noqa: E402
-from gui import sim  # noqa: E402
-from gui.cell import Cell  # noqa: E402
+from bringup import sim  # noqa: E402
+from bringup.cell import Cell  # noqa: E402
 from perception.hotel_size import HotelSize  # noqa: E402
 
 
@@ -120,7 +120,7 @@ def test_a_calibration_above_the_limit_is_refused_and_nothing_is_uploaded():
     cell, todo, runner, said, asked = make()
     sections = todo.sections()
     todo.found["camera"] = None
-    from gui import cameras
+    from bringup import cameras
     real = cameras.solve
     cameras.solve = lambda cell, camera=None: {"auto_teach_camera": {"px": 0.9, "mm": 2.0, "pictures": 7, "ok": False}}
     try:

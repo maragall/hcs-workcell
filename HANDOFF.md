@@ -21,8 +21,8 @@ gripper sits relative to that marker, every position is taught by putting the pr
 rest and hovering the camera over it: the box computes the grip pose. No precise seating by hand.
 
 The cameras have no focus ring. The camera check is the box reading the marker on the practice plate. Calibration
-(the plate captures, the hand captures, the upload, the check, the teach-free relation for both grips) is done in our
-setup program's Cameras tab, not with the vendor tool.
+(the plate captures, the hand captures, the upload, the check) is done by our `python cli.py setup`, cameras section,
+not with the vendor tool.
 
 Our side: `cli.py record-pose NAME` stores a position (and the box's teach point), `cli.py record-trigger` stores
 the marker view for it, `cli.py marker-check NAME` reads how far a position has drifted. The box is addressed with
@@ -42,7 +42,7 @@ markers its own way and 1 is what works on this cell).
 5. The microscope: `python cli.py record-pose microscope`, its region box, the route to the stage.
 6. One supervised cycle: `python cli.py run --mode supervised --slot A1 --cycles 1`.
 7. `python exercise.py --mode supervised`: every slot, the stage, the trip on purpose, then the plates in turn.
-8. The setup program: `python gui.py setup` (Setup, Teach, Test), the PDF's pages. Then `python gui.py run`.
+8. The setup program: `python cli.py setup`, the PDF's pages. Then `python cli.py run --mode supervised`.
 
 ## 4. Squid
 
@@ -60,7 +60,7 @@ that drifted (teach it again).
 ## 6. What was never run on hardware
 
 Everything after the 2026-10-22 refactor: the four packages, the asyncio loop, the occupancy detector, the front view,
-the stage check, the planner, the hub recording, the plate order, the speed hacks, the robustness fixes, the GUI.
+the stage check, the planner, the hub recording, the plate order, the speed hacks, the robustness fixes, the setup program.
 All of it passes offline on the fakes. The first real cycle (step 6) is the test of the refactor.
 
 ## 7. To the AI session on the cell PC
@@ -77,11 +77,10 @@ the run folders, the operator's words, to correct the codebase, and bring the co
    judged on before changing anything; fix the cause, never the check. Floors, speeds, tolerances and the number of
    checks are changed only with a measured reason written in the commit.
 4. Keep `python -m pytest tests -q` green; add a test for every behaviour the bench taught you.
-5. Keep the shape: four packages, each calling only the ones below it; `perception` imports no device; the GUI lives
-   in `gui/` and calls commands, never devices.
-6. When the setup program's "Test everything" passes on the real cell: merge the branch into main, push, and write
+5. Keep the shape: four packages, each calling only the ones below it; `perception` imports no device; the setup program
+   (`bringup/`) calls what `cli.py` and `Cycle` call, never devices directly.
+6. When the test section of `python cli.py setup` passes on the real cell: merge the branch into main, push, and write
    what still does not match the bench into `CLAUDE.md` under "Hardware handoff" for the next session.
-7. "Test everything" goes round after round until STOP; it is left running on the cell. It may stop only on STOP
-   or on a real fault, and a fault must say its cause in one line on the page and in `runs/<run>/events.jsonl`.
-8. Then open the setup program fresh (`python gui.py`) at Setup and tell Julio: committed to main, the commit id, the
-   GUI is open, what passed on the arm and what did not. He records the walk-through from that screen.
+7. The loop (`python run.py`) goes plate after plate until STOP (`runs/STOP`); it is left running on the cell. It may stop only
+   on STOP or on a real fault, and a fault must say its cause in one line on the terminal and in `runs/<run>/events.jsonl`.
+8. Then tell Julio: committed to main, the commit id, what passed on the arm and what did not.

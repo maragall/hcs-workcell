@@ -1,6 +1,6 @@
 """
 One frame source for the whole program: a thread per camera asks the vision box for a frame at a fixed rate,
-the same size and quality the checks use (1280x720 JPEG 85), into a short ring buffer. The page shows the
+the same size and quality the checks use (1280x720 JPEG 85), into a short ring buffer. The setup shows the
 newest frame as video, the recorder writes it during runs, and the checks take it instead of asking the box
 (Cycle(frame_source=...)), so the video never freezes while a check runs.
 """
@@ -62,7 +62,3 @@ class FrameSource:
         if got is None or time.time() - got[0] > self.max_age_s:
             raise RuntimeError(f"no fresh frame from {cam}: {self.errors.get(cam, 'not polled yet')}")
         return got[1]
-
-    def by_label(self, label: str) -> Optional[Tuple[float, bytes]]:
-        cam = self.cameras.get(label)
-        return self.latest(cam) if cam else None

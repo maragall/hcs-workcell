@@ -17,7 +17,7 @@ Output: per gate/state, the correlation of every frame against K seed references
 opposite state's references (other class), the resulting threshold, and K references copied into
 reference_images/. Nothing is deleted.
 
-    python build_refs_from_runs.py --since 20261015_0300 --k 12 --max-per-class 400
+    python tools/build_refs_from_runs.py --since 20261015_0300 --k 12 --max-per-class 400
 """
 import argparse
 import json
@@ -28,7 +28,7 @@ import shutil
 import statistics as st
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))     # the repo root; this file is in tools/
 sys.path.insert(0, HERE)
 from perception.lower_check import _prep, ncc  # noqa: E402
 

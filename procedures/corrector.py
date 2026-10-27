@@ -87,9 +87,6 @@ class Corrector:
         """True = proceed without correction (taught pose only); only when the operator accepts."""
         return self.operator_or_stop("vision", f"{fixture}: {err}", "Proceed with the taught pose, no vision correction?")
 
-    def on_motion_refused(self, step: str, err):
-        raise StopSafe(f"{step}: {err}")
-
     def on_disabled(self, step: str) -> bool:
         """Re-enable so the operator can jog. Never followed by a motion retry."""
         self.enables_this_run += 1

@@ -1,13 +1,13 @@
 """PC side of the gripper force probe (lua/torque_probe/ running on the controller).
 
-  python torque_probe.py watch                 print width / torque / heartbeat at 10 Hz until Ctrl-C
-  python torque_probe.py close 1.45 [--trq 0.2] [--v 50]   one close command to 1.45 mm, then the vendor's
+  python tools/torque_probe.py watch                 print width / torque / heartbeat at 10 Hz until Ctrl-C
+  python tools/torque_probe.py close 1.45 [--trq 0.2] [--v 50]   one close command to 1.45 mm, then the vendor's
                                                GripperEmptyDet verdict and the holding torque
-  python torque_probe.py open 6.0 [--v 50]
-  python torque_probe.py force 1.45 --trq 0.10 [--v 20]   close to 1.45 mm under a 10 % torque limit
+  python tools/torque_probe.py open 6.0 [--v 50]
+  python tools/torque_probe.py force 1.45 --trq 0.10 [--v 20]   close to 1.45 mm under a 10 % torque limit
                                                (MoveExtJWithForce), operator at the e-stop
-  python torque_probe.py limit 0.5             SetGripperTorqueLimit (torque control mode only)
-  python torque_probe.py burst                 1 s of torque samples on the controller; prints the peak
+  python tools/torque_probe.py limit 0.5             SetGripperTorqueLimit (torque control mode only)
+  python tools/torque_probe.py burst                 1 s of torque samples on the controller; prints the peak
 
 Read-only except for the jaw. Never moves the arm. Needs the Lua probe loaded and running (lua_ready true).
 """
@@ -16,7 +16,7 @@ import os
 import sys
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))      # the repo root
 import cli as R  # noqa: E402
 from devices.controller import Brcapi  # noqa: E402
 

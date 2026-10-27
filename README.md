@@ -10,7 +10,7 @@ prediction models train on.
 - `docs/VENDOR_SDK.md`: what the vendor .NET SDK really does (measured).
 - `DESIGN.md`: gates, damage prevention, tolerance model, data contract, failure cases, tests.
 - `ANALYSIS.md`: results of the first 90-hour unattended run and the plan derived from it.
-- `STATUS.md`, `review_queue.py`: current state and decisions awaiting review.
+- `STATUS.md`, `tools/review_queue.py`: current state and decisions awaiting review.
 
 ## Setup
 
@@ -129,8 +129,8 @@ tests/                     rig.py (fake vision box, simulator layout), test_sim.
 
 ## Teaching quickly
 
-`python teach_daemon.py` holds the one SDK connection and records a pose per word written to `runs/teach_cmd.txt`
-(`A1`, `polar.pose_at_90`, `microscope`, `drag`, `undrag`, `status`, `quit`); `python record_slot.py A3` does one
+`python tools/teach_daemon.py` holds the one SDK connection and records a pose per word written to `runs/teach_cmd.txt`
+(`A1`, `polar.pose_at_90`, `microscope`, `drag`, `undrag`, `status`, `quit`); `python tools/record_slot.py A3` does one
 hotel slot without the daemon. Both store pose, joints, jaw, stage reading and a frame from each camera under
 `reference_images/teach/`. Hotel rows above 1 are reached by retreating to `fixtures.hotel.climb_x`, climbing with
 the column only, and sliding in at carry height; `--slot random` draws from `fixtures.hotel.active_slots`.

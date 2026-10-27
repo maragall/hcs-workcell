@@ -133,7 +133,7 @@ Results of the first unattended run (90 h, 492 cycles, no contact) are in `ANALY
 
 `runs/<timestamp>/events.jsonl` has one JSON record per move, jaw action, vision call, health check, fault
 and cycle, with the feature keys listed in `DESIGN.md` section 5. `images/` holds per-step frames, `video/`
-the continuous recording. `analyze_runs.py` aggregates; `build_refs_from_runs.py` labels frames for the gates.
+the continuous recording. `tools/analyze_runs.py` aggregates; `tools/build_refs_from_runs.py` labels frames for the gates.
 
 ## 12. Known limits at the time of writing
 

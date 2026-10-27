@@ -239,25 +239,3 @@ class VisionClient:
 
     def delete_position(self, name, ptype, workspace="autoteach"):
         return self.request("delete_position", workspace, name, ptype)
-
-    def start_vision_teach(self, cur_pose, camera, is_gripper=False, pick="wide", aruco=True, led=0):
-        p = self.request("start_vision_teach", *[f"{v:.4f}" for v in cur_pose], 1 if is_gripper else 0, pick,
-                         camera, 1 if aruco else 0, led, max_split=14)
-        return self._teach_result(p)
-
-    def fine_tune_vision_teach(self, cur_pose, camera, is_gripper=False, aruco=True):
-        p = self.request("fine_tune_vision_teach", *[f"{v:.4f}" for v in cur_pose], 1 if is_gripper else 0,
-                         camera, 1 if aruco else 0, max_split=14)
-        return self._teach_result(p)
-
-    def _teach_result(self, p):
-        return {
-            "job": p[0].decode() if p else "",
-            "pose": [self._f(p, i) for i in range(1, 7)],
-            "has_error": p[7] == b"true" if len(p) > 7 else True,
-            "ready": p[8] == b"true" if len(p) > 8 else False,
-            "finished": p[9] == b"true" if len(p) > 9 else False,
-            "progress": int(self._f(p, 10)),
-            "image": self._img(p[12]) if len(p) > 12 else None,
-            "error": p[13].decode("utf-8", "replace") if len(p) > 13 else "",
-        }

@@ -23,7 +23,7 @@ def rig():
 def build():
     """(layout_path, ref_dir, state_dir, runs_dir, robot, vision) on the fakes."""
     r = rig()
-    tmp = tempfile.mkdtemp(prefix="gui_sim_")
+    tmp = tempfile.mkdtemp(prefix="setup_sim_")
     L = r.layout()
     layout_path = os.path.join(tmp, "layout.json")
     positions.save(L, layout_path)

@@ -69,18 +69,6 @@ class DriftMonitor:
         h.append(value)
         return verdict
 
-    def slope(self, feature: str, last_n: int = 20) -> float:
-        """Simple trend: least-squares slope of the last n values (units per cycle)."""
-        h = list(self.hist[feature])[-last_n:]
-        n = len(h)
-        if n < 5:
-            return 0.0
-        xs = range(n)
-        mx, my = (n - 1) / 2, sum(h) / n
-        num = sum((x - mx) * (y - my) for x, y in zip(xs, h))
-        den = sum((x - mx) ** 2 for x in xs)
-        return num / den if den else 0.0
-
 
 class PreChecks:
     """Deterministic conditions evaluated before a step. Each returns a list of problems."""

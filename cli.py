@@ -9,6 +9,7 @@ hcs-workcell command line (teaching, tests, one-microscope runs). The asyncio ma
   python cli.py check-lower FIXTURE STATE           score the current view against the references
   python cli.py run --mode supervised|unsupervised --slot A1 [--cycles N] [--sim]
   python cli.py calibrate CAMERA read|capture|upload|check      camera calibration (package calibration/)
+  python cli.py recover                             clear controller errors after a hard stop, leave the arm loose
   python cli.py setup [--sim] [--from SECTION]      the one-click setup: printed steps, Enter after each of yours
 """
 from __future__ import annotations
@@ -307,11 +308,6 @@ def _settle(robot, target, label, max_dev, timeout=120):
     if dev > max_dev:
         raise SystemExit(f"STOP: {label} ended {dev:.1f} mm from target (limit {max_dev}); possible contact")
     return after
-
-
-def _confirm(text):
-    if input(f"  >>> {text}  [y = go / anything else = stop here]: ").strip().lower() != "y":
-        raise SystemExit("stopped by operator; arm holds position")
 
 
 def cmd_place_test(args):
@@ -910,13 +906,12 @@ def cmd_calibrate(args):
 
 def cmd_setup(args):
     """The one-click setup in the terminal: each line printed, Enter on the user's, the machine's run in order."""
-    import tempfile
 
     from bringup.runner import Runner
     from bringup.sections import Bringup
     from devices.fake_squid import FakeSquid
-    from gui import sim
-    from gui.cell import Cell
+    from bringup import sim
+    from bringup.cell import Cell
     if args.sim:
         cell = Cell(*sim.build(), sim=True)
     else:
@@ -935,6 +930,24 @@ def cmd_setup(args):
         print(f"\nstopped in '{stopped}'. Fix what it said, then: python cli.py setup --from \"{stopped}\"")
         return 2
     print("\nsetup done")
+    return 0
+
+
+def cmd_recover(args):
+    """After a hard stop or a controller fault: clear the errors, auto, enabled, then the arm loose so you can move it.
+    Nothing moves. Close RobStudio first (one client at a time)."""
+    layout = load_layout()
+    robot = make_robot(layout, args, lambda *a: None)
+    robot.connect()
+    try:
+        robot.clear_errors()
+        left = [e for e in (robot.errors() or []) if e.get("errCode")]
+        if left:
+            sys.exit("the controller still reports: " + "; ".join(f"{e.get('errCode')} {e.get('errMsg', '')}" for e in left))
+        robot.drag(True)
+        print("errors cleared, arm enabled and loose: move it by hand; python cli.py setup locks it again")
+    finally:
+        robot.disconnect()
     return 0
 
 
@@ -1015,6 +1028,8 @@ def main():
     p.add_argument("--yes", action="store_true", help="answer every prompt with Enter (simulator tests)")
     p.add_argument("--acquisition-s", type=float, default=0.0, help="how long the practice Squid pretends to image")
     p.set_defaults(fn=cmd_setup)
+    p = sub.add_parser("recover", help="after a hard stop or controller fault: clear errors, enable, leave the arm loose")
+    p.add_argument("--sim", action="store_true"); p.set_defaults(fn=cmd_recover)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
     p.add_argument("run_dir"); p.add_argument("--fps", type=float, default=2.0)
     p.set_defaults(fn=cmd_to_mp4)

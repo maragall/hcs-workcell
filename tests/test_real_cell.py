@@ -1,20 +1,18 @@
-"""The setup program's real-cell path (no --sim) on fakes: discovery never writes the SDK port with the BRCAPI one,
+"""The setup's real-cell path (no --sim) on fakes: discovery never writes the SDK port with the BRCAPI one,
 never probes the SDK port while it is connected, a host that is not a vision box is not saved; STOP file; one-line
 errors for a null layout value. Nothing touches the network or the hardware."""
 from __future__ import annotations
 
-import json
 import os
 import sys
-import time
 
 import pytest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from gui import discover, sim  # noqa: E402
-from gui.cell import Cell, plain_error  # noqa: E402
+from bringup import discover, sim  # noqa: E402
+from bringup.cell import Cell  # noqa: E402
 from procedures import positions  # noqa: E402
 from procedures.preflight import preflight  # noqa: E402
 
@@ -75,37 +73,13 @@ def test_preflight_says_a_null_hotel_lift_in_words():
     assert "hotel lift not set: fixtures.hotel.lift_mm" in preflight(L, os.path.join(HERE, "no_refs"))
 
 
-def test_a_missing_value_is_one_plain_line():
-    assert "layout.json" in plain_error(KeyError("pose"))
-    assert "layout.json" in plain_error(TypeError("'NoneType' object is not subscriptable"))
-    assert plain_error(RuntimeError("boom")) == "boom"
-
-
-def test_a_job_that_hits_a_null_says_so_in_one_line(monkeypatch):
-    cell = real_cell(monkeypatch)
-
-    def job():
-        cell.layout()["fixtures"]["microscope_2"]["pose"][0]
-
-    assert cell.start("probe", job)
-    for _ in range(50):
-        if not cell.busy:
-            break
-        time.sleep(0.05)
-    text = cell.notes[-1][1]
-    assert text.startswith("probe: a value is missing in layout.json") and "\n" not in text
-
-
-def test_the_stop_file_stops_a_running_job(monkeypatch):
+def test_the_stop_file_stops_the_setup(monkeypatch):
     cell = real_cell(monkeypatch)
     os.makedirs(cell.runs_dir, exist_ok=True)
-    gate = __import__("threading").Event()
-    assert cell.start("job", lambda: gate.wait(5))
     assert not cell.stop_file_seen()                        # no file, no stop
     open(os.path.join(cell.runs_dir, "STOP"), "a").close()
     assert cell.stop_file_seen() and cell.stop_event.is_set()
     assert "STOP is present" in cell.notes[-1][1]
-    gate.set()
 
 
 def test_cli_turns_a_device_error_into_one_line(monkeypatch):
@@ -136,25 +110,8 @@ def test_cli_turns_a_null_into_one_line(monkeypatch):
     assert "layout.json" in str(e.value) and "\n" not in str(e.value)
 
 
-def test_the_page_comes_up_before_the_arm_connects(monkeypatch):
-    """gui.app.main serves first and connects in a job, so an arm that is off cannot hold the start."""
-    from gui import app
-    order = []
-    cell = real_cell(monkeypatch)
-    monkeypatch.setattr(app, "build", lambda is_sim: cell)
-    monkeypatch.setattr(app.server, "serve", lambda c, port: (order.append("serve"), type("S", (), {"server_address": ("127.0.0.1", 1), "shutdown": lambda s: None})())[1])
-    monkeypatch.setattr(cell, "start_up", lambda: order.append("connect"))
-    monkeypatch.setattr(app.time, "sleep", lambda s: (_ for _ in ()).throw(KeyboardInterrupt()))
-    assert app.main(["--no-browser"]) == 0
-    for _ in range(50):
-        if "connect" in order:
-            break
-        time.sleep(0.05)
-    assert order == ["serve", "connect"]
-
-
 def test_squid_is_found_in_the_saved_folder_then_the_fallback_and_else_asks_for_a_folder(tmp_path, monkeypatch):
-    from gui import discover
+    from bringup import discover
     ctl = tmp_path / "software" / "control"
     ctl.mkdir(parents=True)
     (ctl / "microscope.py").write_text("")

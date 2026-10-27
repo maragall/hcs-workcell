@@ -1,6 +1,6 @@
 """
 The setup, section by section, in the order the user meets them. Each line is one Step; a machine line calls the
-function the GUI, cli.py and the loop already use (gui.cameras, Cycle, exercise, the vision box, Squid) and returns
+function cli.py and the loop already use (bringup.cameras, Cycle, exercise, the vision box, Squid) and returns
 the values its comment names. Nothing here talks to a device directly except through those.
 
 Written through `positions`: layout.json -> `setup` (what this run found), the fixtures it re-seats, the gripper
@@ -18,7 +18,7 @@ from typing import Callable, List, Optional
 import exercise
 from bringup import geometry
 from bringup.runner import Refused, Section, Step
-from gui import bench, cameras, teach
+from bringup import bench, cameras, hand
 from perception.hotel_size import HotelSize
 from procedures.corrector import StopSafe
 from procedures.cycle import Cycle
@@ -32,6 +32,15 @@ SEARCH_HEIGHTS = 4                # heights tried below the microscope hover, hi
 BAND_BELOW, BAND_ABOVE = 0.1, {"short_edges": 0.5, "long_edges": 1.05}     # as gripper.accept_band was set 2026-10-22
 RESEATS = 3                       # carry, seat and re-grip cycles in the grips section
 ACQUISITION_TIMEOUT_S = 600
+
+
+def reachable(cyc: Cycle, slot: str) -> bool:
+    """The slot's seat is inside the workspace box and above its region's floor."""
+    try:
+        cyc.safety.check_target(cyc.hotel_slot_pose(slot), f"slot {slot}", allow_floor_regions=("hotel",))
+        return True
+    except SafetyViolation:
+        return False
 
 
 def _stamp() -> str:
@@ -73,7 +82,7 @@ class Bringup:
 
     def ready(self) -> None:
         if self.cell.robot.state().drag:      # a user step left the arm loose; the cell's own flag lags by its poll
-            teach.drag(self.cell, False)
+            hand.drag(self.cell, False)
         self.cell.arm = dict(self.cell.arm, drag=False)
         why = self.cell.ready_to_move()
         if why:
@@ -89,7 +98,7 @@ class Bringup:
 
     def loosen(self) -> None:
         if self.cell.arm_error is None:
-            teach.loosen(self.cell)
+            hand.loosen(self.cell)
 
     # ------------------------------------------------------------------ the sections
     def sections(self) -> List[Section]:
@@ -502,9 +511,9 @@ class Bringup:
             self.ready()
             cyc = self.cyc()
             F = c.layout()["fixtures"]
-            free = [s for s in F["hotel"].get("active_slots", []) if cyc.store.s.contents.get(s) != "full"]
+            free = [s for s in F["hotel"].get("active_slots", []) if cyc.store.s.contents.get(s) != "full" and reachable(cyc, s)]
             if not free:
-                raise Refused("no free hotel slot to put the plate in")
+                raise Refused("no free hotel slot the arm can reach to put the plate in")
             slot = random.choice(free)
             out, _ = cyc._steps(slot)
             P0, P90 = F["polar"]["pose_at_0"]["pose"], F["polar"]["pose_at_90"]["pose"]

@@ -109,16 +109,6 @@ class FakeVision:
     def add_relation(self, *a, **k):
         return []
 
-    def start_vision_teach(self, cur_pose, *a, **k):
-        """The box finds the plate under the hovering gripper and returns the grip pose 25 mm below it."""
-        pose = list(cur_pose)
-        pose[2] -= 25.0
-        return {"job": "fake", "pose": pose, "has_error": self.teach_fails, "ready": True, "finished": True,
-                "progress": 100, "image": jpeg(5), "error": "no plate seen" if self.teach_fails else ""}
-
-    fine_tune_vision_teach = start_vision_teach
-    teach_fails = False
-
 
 def layout() -> dict:
     """layout.json with the taught values replaced by ones the simulator can reach."""

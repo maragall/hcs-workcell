@@ -8,9 +8,8 @@ Camera calibration for the Nova vision box, replacing the vendor's Windows tool.
     synth        the marker rendered through known files, for validation and a fake box
     upload       SFTP both files to the box, reboot it
     verify       the box's own marker reading from two poses
-    teach_free   the vendor manual section 5 teach/trigger/relation flow
     validate     `python -m calibration.validate`: render through the vendor's files, solve back, compare
 
 Only numpy, cv2, scipy, pillow, paramiko. Nothing here imports a device module except capture,
-verify and teach_free, which take the device objects as arguments.
+verify, which take the device objects as arguments.
 """

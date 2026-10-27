@@ -1,6 +1,6 @@
 """
-The `calibration` package's interface, faked: what the Cameras tab calls on --sim. Pictures come from the frame
-buffer; the numbers are well inside the vendor's limits so the tab can be clicked through.
+The `calibration` package's interface, faked: what the setup calls on --sim. Pictures come from the frame
+buffer; the numbers are well inside the vendor's limits so the setup can run through.
 
     calibration.plan.around(here, check) -> poses
     calibration.capture.run_plan(poses, camera, robot, box, out_dir, led, stop=) -> n
@@ -8,7 +8,6 @@ buffer; the numbers are well inside the vendor's limits so the tab can be clicke
     calibration.solve.run(folder, start, marker_size_m) -> Result   .reprojection_px .mean_error_m .images .write(dir)
     calibration.upload.credentials(layout); .push(host, camera, camparam_path, camintool_path, creds); .reboot(host, creds)
     calibration.verify.check(box, camera, robot, pose_a, pose_b, marker_id, led) -> delta_mm
-    calibration.teach_free.add(box, mode, teach_pose, trigger_pose, camera, name)
 """
 from __future__ import annotations
 
@@ -69,4 +68,3 @@ halcon = SimpleNamespace(CamParam=SimpleNamespace(read=lambda path: None))
 solve = SimpleNamespace(run=_run)
 upload = SimpleNamespace(credentials=lambda layout: {}, push=lambda host, camera, a, b, creds: None, reboot=lambda host, creds: None)
 verify = SimpleNamespace(check=lambda box, camera, robot, pose_a, pose_b, marker_id=1, led=0: 0.4)
-teach_free = SimpleNamespace(add=lambda box, mode, teach_pose, trigger_pose, camera, name: None)

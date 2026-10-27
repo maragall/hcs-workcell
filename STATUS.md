@@ -34,7 +34,7 @@
   open to the taught value (vendor behaviour, 3 s instead of 10). First hand test on the table: 1.64, "much tighter".
 - 03:30 to 04:05 the controller's gripper torque readout is working: BioyondWorks 1.1 installed on this PC
   (`C:\Bioyond\RobStudio`), a stand-alone Lua probe (`lua/torque_probe/`, importable `TorqueProbe.bin`) published to
-  the controller (the vendor's project exported first by the operator as "original-bioyond"), `torque_probe.py` reads
+  the controller (the vendor's project exported first by the operator as "original-bioyond"), `tools/torque_probe.py` reads
   width and torque at 10 Hz over the JSON port.
 - Result: holding torque is 70 % of rated after EVERY close method (one command, stepped, SDK or Lua, target 1.45 or
   0.8): the servo pushes at its configured cap. Stepping never weakened the grip; the soft feel was the drag-mode
@@ -119,7 +119,7 @@ ova_cell_runs (43.8 GB) with a junction at nova_cell/runs; C: has 49.8 GB free a
 ## Built (nova_cell/, git, 4 commits, tests green)
 vision client, robot adapter (+simulator), safety (box, z floors, 1 mm deviation stop), lower-check gate,
 state machine with resume refusal, predictor (pre-checks + drift), corrector (budgets), trajectory
-record/normalise, telemetry, cycle, CLI, 5 offline tests, review_queue.py, DESIGN.md, README.md.
+record/normalise, telemetry, cycle, CLI, 5 offline tests, tools/review_queue.py, DESIGN.md, README.md.
 
 ## In progress (background)
 - Lua module mod_Cell.lua + data_cell.lua for the controller, template-conformant (agent drafting).

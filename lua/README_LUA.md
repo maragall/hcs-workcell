@@ -5,7 +5,7 @@
 The PC cannot read the gripper servo's torque: the .NET SDK and the JSON port report positions only. The controller
 can (manual A.4.18 `GetCJointsTrq`, A.4.19 `GetCJointsNormTrq`, A.10.5 `GripperEmptyDet`). `torque_probe/` is a
 stand-alone two-file program that publishes the E1 width and torque through the integer system variables ten times a
-second and executes jaw-only requests; the arm never moves. PC side: `python torque_probe.py watch|close|open|burst`.
+second and executes jaw-only requests; the arm never moves. PC side: `python tools/torque_probe.py watch|close|open|burst`.
 
 BioyondWorks 1.1.20251009 is installed on the cell PC (`C:\Bioyond\RobStudio\BR.PC.App.RobStudio.exe`, 2026-10-20).
 Default login per manual 3.3: admin / Admin@123. Its `Odin/user/__lif.lua` is the vendor Lua library the controller
@@ -14,7 +14,7 @@ defaults: ctrl_mode 0, trq_thr 0.25, pos_thr 0.0005, default_trq 0.75.
 
 Import (BioyondWorks): open the V3.9 template project, Program library > Import `mod_TorqueProbe.lua`,
 overwrite `main.lua` with `torque_probe/main.lua` (keep every other template file), Publish, switch to auto, enable,
-Run. On the PC `python torque_probe.py watch` must show the heartbeat counting; if `lua_ready` stays false the program
+Run. On the PC `python tools/torque_probe.py watch` must show the heartbeat counting; if `lua_ready` stays false the program
 is not running. Restore the template `main.lua` when done with the probe.
 
 What the manual says about force (Appendix B.1, page 57-58): the gripper module has a config file with
@@ -36,9 +36,9 @@ Measured 2026-10-20 04:00 with the probe published and running (production plate
   program (remoteStop), move with the SDK, start it again (switchToAuto, remoteEnable, remoteStart, ~3 s) to read.
 - BioyondWorks holds the single SDK session while it is open: close it before running anything on port 52525.
 - The `SendSysOutVarI` push reaches one client only; with BioyondWorks connected the PC sees none, and
-  `torque_probe.py` falls back to the request variable returning to 0.
+  `tools/torque_probe.py` falls back to the request variable returning to 0.
 
-Requests (`torque_probe.py` writes SYSINVAR0..3, reads the `SendSysOutVarI(1/2)` push): 21 close to W mm then
+Requests (`tools/torque_probe.py` writes SYSINVAR0..3, reads the `SendSysOutVarI(1/2)` push): 21 close to W mm then
 `GripperEmptyDet` verdict + holding torque; 22 open to W; 23 force close (experimental); 24 set clamp force (torque
 mode only); 25 one-second torque burst, peak returned.
 

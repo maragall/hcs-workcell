@@ -1,7 +1,7 @@
 """
 Aggregate every run's events.jsonl into cycle, step and fault statistics.
 
-    python analyze_runs.py [--since 20261015_0300] [--out runs/analysis.json]
+    python tools/analyze_runs.py [--since 20261015_0300] [--out runs/analysis.json]
 """
 import argparse
 import json
@@ -9,7 +9,7 @@ import os
 import statistics as st
 from collections import Counter, defaultdict
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))     # the repo root; this file is in tools/
 RUNS = os.path.join(HERE, "runs")
 
 

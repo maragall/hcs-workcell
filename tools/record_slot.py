@@ -1,10 +1,10 @@
 """Record the current TCP pose as a hotel slot seat (fixtures.hotel.taught.<slot>), with joints, jaw, stage
-reading and both camera frames. Usage: python record_slot.py A1"""
+reading and both camera frames. Usage: python tools/record_slot.py A1"""
 import os
 import sys
 import time
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))     # the repo root; this file is in tools/
 sys.path.insert(0, HERE)
 import cli as R  # noqa: E402
 from devices.vision_box import VisionClient  # noqa: E402

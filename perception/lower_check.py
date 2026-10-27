@@ -28,17 +28,6 @@ from PIL import Image, ImageFilter
 PATCH = (160, 120)          # work at low resolution: robust to noise, fast, and lighting-tolerant after normalisation
 
 
-def _prep_raw(img_bytes: bytes, roi: Optional[Tuple[float, float, float, float]] = None) -> np.ndarray:
-    im = Image.open(io.BytesIO(img_bytes)).convert("L")
-    if roi:  # fractional crop (x0, y0, x1, y1)
-        w, h = im.size
-        im = im.crop((int(roi[0] * w), int(roi[1] * h), int(roi[2] * w), int(roi[3] * h)))
-    a = np.asarray(im.resize(PATCH, Image.BILINEAR), dtype=np.float32)
-    a -= a.mean()
-    s = a.std()
-    return a / s if s > 1e-6 else a
-
-
 def _prep(img_bytes: bytes, roi: Optional[Tuple[float, float, float, float]] = None) -> np.ndarray:
     """Edge magnitude with local contrast normalisation: insensitive to room lighting (day/night), which raw
     intensity correlation was not. Validated on 304 logged hotel frames: 100 % day and night, margin >= 0.24."""

@@ -1,5 +1,5 @@
 """The calibration package: the marker rendered through the vendor's files and solved back, the file formats
-byte-compared, the plan, capture on the fakes, upload on a mocked SFTP, verify and teach-free on a fake box."""
+byte-compared, the plan, capture on the fakes, upload on a mocked SFTP, verify on a fake box."""
 from __future__ import annotations
 
 import glob
@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
-from calibration import capture, halcon, marker, plan, solve, synth, teach_free, upload, validate, verify  # noqa: E402
+from calibration import capture, halcon, marker, plan, solve, synth, upload, validate, verify  # noqa: E402
 from devices.fake_arm import SimRobot  # noqa: E402
 from devices.vision_box import ArucoPose  # noqa: E402
 
@@ -194,45 +194,13 @@ def test_upload_refuses_without_credentials():
     assert upload.credentials({"vision": {"ssh": {"user": "pi", "key_path": "/k"}}})["key_path"] == "/k"
 
 
-# ------------------------------------------------------------------ verify and teach-free on a fake box
-class TeachBox:
-    def __init__(self):
-        self.calls, self.stored = [], []
-
+# ------------------------------------------------------------------ verify on a fake box
+class MarkerBox:
     def aruco_pose(self, camera, marker_id=1, marker_size_m=None, led=0):
         return ArucoPose([0, 0, 0, 0], [0] * 6, [300.0, -50.0, 20.0, 0, 0, 0], "robot")
-
-    def positions(self, workspace="autoteach", ptype="all"):
-        return [dict(type=t, name=n) for t, n in self.stored]
-
-    def delete_position(self, name, ptype, workspace="autoteach"):
-        self.calls.append(("delete", name, ptype))
-        self.stored.remove((ptype, name))
-
-    def add_teach(self, name, pose, pick="wide", workspace="autoteach"):
-        self.calls.append(("teach", name, list(pose), pick, workspace))
-        self.stored.append(("teach", name))
-
-    def add_trigger(self, name, pose, camera, marker="aruco", marker_mm=150, pick="wide", workspace="autoteach", led=0):
-        self.calls.append(("trigger", name, list(pose), camera, marker, marker_mm, pick, workspace, led))
-        self.stored.append(("trigger", name))
-
-    def add_relation(self, trigger_name, teach_name, relation_name, pick="wide", workspace="autoteach"):
-        self.calls.append(("relation", trigger_name, teach_name, relation_name, pick, workspace))
 
 
 def test_verify_reports_the_marker_drift_between_two_poses():
     robot = SimRobot([0, 0, 0, 0, 0, 0])
-    assert verify.check(TeachBox(), "auto_teach_camera", robot, [100, 0, 50, 0, 0, 0], [120, 0, 50, 0, 0, 0]) == 0.0
+    assert verify.check(MarkerBox(), "auto_teach_camera", robot, [100, 0, 50, 0, 0, 0], [120, 0, 50, 0, 0, 0]) == 0.0
     assert len(robot.trace) == 2
-
-
-def test_teach_free_add_stores_teach_trigger_relation():
-    box = TeachBox()
-    box.stored.append(("teach", "slot-teach"))
-    names = teach_free.add(box, "long", [1, 2, 3, 0, 0, 0], [4, 5, 6, 0, 0, 0], "auto_teach_camera", "slot")
-    assert names == {"teach": "slot-teach", "trigger": "slot-trigger", "relation": "slot-rel"}
-    assert [c[0] for c in box.calls] == ["delete", "teach", "trigger", "relation"]
-    assert box.calls[2][6] == "long" and box.calls[3][1:4] == ("slot-trigger", "slot-teach", "slot-rel")
-    with pytest.raises(ValueError):
-        teach_free.add(box, "narrow", [0] * 6, [0] * 6, "auto_teach_camera", "x")

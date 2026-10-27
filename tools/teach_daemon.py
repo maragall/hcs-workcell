@@ -2,7 +2,7 @@
 Teach daemon: holds the one SDK connection open and records poses on demand, so a teach session is
 "write a word, read a line" instead of a fresh connect per pose.
 
-    python teach_daemon.py            # runs until the command "quit"
+    python tools/teach_daemon.py            # runs until the command "quit"
     commands (one word in runs/teach_cmd.txt):
         A1 | A9 | B1 | C1 | C9 ...    hotel slot seat   -> fixtures.hotel.taught.<slot> (6-list)
         microscope | polar.pose_at_0 | polar.pose_at_90 | hotel.rack_front ...   -> fixtures.<path>.pose
@@ -14,7 +14,7 @@ import os
 import sys
 import time
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))     # the repo root; this file is in tools/
 sys.path.insert(0, HERE)
 import cli as R  # noqa: E402
 from devices.vision_box import VisionClient  # noqa: E402

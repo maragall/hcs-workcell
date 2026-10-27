@@ -1,9 +1,9 @@
 """
-The cell as the screens see it: the two devices, the positions file, one job at a time on the arm, the live
-readout at the top of every page, STOP, and the operator questions a procedure may ask.
+The cell the setup program works on: the two devices, the positions file, the live readout of the arm, and the notes
+of what the program did or refused.
 
 Nothing is cached from the positions file: every read is positions.load, every change positions.save, so the
-procedures (which write learned poses themselves) and the screen never disagree.
+procedures (which write learned poses themselves) and the setup never disagree.
 """
 from __future__ import annotations
 
@@ -11,68 +11,29 @@ import collections
 import os
 import threading
 import time
-import traceback
 from typing import Callable, Optional
 
 from procedures import positions
-from procedures.cycle import Cycle
-from procedures.state import StateStore
 from procedures.telemetry import Telemetry
 
-from gui import discover
-from gui.frames import FrameSource
+from bringup import discover
+from bringup.frames import FrameSource
 
 READOUT_S = 0.5
-
-
-def plain_error(e: Exception) -> str:
-    """One line for the page. A missing or null value in the positions file would otherwise show as "'pose'" or
-    "'NoneType' object is not subscriptable"."""
-    if isinstance(e, (KeyError, TypeError, IndexError)):
-        return f"a value is missing in layout.json ({type(e).__name__} {e}); `python cli.py positions` and `preflight` list what is not taught"
-    return str(e) or type(e).__name__
-
-
-class Questions:
-    """A yes/no the procedure thread waits on while the page shows it. No answer in time means no."""
-
-    def __init__(self):
-        self.pending: Optional[dict] = None
-        self._answer, self._event, self._lock = "n", threading.Event(), threading.Lock()
-
-    def ask(self, question: str, timeout_s: float) -> str:
-        with self._lock:
-            self.pending = {"text": question, "since": time.time()}
-            self._event.clear()
-        answered = self._event.wait(timeout_s)
-        with self._lock:
-            self.pending = None
-            return self._answer if answered else "n"
-
-    def answer(self, yes: bool) -> None:
-        with self._lock:
-            self._answer = "y" if yes else "n"
-            self._event.set()
 
 
 class Cell:
     def __init__(self, layout_path: str, ref_dir: str, state_dir: str, runs_dir: str, robot, vision, sim: bool):
         self.layout_path, self.ref_dir, self.state_dir, self.runs_dir = layout_path, ref_dir, state_dir, runs_dir
         self.robot, self.vision, self.sim = robot, vision, sim
-        self.tele = Telemetry(os.path.join(runs_dir, time.strftime("gui_%Y%m%d_%H%M%S")))
+        self.tele = Telemetry(os.path.join(runs_dir, time.strftime("setup_%Y%m%d_%H%M%S")))
         self.log = self.tele.log
         self.stop_event = threading.Event()
-        self.questions = Questions()
         self.notes = collections.deque(maxlen=30)     # (t, text): what the program last did or refused
         self.arm: dict = {"ok": False, "error": "not connected"}
         self.arm_error: Optional[str] = None
         self.vision_error: Optional[str] = None
-        self.devices: list = []                       # rows of the Setup table, from discover()
-        self.busy: Optional[str] = None               # the running job's label
-        self._job: Optional[threading.Thread] = None
-        self.run = None                               # gui.runs.Run while plates move
-        self._relax = False                           # the arm was loose before the job now starting: loosen it after
-        self.checks: dict = {}                        # latest results of the Test screen
+        self.devices: list = []                       # what discover() found: arm, vision box, rotation module, microscope
         L = self.layout()
         v = L["vision"]
         self.frames = FrameSource(vision, {"down": v["down_camera"], "front": v["front_camera"]},
@@ -99,40 +60,28 @@ class Cell:
             self.arm_error = None
         except Exception as e:
             self.arm_error = str(e)
-            self.log("gui", "arm", f"not connected: {e}")
+            self.log("setup", "arm", f"not connected: {e}")
         try:
             self.vision.status()
             self.vision_error = None
         except Exception as e:
             self.vision_error = str(e)
-            self.log("gui", "vision", f"not reachable: {e}")
+            self.log("setup", "vision", f"not reachable: {e}")
         self.frames.start()
         threading.Thread(target=self._readout, daemon=True, name="readout").start()
 
     def stop_file_seen(self) -> bool:
-        """runs/STOP, the file run_forever.py and cli.py run end on: while a job runs it is a STOP press."""
-        if self.busy and os.path.exists(os.path.join(self.runs_dir, "STOP")) and not self.stop_event.is_set():
+        """runs/STOP, the file run_forever.py and cli.py run end on: while the setup runs it is a STOP."""
+        if os.path.exists(os.path.join(self.runs_dir, "STOP")) and not self.stop_event.is_set():
             self.stop()
             self.note(f"{os.path.join(self.runs_dir, 'STOP')} is present; delete it to run again")
             return True
         return False
 
-    def start_up(self) -> None:
-        """Connect both devices (reads only, nothing moves), then fill the Setup table."""
-        self.connect()
-        self.discover()
-        self.loosen_arm()
-
-    def loosen_arm(self) -> None:
-        """Default state of the arm: loose (hand-guided). Skipped while the arm is not connected or already loose."""
-        from gui import teach
-        if self.arm_error is not None or self.arm.get("drag"):
-            return
-        try:
-            teach.loosen(self)
-            self.arm = dict(self.arm, drag=True)
-        except Exception as e:
-            self.note(f"could not leave the arm loose: {plain_error(e)}")
+    def stop(self) -> None:
+        """STOP: the setup ends at its next step."""
+        self.stop_event.set()
+        self.note("STOP")
 
     def _readout(self) -> None:
         while True:
@@ -149,7 +98,7 @@ class Cell:
             time.sleep(READOUT_S)
 
     def discover(self) -> None:
-        """Fill the Setup table; found addresses go into the positions file."""
+        """Find the devices; found addresses go into the positions file."""
         L = self.layout()
         if self.sim:
             st = self.vision.status()
@@ -186,15 +135,6 @@ class Cell:
              "state": squid.get("error", "software present") if "error" in squid else
              "software present; the arm pretends to image until Squid is wired in"}]
 
-    def set_squid_folder(self, folder: str) -> str:
-        """Remember where the Squid software is (the Browse button); returns a plain line saying what was found."""
-        root = discover.squid_root(folder)
-        if not root:
-            return f"{folder} has no Squid software in it (looking for control/microscope.py, here or in software/)"
-        self.edit(lambda L: L.setdefault("squid_software", {}).update(folder=folder))
-        self.discover()
-        return f"Squid software found in {root}"
-
     def connect_arm_again(self) -> None:
         try:
             self.robot.connect()
@@ -218,74 +158,17 @@ class Cell:
         except Exception as e:
             return f"no reading: {e}"
 
-    # --------------------------------------------------------------------- jobs
-    def start(self, label: str, fn: Callable[[], None]) -> bool:
-        """One job at a time: the arm is one resource. False when something else is running."""
-        if self._job and self._job.is_alive():
-            self.note(f"busy: {self.busy}")
-            return False
-        self.stop_event.clear()
-        self.busy = label
-        relax, self._relax = self._relax, False        # ready_to_move locked a loose arm for this job
-
-        def work():
-            try:
-                fn()
-            except Exception as e:
-                self.log("gui", label, f"failed: {e!r}", trace=traceback.format_exc())
-                self.note(f"{label}: {plain_error(e)}")
-            finally:
-                if relax:                               # the arm's resting state is loose: back to it, fault or not
-                    try:
-                        self.arm = dict(self.arm, drag=False)
-                        self.loosen_arm()
-                    except Exception as e:
-                        self.note(f"could not leave the arm loose: {plain_error(e)}")
-                self.busy = None
-
-        self._job = threading.Thread(target=work, daemon=True, name=label)
-        self._job.start()
-        return True
-
     def note(self, text: str) -> None:
         self.notes.append((time.time(), text))
-        self.log("gui", "note", text)
-
-    def stop(self) -> None:
-        """STOP: every procedure ends at its next step, a pending question is answered no, a run is told to stop."""
-        self.stop_event.set()
-        self.questions.answer(False)
-        if self.run:
-            self.run.stop()
-        self.note("STOP pressed")
-
-    # ------------------------------------------------------------ a procedure
-    def cycle(self, scope: str = "microscope", mode: str = "supervised", tag: str = "gui") -> Cycle:
-        """A Cycle for teaching and tests, on a throwaway ledger, taking its frames from the buffer and answering
-        its questions on the page."""
-        run_dir = os.path.join(self.runs_dir, f"{tag}_{time.strftime('%Y%m%d_%H%M%S')}")
-        store = StateStore(os.path.join(run_dir, "state.json"))
-        cyc = Cycle(self.layout(), self.robot, self.vision, Telemetry(run_dir), store, mode, run_dir, self.ref_dir,
-                    scope=scope, layout_path=self.layout_path, stop_event=self.stop_event, frame_source=self.frames)
-        cyc.corr.ask = self.questions.ask
-        return cyc
+        self.log("setup", "note", text)
 
     def ready_to_move(self) -> Optional[str]:
-        """Why the arm may not move now, or None."""
+        """Why the arm may not move now, or None. A loose arm is locked and enabled first."""
         if not self.arm.get("ok"):
             return f"arm not connected: {self.arm.get('error')}"
-        if self.arm.get("drag"):                      # the arm starts loose: a step that moves it locks it first
-            from gui import teach
-            teach.drag(self, False)
-            self.arm = dict(self.arm, drag=False)
-            self._relax = True
+        if self.arm.get("drag"):
+            from bringup import hand
+            hand.drag(self, False)
         if not self.arm.get("enabled") and not self.robot.enable():
             return "the arm could not be enabled"
         return None
-
-    def state(self) -> dict:
-        last = self.notes[-1] if self.notes else None
-        return {"sim": self.sim, "busy": self.busy, "arm": self.arm, "devices": self.devices,
-                "message": {"t": time.strftime("%H:%M:%S", time.localtime(last[0])), "text": last[1]} if last else None,
-                "question": self.questions.pending,
-                "frames": {k: self.frames.latest(c) is not None for k, c in self.frames.cameras.items()}}

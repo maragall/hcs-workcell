@@ -32,15 +32,15 @@ Four packages plus the main loop. Each box calls only the boxes below it; `perce
   marker from two poses. `python3 -m calibration.validate` renders the marker through the vendor's files in
   `vendor_data/` and solves it back (`synth.py`). `cli.py calibrate <camera> read|capture|upload|check`.
 - `bringup/` (`python cli.py setup [--sim] [--from SECTION]`): the one-click setup as a terminal program. `runner.py` prints the
-  steps and waits for Enter on the user's; `sections.py` is the sections in order, each line calling what the GUI, `Cycle` and
-  `exercise` already call; `geometry.py` the arithmetic (stage seat from the practice plate's marker). `perception/hotel_size.py`
+  steps and waits for Enter on the user's; `sections.py` is the sections in order, each line calling what `cli.py`, `Cycle` and
+  `exercise` already call; `geometry.py` the arithmetic (stage seat from the practice plate's marker); `cell.py` the two devices, the positions file
+  and the arm's readout; `cameras.py` the calibration steps; `hand.py` the arm loose or locked. `perception/hotel_size.py`
   tells 15 from 30 slots by pictures. Tests: `tests/test_bringup.py`.
 - `routes/`: `plan.py` picks a taught trajectory or lift / travel at `routes.safe_z_mm` / lower, every leg checked;
   `Motion.move_to(position)` executes it, to the hover only. `cli.py goto NAME` drives it by hand.
-- `gui/` (`python gui.py [--sim]`): the setup program, one page on http.server: Setup, Cameras, Teach, Test. Calls the
-  same functions as cli.py, run.py and exercise.py; stores nothing of its own (layout.json through `positions`). One
-  frame buffer (`gui/frames.py`) feeds the page, the recorder and the checks (`Cycle(frame_source=...)`).
-  `tools/screenshots.py` makes `docs/gui/*.png` and `setup-walkthrough.gif` on the simulator. Tests: `tests/test_gui.py`.
+- `tools/`: standalone scripts that are not part of the loop: `analyze_runs.py`, `build_refs_from_runs.py`, `record_slot.py`,
+  `teach_daemon.py`, `torque_probe.py`, `run_matrix.py`, `review_queue.py`, `placement_diagram.py` (redraws `docs/placement.png`).
+  There is no GUI: `python cli.py setup` replaces it, `python cli.py recover` is its Recover button.
 - Stage safety, two layers, no clocks. Keep-out: `regions.stage_sweep` (`keep_out: true`), the stage's travel envelope at
   its closest approach to the arm; `Safety` refuses any target, segment or joint move whose tool point, elbow or links
   (elbow via `routes_opt/fk`) enter it. Interlock: `run.py` homes the stage and waits for `parked()` inside the arm lock;
