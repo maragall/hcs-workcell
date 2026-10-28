@@ -46,7 +46,8 @@ class Runner:
         return answer
 
     def run(self, sections: List[Section], start: Optional[str] = None, start_step: int = 0,
-            pause_at_user: bool = False, skip: Optional[List[str]] = None) -> Optional[str]:
+            pause_at_user: bool = False, skip: Optional[List[str]] = None,
+            stop_after: Optional[int] = None) -> Optional[str]:
         """Returns None when everything ran, else the name of the section that stopped (for --from). With
         pause_at_user the run stops before each step the user does (`self.waiting` = (section, index of the next step))
         so a driver can ask the user in chat and continue with start_step."""
@@ -89,6 +90,9 @@ class Runner:
                         return sec.name
                     if got:
                         self.say("      -> " + ", ".join(f"{k} = {v}" for k, v in got.items()))
+                    if n == 0 and stop_after is not None and i == stop_after:
+                        self.say(f"   (stopped after step {i} of {sec.name}, as asked)")
+                        return None
         except (Quit, EOFError):
             self.say("   quit")
             return current

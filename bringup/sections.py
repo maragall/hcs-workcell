@@ -16,10 +16,12 @@ import random
 import time
 from typing import Callable, List, Optional
 
+import numpy as np
+
 import exercise
 from bringup import geometry
 from bringup.runner import Refused, Section, Step
-from bringup import bench, cameras, hand
+from bringup import bench, cameras, hand, servo
 from perception.hotel_rows import HotelRows
 from procedures import cad_poses
 from procedures.corrector import StopSafe
@@ -34,6 +36,7 @@ SEARCH_HEIGHTS = 4                # heights tried below the microscope hover, hi
 BAND_BELOW, BAND_ABOVE = 0.1, {"short_edges": 0.5, "long_edges": 1.05}     # as gripper.accept_band was set 2026-10-22
 RESEATS = 3                       # carry, seat and re-grip cycles in the grips section
 ACQUISITION_TIMEOUT_S = 600
+TAG_VIEW_MARGIN_MM = 5.0         # headroom under the workspace top for the stage view
 SIZE_ROWS = (2, 4)                # rows where a 15-slot hotel has no shelf and a 30-slot one has
 VIEW_SEARCH_MM = ((0, 0), (25, 0), (-25, 0), (0, 25), (0, -25), (25, 25), (-25, -25), (25, -25), (-25, 25), (50, 0), (-50, 0))   # along, across the claw
 VIEW_LIFTS_MM = (0, 60, 120)      # heights above the seat hover the view is tried at (the camera has to focus on the plate)
@@ -93,6 +96,29 @@ class Bringup:
         why = self.cell.ready_to_move()
         if why:
             raise Refused(why)
+
+    def tag_height(self) -> float:
+        """Where the module's tag reference is taken from: straight above the module's grip pose, as high as the same view over
+        the stage still fits under the workspace top (the stage seat is higher than the module's by SEAT_RISE). Both pictures
+        are then taken from straight above a grip pose at the same height over the plate, which the microscope zone allows
+        (only vertical moves there), and the tag, 71 mm ahead of the camera's axis at the seat, is in the picture."""
+        L = self.cell.layout()
+        rise = L["fixtures"][self.scope]["pose"][2] - L["fixtures"]["polar"]["pose_at_0"]["pose"][2]
+        return round(L["workspace_box"]["z"][1] - rise - TAG_VIEW_MARGIN_MM, 1)
+
+    def _servo(self) -> "servo.Servo":
+        """The aruco servo (bringup/servo.py): the down camera's picture of the plate tag and small checked moves of the wrist. It
+        needs no camera calibration: the tag's place is the arm's pose when the tag looks as it did at the reference."""
+        c, v = self.cell, self.cell.layout()["vision"]
+        cyc = self.cyc()
+        read = servo.corner_reader(lambda: c.vision.frame_full(v["down_camera"], v["led"]))
+
+        def move(dx, dy, dyaw):
+            h = c.robot.pose()
+            self.guard(lambda: cyc.go_to([h[0] + dx, h[1] + dy, h[2], h[3], h[4], h[5] + dyaw], "servo"))
+            p = c.robot.pose()
+            return (p[0], p[1], p[5])
+        return servo.Servo(read, move, get_pose=lambda: (lambda p: (p[0], p[1], p[5]))(c.robot.pose()))
 
     def module_view_pose(self, along: float = 0.0, across: float = 0.0, lift: float = 0.0) -> List[float]:
         """The wrist pose that puts the down camera over the module's plate: the taught seat's wrist pose moved along
@@ -296,29 +322,39 @@ class Bringup:
         c = self.cell
 
         def read_plate():
+            """The aruco plate on the module, by servo: its tag as the camera sees it at the view pose is the reference for the
+            stage; on a later run the servo finds the tag again and the difference is how far the plate moved."""
             self.ready()
             L = c.layout()
-            v, F = L["vision"], L["fixtures"]["polar"]
-            self.view_module()
-            a = c.vision.aruco_pose(v["down_camera"], F.get("aruco_marker_id", 1), None, v["led"])
-            target = [float(x) for x in a.target]
-            ref = F.get("aruco_reference")
-            if ref:
-                off = c.vision.pose_offset(v["down_camera"], ref, v["workspace"], F.get("aruco_marker_id", 1), None, v["led"])
-                dx, dy, dyaw = float(off.d[0]), float(off.d[1]), float(off.d[5])
-            else:                                                  # no box reference yet: the first read is the nominal
-                nominal = self.setup_node(L).get("module_marker")
-                dx, dy, dyaw = ((target[0] - nominal[0], target[1] - nominal[1], target[5] - nominal[5]) if nominal else (0.0, 0.0, 0.0))
-            rel = geometry.grip_in_marker_frame(target, F["pose_at_0"]["pose"])
-            offset_ = [round(dx, 3), round(dy, 3), round(dyaw, 3)]
-            self.found.update(module_marker=target, plate_offset=offset_, marker_to_grip=rel)
+            P0 = L["fixtures"]["polar"]["pose_at_0"]["pose"]
+            grip = (P0[0], P0[1], P0[5])
+            self.view_module()                                           # finds the plate; then straight above its grip pose, high
+            self.guard(lambda: self.cyc().go_to([P0[0], P0[1], self.tag_height(), P0[3], P0[4], P0[5]], "tag view"))
+            s = self._servo()
+            try:
+                corners, view = s.observe()
+            except servo.ServoError as e:
+                raise Refused(f"the tag is not in the picture from straight above the module's grip pose: {e}")
+            prev = self.setup_node(L).get("module_tag")
+            try:
+                if prev:
+                    got = s.align(np.array(prev["corners"], float), start_pose=view)
+                    offset_ = [round(v, 3) for v in servo.plate_offset(tuple(prev["view"]), got.pose, grip)]
+                    ref, ref_view = np.array(prev["corners"], float), tuple(prev["view"])
+                else:
+                    offset_, ref, ref_view = [0.0, 0.0, 0.0], corners, view
+            except servo.ServoError as e:
+                raise Refused(f"the servo could not find the plate tag again on the module: {e}")
+            tag = {"corners": ref.tolist(), "view": list(ref_view), "grip": list(grip),
+                   "view_z": round(float(c.robot.pose()[2]), 3), "grip_z": float(P0[2])}
+            self.found.update(module_tag=tag, plate_offset=offset_)
 
             def write(L):
                 n = self.setup_node(L)
-                n.update(plate_offset=offset_, marker_to_grip=rel, plate_offset_at=_stamp())
-                n.setdefault("module_marker", target)
+                n.update(plate_offset=offset_, plate_offset_at=_stamp())
+                n.setdefault("module_tag", dict(tag, taken_at=_stamp()))
             self.edit(write)
-            return {"plate_offset": offset_}
+            return {"plate_offset": offset_, "tag": "reference taken" if not prev else "found again"}
 
         return Section("swap", [
             Step("nova", "detect aruco on the plate in the rotation module with the down camera", read_plate, moves=True),
@@ -413,6 +449,12 @@ class Bringup:
 
         def limits():
             cfg = c.layout()["squid"][self.scope]
+            if not getattr(self.squid, "motorized", True):
+                # no motors: the stage stands at home (the real height) and never moves, so there is no travel to limit,
+                # no axis to map and nothing to park; home is where it is
+                park = [round(float(v), 3) for v in self.squid.position()]
+                self.edit(lambda L: L["squid"][self.scope].update(park_xy_mm=park, park_tolerance_mm=cfg.get("park_tolerance_mm") or 0.5))
+                return {"stage": "no motors, stays at home", "park_xy": park}
             lim = cfg.get("stage_limits_mm")
             if not lim:
                 raise Refused(f"squid.{self.scope}.stage_limits_mm is not set in layout.json: [[x min, x max], [y min, y max]] "
@@ -424,45 +466,63 @@ class Bringup:
                     "stage_sweep_box": "not set: needs the Squid-to-arm axis mapping"}
 
         def find_marker():
+            """The stage tag, by the servo's measure-only mode: from the taught hover the arm goes straight up or down (the only
+            moves the microscope zone allows) to the height where the camera sees the tag at the scale it had at the module,
+            reads it, and the offset from the module's picture says where the plate stands, to a fraction of a millimetre."""
             self.ready()
             L = c.layout()
+            tag = self.found.get("module_tag") or self.setup_node(L).get("module_tag")
+            if not tag:
+                raise Refused("needs the aruco tag taken on the module first (the swap section)")
             cyc = self.cyc()
-            top = L["workspace_box"]["z"][1]
-            v = L["vision"]
             if not self._parked():
                 raise Refused("the stage is not parked: home Squid first")
-            # the microscope zone is entered along the taught route, to the hover, and only vertically from there
             self.guard(lambda: cyc.move_to("polar.pose_at_0"))          # the taught route starts at the module hover
             self.guard(lambda: cyc.move_to(self.scope))
-            hx, hy, hz, *rest = cyc._position(self.scope)
-            heights = [top - (top - hz) * i / max(SEARCH_HEIGHTS - 1, 1) for i in range(SEARCH_HEIGHTS)]
+            hx, hy, hz, rx, ry, hyaw = cyc._position(self.scope)
+            seat = L["fixtures"][self.scope]["pose"]
+            z_same = seat[2] + (tag["view_z"] - tag["grip_z"])        # the module view's height above the plate, over the stage plate
+            top = L["workspace_box"]["z"][1]
+            heights = [z_same] if hz - 1 <= z_same <= top else []     # the same height over the plate as at the module: the same picture scale
+            s = self._servo()
+            ref = np.array(tag["corners"], float)
+            got, last = None, "the tag is not in the picture"
             for z in heights:
-                self.guard(lambda: cyc._move("L", [hx, hy, z] + rest, f"setup:search z{z:.0f}", cyc.safety.profile.approach))
+                self.guard(lambda z=z: cyc._move("L", [hx, hy, z, rx, ry, hyaw], f"setup:look z{z:.0f}", cyc.safety.profile.approach))
                 try:
-                    a = c.vision.aruco_pose(v["down_camera"], 1, None, v["led"])
-                except Exception:
+                    est = s.estimate(ref)
+                except servo.ServoError as e:
+                    last = str(e)
                     continue
-                if any(a.pixel):
-                    self.found["stage_marker"] = [float(t) for t in a.target]
-                    self.guard(lambda: cyc._move("L", [hx, hy, hz] + rest, "setup:back to the hover", cyc.safety.profile.approach))
-                    return {"marker at": [round(t, 1) for t in a.target[:3]], "seen from z": round(z)}
-            self.guard(lambda: cyc._move("L", [hx, hy, hz] + rest, "setup:back to the hover", cyc.safety.profile.approach))
-            raise Refused("no aruco seen below the microscope hover from any height: check the aruco plate is in the holder and the "
-                          "microscope stands on the marked area (a microscope far from the taught place needs a new route)")
+                got = (z, est)
+                break
+            self.guard(lambda: cyc._move("L", [hx, hy, hz, rx, ry, hyaw], "setup:back to the hover", cyc.safety.profile.approach))
+            if got is None:
+                raise Refused(f"no aruco tag seen over the stage ({last}): check the aruco plate is in the holder and the "
+                              "microscope stands on the marked area (a microscope far from the taught place needs a new route)")
+            z, est = got
+            self.found["stage_view"] = (hx + est.offset[0], hy + est.offset[1], hyaw + est.offset[2])
+            self.found["stage_estimate"] = {"offset": [round(v, 3) for v in est.offset], "residual_px": round(est.residual_px, 2),
+                                            "warning": est.warning, "seen_from_z": round(z), "same_height_z": round(z_same)}
+            if est.warning:
+                self.cell.note(f"the stage tag estimate: {est.warning}")
+            return {"tag offset": [round(v, 2) for v in est.offset], "residual px": round(est.residual_px, 2), "seen from z": round(z)}
 
         def seat():
-            m = self.found.get("stage_marker")
-            rel = self.found.get("marker_to_grip") or c.layout().get("setup", {}).get("marker_to_grip")
-            if m is None or rel is None:
-                raise Refused("needs the aruco read on the module (swap section) and on the stage")
+            tag = self.found.get("module_tag") or c.layout().get("setup", {}).get("module_tag")
+            view = self.found.get("stage_view")
+            if view is None or tag is None:
+                raise Refused("needs the aruco tag taken on the module (swap section) and measured on the stage")
             old = c.layout()["fixtures"][self.scope]["pose"]
-            new = geometry.seat_from_marker(m, rel, old[5] if old else 0.0, old or [0, 0, 0, 0, 0, 0])
-            moved = round(geometry.moved_mm(old, new), 2) if old else None
+            x, y, yaw = servo.transfer_grip(tuple(tag["view"]), view, tuple(tag["grip"]))
+            yaw = old[5] + geometry.wrap(yaw - old[5]) if abs(geometry.wrap(yaw - old[5])) <= 90 else old[5] + geometry.wrap(yaw - old[5] + 180.0)
+            new = [round(x, 3), round(y, 3), old[2], old[3], old[4], round(yaw, 3)]
+            moved = round(geometry.moved_mm(old, new), 2)
             reach = c.layout()["regions"]["microscope"].get("max_lateral_mm", 2.0)      # the taught route must still end at the hover
-            if moved is not None and moved > reach:
+            if moved > reach:
                 raise Refused(f"the seat found is {moved} mm from the taught one, beyond the taught route's reach "
                               f"({reach} mm); a route to a moved microscope is not planned yet. Nothing changed")
-            keep = moved is not None and moved <= SEAT_MOVED_KEEP_MM
+            keep = moved <= SEAT_MOVED_KEEP_MM
 
             def write(L):
                 f = L["fixtures"][self.scope]
@@ -470,7 +530,8 @@ class Bringup:
                     if f.get("pose"):
                         f[f"previous_pose_{time.strftime('%Y_%m_%d')}"] = {"pose": f["pose"]}
                     f["pose"], f["taught_at"] = new, _stamp()
-                self.setup_node(L).update(microscope={"seat_pose": f["pose"], "moved_mm": moved, "found_at": _stamp()})
+                self.setup_node(L).update(microscope={"seat_pose": f["pose"], "moved_mm": moved, "found_at": _stamp(),
+                                                      "estimate": self.found.get("stage_estimate")})
             self.edit(write)
             return {"seat_pose": old if keep else new, "moved_mm": moved, "found_at": _stamp()}
 
@@ -489,14 +550,34 @@ class Bringup:
 
         return Section("microscope.toml", [
             Step("computer", "read the stage travel limits from squid", limits),
-            Step("polar", "descend from the highest allowed height over the scope and look for the aruco", find_marker, moves=True),
-            Step("computer", "seat_pose from the aruco on the stage and the module's marker-to-grip", seat),
+            Step("polar", "over the scope, straight down to the height the module view had over the plate, and measure the aruco tag", find_marker, moves=True),
+            Step("computer", "seat_pose from the tag on the stage, carried from the module's tag and grip pose", seat),
             Step("polar", "leave the scope zone for the module", route, moves=True),
             Step("polar", "drive the route with the empty hand", drive, moves=True)])
 
     # ---- clear the stage
     def clear_stage(self) -> Section:
-        return Section("clear the stage", [Step("user", "remove the aruco plate from the microscope stage", before=self.loosen)])
+        c = self.cell
+
+        def look():
+            """After the user took the plate off: look down at the stage from the hover; the aruco must be gone."""
+            self.ready()
+            v = c.layout()["vision"]
+            cyc = self.cyc()
+            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
+            self.guard(lambda: cyc.move_to(self.scope))
+            try:
+                seen = any(c.vision.aruco_pose(v["down_camera"], 1, None, v["led"]).pixel)
+            except Exception:
+                seen = False
+            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
+            if seen:
+                raise Refused("the aruco plate is still on the microscope stage: take it off, then run again from \"clear the stage\"")
+            return {"stage": "clear"}
+
+        return Section("clear the stage", [
+            Step("user", "remove the aruco plate from the microscope stage", before=self.loosen),
+            Step("polar", "look down at the stage: the aruco must be gone", look, moves=True)])
 
     # ---- system_state.json
     def system_state(self) -> Section:

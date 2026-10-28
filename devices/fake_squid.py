@@ -11,6 +11,10 @@ from typing import Optional
 
 
 class FakeSquid:
+    """The Squid without motors: it stands at its home position (the real height), nothing moves, nothing can home.
+    `motorized` is False, so the setup asks nothing about stage travel, axes or a park position."""
+    motorized = False
+
     def __init__(self, name: str, acquisition_s: float = 0.0, log=None):
         self.name, self.acquisition_s = name, acquisition_s
         self._log = log or (lambda *a: None)

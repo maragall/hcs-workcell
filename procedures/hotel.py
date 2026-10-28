@@ -31,7 +31,8 @@ def plate_order(layout: dict):
     return interleave(*([f"{col}{row}" for row in rows] for col, rows in loaded.items()))
 
 
-MIN_LIFT_MM = 12.0          # least the plate is raised above its seat to clear the slot's rails
+STAGE_MM = 45.0              # planned mode: the approach is made from a point this far in front of it, where the plate is outside the rack
+MIN_LIFT_MM = 4.0           # least the plate is raised above its seat: the trays are flat, nothing to clear but the surface
 
 
 class Hotel:
@@ -60,12 +61,20 @@ class Hotel:
         return self._cad
 
     def _lift_for(self, seat: List[float]) -> float:
-        """The carry lift above a seat: fixtures.hotel.lift_mm, less where the workspace ends first (the top row: its seat is
-        at 416 and the box ends at 435). A lift under MIN_LIFT_MM does not clear the slot's rails."""
-        lift = min(self.L["fixtures"]["hotel"]["lift_mm"], self.safety.box["z"][1] - seat[2] - 1.0)
+        """The carry lift above a seat: fixtures.hotel.lift_mm, less where the workspace ends first (the top row: its seat is at
+        416 and the box ends at 435), less where the gap between two trays ends first. The gap is the row pitch times the step
+        between the rows in use, less the tray: 30 mm in a 30-slot hotel (trays 8 mm on a 38 mm pitch), 68 in a 15-slot one; the
+        plate, with its lid, has to fit it, so the 25 mm that suits 15 slots would put the plate into the tray above in 30."""
+        h = self.L["fixtures"]["hotel"]
+        rows = sorted(h["rows"])
+        step = min((b - a for a, b in zip(rows, rows[1:])), default=1)
+        gap = h.get("tray_pitch_mm", 38.0) * step - h.get("tray_thickness_mm", 8.0)
+        plate = self.L["plate"]
+        fits = gap - (plate.get("height_with_lid") or plate["height"]) - h.get("tray_clearance_mm", 1.5)
+        lift = min(h["lift_mm"], self.safety.box["z"][1] - seat[2] - 1.0, fits)
         if lift < MIN_LIFT_MM:
-            raise SafetyViolation(f"the seat at z {seat[2]:.0f} leaves {lift:.0f} mm of lift under the workspace top "
-                                  f"({self.safety.box['z'][1]:.0f}); a plate needs {MIN_LIFT_MM:.0f} mm to clear the rails")
+            raise SafetyViolation(f"the seat at z {seat[2]:.0f} leaves {lift:.0f} mm of lift (workspace top {self.safety.box['z'][1]:.0f}, "
+                                  f"gap between trays {gap:.0f} mm); the plate needs {MIN_LIFT_MM:.0f} mm to clear the tray")
         return lift
 
     def _hotel_geometry(self, slot: str):
@@ -102,6 +111,13 @@ class Hotel:
         hotel's volume with the claw and the plate in it (routes/volumes.py), not replayed from the taught route A."""
         return self.L["fixtures"]["hotel"].get("pose_source") == "cad"
 
+    def _hotel_stage(self, approach: List[float]) -> Optional[List[float]]:
+        """The point STAGE_MM in front of an approach point, unless that is beside the arm's own axis (the B column's is):
+        a pose that near the axis is a singularity for the turn."""
+        from routes_opt import fk
+        stage = offset(approach, [-STAGE_MM, 0, 0])
+        return stage if ((stage[0] - fk.MODEL["x0"]) ** 2 + (stage[1] - fk.MODEL["y0"]) ** 2) ** 0.5 >= 40.0 else None
+
     def _hotel_go_to_approach(self, slot: str, step: str):
         """Route A end -> junction -> (retreat, climb) -> approach point of the slot, all at carry height. Planned: from
         wherever the arm is straight to the approach point, around the hotel."""
@@ -111,7 +127,15 @@ class Hotel:
             if max(abs(self.robot.pose()[i] - approach[i]) for i in range(3)) <= 5.0:     # resuming at the approach point
                 self.resuming = False
                 return
-            self.go_to(approach, f"hotel approach {slot}")
+            stage = self._hotel_stage(approach)
+            if stage is None:
+                self.go_to(approach, f"hotel approach {slot}")
+                return
+            # The claw turns, and the plate in it swings, at the stage point: outside the rack, at the height of the slot's
+            # approach. One gap between two trays holds one plate, so a turn at any other height with the plate's front in the
+            # rack hits a tray (the dry run found it at the module's hover height over A1). From there the slide is straight in.
+            self.go_to(stage, f"hotel stage {slot}")
+            self._move("L", approach, f"{step} approach", prof.approach)
             return
         foot, top = self._hotel_climb(slot)
         junction = self._hotel_junction(slot)
@@ -131,7 +155,10 @@ class Hotel:
         """Approach point -> (descend at the climb column) -> junction, ready for route A reversed."""
         prof = self.safety.profile
         if self._planned():
-            return                                   # the next move plans its own way from the approach point
+            stage = self._hotel_stage(self._hotel_geometry(slot)[1])
+            if stage is not None:                    # back out to where the plate is outside the rack; the next move plans from there
+                self._move("L", stage, f"{step} back to the stage point", prof.approach)
+            return
         foot, top = self._hotel_climb(slot)
         if foot is not None:
             self._move("L", top, f"{step} back to column", prof.approach)

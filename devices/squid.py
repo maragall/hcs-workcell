@@ -41,6 +41,11 @@ class Squid:
             # the controller calls this when the acquisition is complete (same hook the GUI uses)
             controller.callbacks = dataclasses.replace(controller.callbacks, signal_acquisition_finished=self._on_finished)
 
+    @property
+    def motorized(self) -> bool:
+        """A real Squid has stage motors: the setup needs its stage limits, park position and axes."""
+        return True
+
     def _need(self, what):
         if what is None:
             raise SquidNotWired(f"{self.name}: build the Squid microscope and MultiPointController where Squid runs "

@@ -19,6 +19,15 @@ from bringup.cell import Cell  # noqa: E402
 from perception.hotel_rows import HotelRows  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def restore_the_servo_reader():
+    """world_markers swaps the servo's camera for a simulated one; put the real one back after each test."""
+    from bringup import servo
+    real = servo.corner_reader
+    yield
+    servo.corner_reader = real
+
+
 def world_markers(cell, stage_shift=(0.0, 0.0)):
     """The practice plate's marker as the box would read it: on the module it sits 3 mm and 2 mm off the grip point,
     on the stage the same plate sits at the microscope seat (plus stage_shift, a microscope that moved)."""
@@ -28,12 +37,49 @@ def world_markers(cell, stage_shift=(0.0, 0.0)):
     module = [p0[0] - 3.0, p0[1] + 2.0, p0[2] - 20.0, 0, 0, p0[5] + 30.0]
     stage = [seat[0] - 3.0 + stage_shift[0], seat[1] + 2.0 + stage_shift[1], seat[2] - 20.0, 0, 0, seat[5] + 30.0]
 
+    cell.stage_plate = True                    # the user takes the plate off the stage in the clear-stage section
+
     def aruco_pose(camera, marker_id=1, size=None, led=0):
         here = cell.robot.pose()
         near_module = (here[0] - p0[0]) ** 2 + (here[1] - p0[1]) ** 2 < (here[0] - seat[0]) ** 2 + (here[1] - seat[1]) ** 2
+        if not near_module and not cell.stage_plate:
+            return ArucoPose([0.0, 0.0, 0.0, 0.0], [0.0] * 6, [0.0] * 6, "robot", None)
         return ArucoPose([1.0, 1.0, 1.0, 1.0], [0.0] * 6, list(module if near_module else stage), "robot", None)
 
     cell.vision.aruco_pose = aruco_pose
+
+    # the aruco servo's camera: the tag as a down camera 115 mm ahead of the wrist and 34 mm to the side would see it, for the
+    # plate on the module (its centre 186.5 mm ahead of the grip wrist, like the real cell) or on the stage; nothing in between
+    import numpy as np
+    from bringup import servo
+    from tests.test_servo import World, rot
+
+    def plate_at(grip, shift=(0.0, 0.0)):
+        d = rot(grip[5]) @ np.array([186.5 - 3.0, 2.0])
+        return np.array([grip[0] + d[0] + shift[0], grip[1] + d[1] + shift[1], grip[5] + 30.0])
+
+    module_plate, stage_plate = plate_at(p0), plate_at(seat, stage_shift)
+
+    def corner_reader(get_frame, edge_px=20):
+        def read():
+            here = cell.robot.pose()
+            near_module = (here[0] - p0[0]) ** 2 + (here[1] - p0[1]) ** 2 < (here[0] - seat[0]) ** 2 + (here[1] - seat[1]) ** 2
+            if not near_module and not cell.stage_plate:
+                return None
+            w = World(module_plate if near_module else stage_plate, [here[0], here[1], here[5]], noise_px=0.2, noise_mm=0.0)
+            w.HEIGHT = 230.0                                     # the tag view is high: the camera sees 69 mm off its axis
+            return w.read()
+        return read
+    servo.corner_reader = corner_reader
+
+
+def run_all(cell, todo, runner):
+    """Every section, with the user taking the aruco plate off the stage before the clear-stage section looks."""
+    stopped = runner.run(todo.sections()[:6])
+    if stopped:
+        return stopped
+    cell.stage_plate = False
+    return runner.run(todo.sections(), "clear the stage")
 
 
 def make(answers=None):
@@ -81,7 +127,7 @@ def test_a_row_is_learned_from_a_yes_then_recognised(tmp_path):
 
 def test_the_whole_setup_runs_on_the_simulator():
     cell, todo, runner, said, asked = make()
-    stopped = runner.run(todo.sections())
+    stopped = run_all(cell, todo, runner)
     text = "\n".join(said)
     assert stopped is None, text
     L = cell.layout()
@@ -138,8 +184,30 @@ def test_a_hotel_with_no_grip_offset_is_refused_with_what_to_measure():
     cell.frames.stop()
 
 
-def test_the_microscope_without_stage_limits_is_refused_before_the_arm_moves():
+def test_a_squid_without_motors_needs_no_stage_limits_axes_or_park_position():
     cell, todo, runner, said, asked = make()
+    L = cell.layout()
+    L["squid"]["microscope"]["stage_limits_mm"] = None
+    L["squid"]["microscope"].pop("park_xy_mm", None)
+    cell.save(L)
+    assert todo.squid.motorized is False
+    assert runner.run(todo.sections()[:6]) is None, "\n".join(said)
+    assert any("no motors, stays at home" in line for line in said)
+    assert cell.layout()["squid"]["microscope"]["park_xy_mm"] == [0.0, 0.0]
+    cell.frames.stop()
+
+
+def test_the_clear_stage_section_refuses_while_the_aruco_plate_is_still_on_the_stage():
+    cell, todo, runner, said, asked = make()
+    assert runner.run(todo.sections()[:6]) is None, "\n".join(said)
+    assert runner.run(todo.sections(), "clear the stage") == "clear the stage"      # the plate was never taken off
+    assert any("still on the microscope stage" in line for line in said)
+    cell.frames.stop()
+
+
+def test_a_squid_with_motors_without_stage_limits_is_refused_before_the_arm_moves():
+    cell, todo, runner, said, asked = make()
+    todo.squid.motorized = True
     L = cell.layout()
     L["squid"]["microscope"]["stage_limits_mm"] = None
     cell.save(L)
@@ -153,7 +221,8 @@ def test_a_microscope_that_moved_beyond_the_taught_route_is_refused_and_nothing_
     before = cell.layout()["fixtures"]["microscope"]["pose"]
     world_markers(cell, stage_shift=(30.0, 0.0))
     assert runner.run(todo.sections()) == "microscope.toml"
-    assert any("beyond the taught route" in line for line in said)
+    # 30 mm off: either the tag has left the picture over the stage, or the offset found is beyond the zone's 2 mm
+    assert any("beyond the taught route" in line or "no aruco tag seen" in line for line in said)
     assert cell.layout()["fixtures"]["microscope"]["pose"] == before
     cell.frames.stop()
 
@@ -162,7 +231,7 @@ def test_a_seat_a_little_off_is_written_with_the_old_one_kept():
     cell, todo, runner, said, asked = make()
     before = cell.layout()["fixtures"]["microscope"]["pose"]
     world_markers(cell, stage_shift=(1.5, 0.0))
-    assert runner.run(todo.sections()) is None, "\n".join(said)
+    assert run_all(cell, todo, runner) is None, "\n".join(said)
     f = cell.layout()["fixtures"]["microscope"]
     assert f["pose"][0] == pytest.approx(before[0] + 1.5, abs=0.2)
     assert any(k.startswith("previous_pose_") for k in f)

@@ -30,6 +30,7 @@ from devices.fake_squid import FakeSquid  # noqa: E402
 from devices.squid import Squid  # noqa: E402
 from procedures import positions  # noqa: E402
 from procedures.corrector import StopSafe  # noqa: E402
+from procedures.recovery import is_motion_fault, mark, recover_to_nest  # noqa: E402
 from procedures.cycle import Cycle  # noqa: E402
 from procedures.hotel import plate_order  # noqa: E402
 from procedures.preflight import preflight  # noqa: E402
@@ -215,6 +216,12 @@ def main(argv=None) -> int:
         return 0
     except (StopSafe, SafetyViolation) as e:
         tele.log("stop", "safe", str(e), plates=cell.plates())
+        if is_motion_fault(str(e)):
+            outcome = recover_to_nest(robot, next(iter(cell.cycles.values())), tele.log)
+            marker = mark(os.path.dirname(tele.run_dir), f"{e} | {outcome}")
+            tele.log("stop", "recovered", outcome)
+            print(f"\nSTOPPED after a collision or controller fault: {e}\n{outcome}.\nThe loop does not continue; {marker} "
+                  "keeps a supervisor from relaunching. Look at the cell, then delete that file.", flush=True)
         return 2
     except Exception as e:
         tele.log("stop", "crash", repr(e), plates=cell.plates())

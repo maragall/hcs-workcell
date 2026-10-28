@@ -507,7 +507,7 @@
           0
         ],
         "mm": 100.0,
-        "_note": "pre-approach 100 mm in -x of the slot at slot z + lift, yaw = slot yaw; slide +x without rotating; then lower"
+        "_note": "pre-approach 100 mm in -x of the slot at slot z + lift, yaw = slot yaw; slide +x without rotating; then lower. The B column's approach point is 36 mm from the arm's axis: the planner reaches it by a joint move (routes/plan.py)."
       },
       "lift_mm": 25.0,
       "max_lift_mm": 30,
@@ -701,7 +701,11 @@
           1.08
         ]
       },
-      "pose_source": "cad"
+      "pose_source": "cad",
+      "tray_pitch_mm": 38.0,
+      "tray_thickness_mm": 8.0,
+      "tray_clearance_mm": 1.5,
+      "_tray_note": "From the CAD: shelves 8 mm thick every 38 mm of row pitch. The carry lift is cut to what the gap between two trays allows (procedures/hotel.py _lift_for)."
     },
     "microscope_2": {
       "pose": null,
@@ -826,7 +830,8 @@
         ]
       },
       "hotel_front_allowance_mm": 45.0
-    }
+    },
+    "axis_keepout_mm": 60.0
   },
   "routes": {
     "safe_z_mm": null,

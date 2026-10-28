@@ -17,6 +17,9 @@ import time
 from collections import deque
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from procedures.recovery import is_motion_fault, mark  # noqa: E402
+
 RUNS = os.path.join(HERE, "runs")
 STATE = os.path.join(HERE, "state.json")
 
@@ -121,6 +124,10 @@ def main():
     stop_file = os.path.join(RUNS, "STOP")
     if os.path.exists(stop_file):
         os.remove(stop_file)
+    marker = os.path.join(RUNS, "COLLISION")
+    if os.path.exists(marker):
+        log(f"NOT starting: {marker} exists (a collision or controller fault stopped the last run). Look at the cell, then delete it.")
+        return 2
     relaunches = deque()
     first = True
     while True:
@@ -150,6 +157,15 @@ def main():
         if rc == 0 and st.get("step_done"):
             log("run finished its cycle budget; exiting")
             return 0
+        if rc != 0 and is_motion_fault(reason):
+            # a collision or controller fault: the arm goes to the nest (errors cleared, locked, the planner backs out of
+            # whatever it touched), the marker keeps this supervisor and any restart from going back in, and it ends here
+            out = subprocess.run([sys.executable, os.path.join(HERE, "cli.py"), "recover", "--nest"], cwd=HERE, capture_output=True,
+                                 text=True, errors="replace", env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+            outcome = (out.stdout.strip().splitlines() or ["no output"])[-1]
+            mark(RUNS, f"{reason} | {outcome}")
+            log(f"MOTION FAULT: {reason[:160]!r}; recover --nest: {outcome}. NOT relaunching; delete {marker} after looking at the cell.")
+            return 2
         ok, why = relaunch_allowed(rc, reason, st)
         now = time.time()
         while relaunches and now - relaunches[0] > 86400:

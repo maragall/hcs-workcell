@@ -21,7 +21,7 @@ from routes.volumes import Volumes
 from routes_opt import fk
 
 SINGULAR_MM = 60.0     # a wrist this close to the arm's own axis cannot make a straight move
-FOLD_MM = 30.0          # a target this close to the axis (the folded nest) is reached by a joint move, not a straight one
+FOLD_MM = 60.0          # a target this close to the axis (the folded nest, the B column's approach) is reached by a joint move, not a straight one
 UNFOLD_MM = 100.0      # where the joint move unfolds the arm to, along the line to the target
 
 
@@ -99,7 +99,7 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
             safety.check_segment(here, withdrawn, "withdraw")
             vol.relax = None
             here = withdrawn
-        vol.check_pose(target, "the target")
+        vol.check_pose(target, "the target", near_axis_ok=True)
     unfold = None
     if safe_z is None and vol.active and math.dist(here[:2], (fk.MODEL["x0"], fk.MODEL["y0"])) < SINGULAR_MM:
         # the wrist is beside the arm's own axis: a straight move from there is a singularity, the controller refuses

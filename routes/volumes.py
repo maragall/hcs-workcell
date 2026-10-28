@@ -34,6 +34,7 @@ class Volumes:
         if held:                                    # the plate in the claw is part of what moves
             self.footprint.append((held["x"], held["y"], True))
         self.front_allow = float((v.get("held") or {}).get("hotel_front_allowance_mm", 0.0))
+        self.axis_keepout = float(v.get("axis_keepout_mm", 0.0))
         self.safety = safety
         self.box = safety.box
         self.relax: Optional[List[float]] = None       # where the arm is now, if it already stands within the margin
@@ -88,7 +89,12 @@ class Volumes:
                 continue
         return None
 
-    def check_pose(self, p: List[float], label: str = "pose") -> None:
+    def check_pose(self, p: List[float], label: str = "pose", near_axis_ok: bool = False) -> None:
+        if self.axis_keepout and not near_axis_ok:
+            r = math.hypot(p[0] - fk.MODEL["x0"], p[1] - fk.MODEL["y0"])
+            if r < self.axis_keepout:
+                raise SafetyViolation(f"{label}: the wrist would be {r:.0f} mm from the arm's own axis; straight moves that close "
+                                      f"are a singularity the controller refuses (under {self.axis_keepout:.0f} mm)")
         m = -RELAX_SHRINK_MM if self.relax is not None and math.dist(p[:3], self.relax) <= RELAX_MM else None
         x, y, z, yaw = p[0], p[1], p[2], p[5]
         for px, py, held in self._claw_samples(x, y, yaw):
@@ -120,7 +126,7 @@ class Volumes:
             n = max(1, int(max(abs(jb[i] - ja[i]) for i in (1, 2, 3)) / 2.0))
             for k in range(n + 1):
                 p = fk.fk([ja[i] + k / n * (jb[i] - ja[i]) for i in range(4)])
-                self.check_pose([p[0], p[1], p[2], 0.0, 0.0, p[5]], f"{label} ({k}/{n})")
+                self.check_pose([p[0], p[1], p[2], 0.0, 0.0, p[5]], f"{label} ({k}/{n})", near_axis_ok=True)
 
     def check_leg(self, a: List[float], b: List[float], label: str = "leg") -> None:
         n = max(1, int(max(math.dist(a[:2], b[:2]), abs(b[2] - a[2]), abs(b[5] - a[5]) * 1.5) / SAMPLE_MM))
