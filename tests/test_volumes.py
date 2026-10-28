@@ -21,7 +21,7 @@ LAYOUT = json.load(open(os.path.join(os.path.dirname(HERE), "layout.json"), enco
 def make():
     L = copy.deepcopy(LAYOUT)
     L["routes"]["safe_z_mm"] = None
-    return L, Safety(L, "supervised", joints=lambda: [150.0, 30.0, -90.0, 0.0])    # the elbow branch of the taught routes
+    return L, Safety(L, "supervised", joints=lambda: [62.6, 31.738, -126.448, 3.447])    # the module hover, standard branch (taught)
 
 
 def test_the_pose_that_crashed_the_arm_is_inside_the_hotel_for_the_claw_though_not_for_the_wrist():
@@ -73,10 +73,14 @@ def test_the_way_from_the_module_to_a_hotel_slot_is_planned_with_and_without_a_p
                 continue                       # beside the arm's axis a 283 mm plate has no way in: B is for the empty claw
             ap = _approach(L, slot)
             route = planner.plan(L, safety, hover, ap, None, f"hotel approach {slot}", holding=holding)
-            vol, prev = Volumes(L, safety, holding), hover
+            vol, prev, pj = Volumes(L, safety, holding), hover, None
             for i, p in enumerate(route.poses):
-                joint = (i == 0 and route.first_joint) or (i == len(route.poses) - 1 and route.last_joint)
-                (vol.check_joint_leg if joint else vol.check_leg)(prev, p)      # a joint move is the planner's own way past the axis
+                if i in route.joint_targets:                                 # a joint move is the planner's own way past the axis
+                    vol.check_joint_leg(prev, p, start_actual=i == 0, joints_a=pj, joints_b=route.joint_targets[i])
+                    pj = route.joint_targets[i]
+                else:
+                    vol.check_leg(prev, p)
+                    pj = None          # (the straight legs' joints are the planner's own continuity)
                 prev = p
             assert route.poses[-1] == ap and not route.taught
 

@@ -75,8 +75,49 @@ class Motion:
         if self.safety.regions.get(r, {}).get("needs_parked") and not self.parked():
             raise StopSafe(f"{label}: the {r} stage is not parked; the arm stays out of the {r} zone")
 
+    def _turn_in_place(self, target: List[float], label: str, speed: float) -> None:
+        """A yaw change with the wrist staying put is joint 4 alone: turn it the way that stays inside its limits and clear of the
+        pillar and the hotel (procedures/turn.py), by joint values, or refuse before moving."""
+        from procedures import turn
+        from routes.volumes import Volumes
+        cur, ja = self.robot.pose(), list(self.robot.joints())
+        grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
+        vol = Volumes(self.L, self.safety, grip if grip and grip != "none" else None)
+        if vol.active:
+            vol.relax = cur[:3]
+
+        def clear_at(turned: float) -> Optional[str]:
+            if not vol.active:
+                return None
+            try:
+                vol.check_pose([cur[0], cur[1], cur[2], 0.0, 0.0, cur[5] + turned], label, near_axis_ok=True)
+            except SafetyViolation as e:
+                return str(e)[:90]
+            return None
+        try:
+            d = turn.choose(ja[3], target[5] - cur[5], clear_at)
+        except ValueError as e:
+            raise SafetyViolation(f"{label}: no way to turn the claw here: {e}. Turn it where there is room (away from the pillar, "
+                                  "the hotel and the microscope)")
+        jt = ja[:4]
+        jt[3] += d
+        self._check_parked(target, label)
+        self.robot.set_speed(speed)
+        t0 = time.time()
+        try:
+            self.robot.move_abs_joints_stepped(list(jt) + list(ja[4:]), 3.0)
+        except MotionRefused as e:
+            self._refused(label, e)
+        self._wait_still(label)
+        after = self.robot.pose()
+        self.tele.log("move", label, "turn", turned_deg=round(d, 1), actual=[round(v, 2) for v in after], dt=round(time.time() - t0, 2))
+        self.store.s.last_safe_pose = after
+
     def _move(self, kind: str, target: List[float], label: str, speed: float, allow_floor=()):
         here = self.robot.pose()
+        if (kind == "L" and max(abs(target[i] - here[i]) for i in range(3)) < 0.5 and abs(target[5] - here[5]) > 1.0
+                and len(here) > 5 and getattr(self.robot, "joints", None)):
+            return self._turn_in_place(target, label, speed)
         if kind == "L":
             self.safety.check_segment(here, target, label, allow_floor)
         else:
@@ -202,7 +243,7 @@ class Motion:
         arm's body into the pillar."""
         ja = list(self.robot.joints())
         branch = fk.elbow_sign(ja)
-        if joints:                                    # the pose's own joints (the nest): both elbow branches meet there
+        if joints:                                    # the planner's joints (a branch change goes through the nest)
             jt = list(joints[:4])
         else:
             jt = fk.ik(target, elbow=branch, j2_ref=ja[1], j3_ref=ja[2], j4_ref=ja[3])
@@ -261,8 +302,7 @@ class Motion:
             return
         for i, p in enumerate(route.poses, 1):
             label = f"move_to {name} [{i}/{len(route.poses)}]"
-            if (i == 1 and route.first_joint) or (i == len(route.poses) and route.last_joint):
-                self._move_joints_to(p, label, self.safety.profile.travel,
-                                     joints=route.last_joints if i == len(route.poses) and route.last_joint else None)
+            if (i - 1) in route.joint_targets:            # a joint leg: the planner's own joints, never a joint move to a pose
+                self._move_joints_to(p, label, self.safety.profile.travel, joints=route.joint_targets[i - 1])
             else:
                 self._move("L", p, label, self.safety.profile.travel)

@@ -13,6 +13,7 @@ import math
 from typing import Dict, List, Optional
 
 from procedures.safety import Safety, SafetyViolation
+from routes import joints as jt
 from routes_opt import fk
 
 SAMPLE_MM = 8.0          # footprint grid and leg sampling
@@ -23,7 +24,7 @@ RELAX_SHRINK_MM = 5.0
 
 
 class Volumes:
-    def __init__(self, layout: dict, safety: Safety, holding: Optional[str] = None):
+    def __init__(self, layout: dict, safety: Safety, holding: Optional[str] = None, cache: Optional[Dict[tuple, bool]] = None):
         v = layout.get("volumes") or {}
         self.margin = float(v.get("margin_mm", 10.0))
         self.obstacles: Dict[str, dict] = v.get("obstacles", {})
@@ -38,7 +39,12 @@ class Volumes:
         self.safety = safety
         self.box = safety.box
         self.relax: Optional[List[float]] = None       # where the arm is now, if it already stands within the margin
-        self._ok: Dict[tuple, bool] = {}
+        self._ok: Dict[tuple, bool] = cache if cache is not None else {}     # edge checks, shared by one plan() call
+        self.holding = holding
+        self.lim = jt.limits(layout)
+        actual = list(safety.joints()[:4]) if safety.joints else None
+        self.start_joints = actual                          # the arm's own joints when the planner knows them
+        self.branch = fk.elbow_sign(actual) if actual else None     # the elbow branch every straight leg of this plan is driven on
 
     @property
     def active(self) -> bool:
@@ -118,27 +124,59 @@ class Volumes:
                             raise SafetyViolation(f"{label}: the {part} at x={qx:.0f} y={qy:.0f} would be inside the {name}")
 
     def check_joint_leg(self, a: List[float], b: List[float], label: str = "joint leg", start_actual: bool = False,
-                        joints_b: Optional[List[float]] = None) -> None:
-        """A joint move (the arm unfolding from beside its own axis): the joints are interpolated, every sample's claw
-        and links are checked. Both elbow branches when the branch is unknown."""
-        actual = list(self.safety.joints()[:4]) if (start_actual and self.safety.joints) else None
-        for branch in ((fk.elbow_sign(actual),) if actual else self.safety._branches()):
-            ja = actual or self.safety._ik(a, branch, label)
-            jb = list(joints_b[:4]) if joints_b else self.safety._ik(b, branch, label, ref=ja)
+                        joints_b: Optional[List[float]] = None, branch_b: Optional[int] = None,
+                        joints_a: Optional[List[float]] = None) -> List[float]:
+        """A joint move (unfolding from beside the arm's own axis, folding in to the nest, changing elbow branch through the nest):
+        the joints are interpolated, every sample's claw and links are checked, the end joints must be inside the limits.
+        Starts at the arm's actual joints (`start_actual`), at `joints_a`, or at the IK of `a` on the current branch; ends at
+        `joints_b` or the IK of `b` on `branch_b` (default: the start's branch). Returns the end joints, which are the explicit
+        target the move must be driven to (never a joint move to a pose: the controller picks the branch itself)."""
+        actual = joints_a or (list(self.safety.joints()[:4]) if (start_actual and self.safety.joints) else None)
+        branches = ((fk.elbow_sign(actual),) if actual else self.safety._branches())
+        last = None
+        for branch in branches:
+            ja = list(actual) if actual else self.safety._ik(a, branch, label)
+            if joints_b:
+                jb = list(joints_b[:4])
+            else:
+                try:
+                    jb = jt.pose_joints(b, branch_b or branch, ja, self.lim)
+                except ValueError as e:
+                    raise SafetyViolation(f"{label}: {e}")
+            why = jt.inside(jb, self.lim)
+            if why:
+                raise SafetyViolation(f"{label}: the target joints are out of range: {why}")
             n = max(1, int(max(abs(jb[i] - ja[i]) for i in (1, 2, 3)) / 2.0))
             for k in range(n + 1):
                 p = fk.fk([ja[i] + k / n * (jb[i] - ja[i]) for i in range(4)])
                 self.check_pose([p[0], p[1], p[2], 0.0, 0.0, p[5]], f"{label} ({k}/{n})", near_axis_ok=True)
+            last = jb
+        return last
 
     def check_leg(self, a: List[float], b: List[float], label: str = "leg") -> None:
-        n = max(1, int(max(math.dist(a[:2], b[:2]), abs(b[2] - a[2]), abs(b[5] - a[5]) * 1.5) / SAMPLE_MM))
+        turn = fk.wrap180(b[5] - a[5])
+        if self.branch is not None:
+            start = None
+            if self.start_joints is not None:
+                here = fk.fk(self.start_joints)
+                if math.dist(here[:3], a[:3]) < 1.0 and abs(fk.wrap180(here[5] - a[5])) < 1.0:
+                    start = self.start_joints            # the leg leaves where the arm stands: it may sit outside the range already
+            why = jt.leg_feasible(a, b, self.branch, self.lim, start=start)
+            if why:
+                raise SafetyViolation(f"{label}: the controller could not drive this leg: {why}")
+            try:
+                turn = jt.leg_joints(a, b, self.branch, self.lim, start)[2]       # the direction the wrist really turns
+            except ValueError:
+                pass
+        n = max(1, int(max(math.dist(a[:2], b[:2]), abs(b[2] - a[2]), abs(turn) * 1.5) / SAMPLE_MM))
         for k in range(n + 1):
             t = k / n
-            self.check_pose([a[i] + t * (b[i] - a[i]) for i in range(6)], f"{label} ({k}/{n})")
+            self.check_pose([a[i] + t * (b[i] - a[i]) for i in range(5)] + [a[5] + t * turn], f"{label} ({k}/{n})")
 
     # ---- search
     def _leg_ok(self, a: List[float], b: List[float]) -> bool:
-        key = (round(a[0]), round(a[1]), round(b[0]), round(b[1]), round(a[2]), round(a[5]))
+        key = (self.holding, self.branch, tuple(round(v) for v in (self.relax or ())), round(a[0]), round(a[1]), round(b[0]),
+               round(b[1]), round(a[2]), round(a[5]), round(b[5]))
         if key not in self._ok:
             try:
                 self.safety.check_segment(a, b, "search")
