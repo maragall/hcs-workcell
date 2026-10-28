@@ -36,6 +36,7 @@ SEARCH_HEIGHTS = 4                # heights tried below the microscope hover, hi
 BAND_BELOW, BAND_ABOVE = 0.1, {"short_edges": 0.5, "long_edges": 1.05}     # as gripper.accept_band was set 2026-10-22
 RESEATS = 3                       # carry, seat and re-grip cycles in the grips section
 ACQUISITION_TIMEOUT_S = 600
+VIEW_DISTANCE_MM = 140.0         # camera height above the tag for the capture grid (calibration/plan.py tag_in_view)
 TAG_VIEW_MARGIN_MM = 5.0         # headroom under the workspace top for the stage view
 SEAT_MOVED_DROP_ROUTE_MM = 8.0       # a hover this far from the taught seat: the taught route belongs to another place
 STAGE_SEARCH_MM = ((0, 0), (35, 0), (-35, 0), (0, 35), (0, -35), (35, 35), (-35, 35), (35, -35), (-35, -35),
@@ -219,7 +220,7 @@ class Bringup:
             except Exception:
                 return None
             h, w = gray.shape
-            return corners.mean(axis=0), np.array([w / 2.0, h / 2.0])
+            return corners.mean(axis=0), np.array([w / 2.0, h / 2.0]), corners
 
         def nudge(dx, dy):
             h = c.robot.pose()
@@ -229,9 +230,9 @@ class Bringup:
             got = tag()
             if got is None:
                 raise Refused("the down camera does not see the whole tag to centre on it: is the aruco plate on the module, tag up?")
-            at, mid = got
+            at, mid = got[0], got[1]
             if np.linalg.norm(at - mid) <= tol_px:
-                return
+                return got[2]
             cols = []
             for ux, uy in ((1.0, 0.0), (0.0, 1.0)):
                 for sign in (1.0, -1.0):                  # the other way when the tag is near the picture's edge and leaves it
@@ -253,6 +254,26 @@ class Bringup:
         got = tag()
         if got is None or np.linalg.norm(got[0] - got[1]) > 3 * tol_px:
             raise Refused("could not centre the camera over the tag in 4 tries")
+        return got[2]
+
+    def view_for_capture(self) -> dict:
+        """Centre over the tag, go straight up until the camera is VIEW_DISTANCE_MM above it (so the whole tag stays in the picture over
+        the capture grid), centre again, and say where the tag is: {"tag_xy", "dist_mm"} for the capture plan's visibility check."""
+        import numpy as np
+        c, cyc = self.cell, self.cyc()
+        f_px = 2632.0                                         # the vendor lens: a tag's side in pixels gives its distance
+        corners = self.centre_on_tag()
+        side = float(np.mean([np.linalg.norm(corners[i] - corners[(i + 1) % 4]) for i in range(4)]))
+        dist = f_px * 40.0 / side
+        if abs(dist - VIEW_DISTANCE_MM) > 3.0:
+            h = c.robot.pose()
+            self.guard(lambda: cyc.go_to([h[0], h[1], h[2] + (VIEW_DISTANCE_MM - dist), h[3], h[4], h[5]], "capture height"))
+            corners = self.centre_on_tag()
+            side = float(np.mean([np.linalg.norm(corners[i] - corners[(i + 1) % 4]) for i in range(4)]))
+            dist = f_px * 40.0 / side
+        p, yaw = c.robot.pose(), math.radians(c.robot.pose()[5])
+        ahead = cad_poses.load_hardware()["claw"]["camera_ahead_of_wrist_mm"]
+        return {"tag_xy": [p[0] + ahead * math.cos(yaw), p[1] + ahead * math.sin(yaw)], "dist_mm": dist}
 
     def view_module(self) -> List[float]:
         """Take the camera over the module's plate and read the marker: the CAD pose first, then a small cross of
@@ -349,8 +370,8 @@ class Bringup:
             cameras.read_marker(c, "down")
             if node().get("marker") != "ok":
                 raise Refused("the down camera cannot read the aruco plate: clean the lens, check the plate is flat under the hand")
-            self.centre_on_tag()
-            got = self.guard(lambda: cameras.pictures(c, False, "down"))
+            view = self.view_for_capture()
+            got = self.guard(lambda: cameras.pictures(c, False, "down", view))
             return {"pictures": sum(got.values()), "captured_at": _stamp()}
 
         def solve():

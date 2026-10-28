@@ -14,7 +14,7 @@ import os
 import time
 from typing import List, Optional
 
-from procedures.safety import Safety
+from procedures.safety import Safety, SafetyViolation
 from routes.volumes import Volumes
 
 from bringup import calibration_fake
@@ -60,7 +60,7 @@ def _stamp() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def plan_around(cell, L: dict, here: List[float]) -> List[List[float]]:
+def plan_around(cell, L: dict, here: List[float], view: Optional[dict] = None) -> List[List[float]]:
     """The package's plan around where the arm is. Every pose is checked against the safe box and against the claw
     and links (routes/volumes.py: the fingers are 205 mm ahead of the wrist), and so is every leg between them, which
     the arm makes as straight moves; ends where it started."""
@@ -68,6 +68,8 @@ def plan_around(cell, L: dict, here: List[float]) -> List[List[float]]:
     vol = Volumes(L, s)
 
     def ok(p):
+        if view and list(p) != list(here) and not package(cell).plan.tag_in_view(p, here, view["tag_xy"], view["dist_mm"]):
+            raise SafetyViolation("the tag would not be whole in the picture")
         s.check_target(p, "capture plan")
         if vol.active:
             vol.check_pose(p, "capture plan")
@@ -125,7 +127,7 @@ def read_marker(cell, camera=None) -> None:
     cell.note("; ".join(said))
 
 
-def pictures(cell, by_hand: bool, camera=None) -> dict:
+def pictures(cell, by_hand: bool, camera=None, view: Optional[dict] = None) -> dict:
     """Pictures of the marker from around it for one camera (the arm drives the plan, or the user moves it by hand).
     Returns {camera name: number of pictures}."""
     calib, L = package(cell), cell.layout()
@@ -139,9 +141,14 @@ def pictures(cell, by_hand: bool, camera=None) -> dict:
             for name in os.listdir(folder):
                 if name.endswith((".png", ".json")):
                     os.remove(os.path.join(folder, name))
-        got[cam] = calib.capture.run_plan(None if by_hand else plan_around(cell, L, here), cam, cell.robot, cell.vision,
+        got[cam] = calib.capture.run_plan(None if by_hand else plan_around(cell, L, here, view), cam, cell.robot, cell.vision,
                                           folder, L["vision"]["led"], stop=cell.stop_event)
     return got
+
+
+# The tag tab (42 x 60 x 2 mm, 40 x 40 mm black frame) sits in a 2.2 mm pocket of the plate: its face is 0.2 mm below the plate's top
+# (drawings 视觉标定板带aruco v3.0 and aruco标定板).
+TAG_RECESS_MM = 0.2
 
 
 def marker_height_m(L: dict) -> Optional[float]:
@@ -151,7 +158,7 @@ def marker_height_m(L: dict) -> Optional[float]:
     try:
         from procedures import cad_poses
         top = cad_poses.load_hardware()["cad"]["rotation_module"]["top_y_c"]
-        return (top + L["volumes"]["z_offset_k"] + L["plate"]["height_practice"]) / 1000.0
+        return (top + L["volumes"]["z_offset_k"] + L["plate"]["height_practice"] - TAG_RECESS_MM) / 1000.0
     except (KeyError, TypeError, OSError):
         return None
 

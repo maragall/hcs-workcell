@@ -11,9 +11,21 @@ from __future__ import annotations
 
 from typing import Callable, List, Optional, Sequence
 
-STEP_MM = 40.0                       # x, y offsets; with the yaw swing this keeps the marker in view at 0.2 m
+STEP_MM = 20.0                       # x, y offsets: at 140 mm from the tag the picture holds the tag and about 35 mm of slack
 RISE_MM = (0.0, 25.0, 50.0)          # the three heights, up from the start
-YAW_DEG = (-15.0, -5.0, 5.0, 15.0)   # the camera sits 100 mm off the tool axis: larger yaws swing the marker out
+YAW_DEG = (-8.0, -3.0, 3.0, 8.0)     # the camera sits 115 mm off the tool axis: a yaw swings the view 2 mm per degree
+FOCAL_PX, HALF_VIEW_PX = 2632.0, 1232.0   # the down camera: focal length and half the picture's short side (vendor lens)
+CAMERA_AHEAD_MM, TAG_HALF_DIAG_MM = 115.0, 28.3
+
+
+def tag_in_view(pose: Sequence[float], here: Sequence[float], tag_xy: Sequence[float], dist_mm: float, slack: float = 0.85) -> bool:
+    """Whether the whole 40 mm tag is in the picture at `pose`, with the camera looking straight down. `tag_xy` is where the tag is
+    in the robot frame, `dist_mm` the camera's height above it when the wrist is at `here`."""
+    import math
+    yaw = math.radians(pose[5])
+    look = (pose[0] + CAMERA_AHEAD_MM * math.cos(yaw), pose[1] + CAMERA_AHEAD_MM * math.sin(yaw))
+    d = dist_mm + (pose[2] - here[2])
+    return math.hypot(tag_xy[0] - look[0], tag_xy[1] - look[1]) + TAG_HALF_DIAG_MM <= slack * HALF_VIEW_PX / FOCAL_PX * d
 
 
 def around(here: Sequence[float], check: Optional[Callable[[List[float]], None]] = None,

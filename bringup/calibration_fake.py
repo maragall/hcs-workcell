@@ -62,7 +62,7 @@ def _run(folder, start, marker_size_m, *args, marker_z_m=None, **kwargs):
     return Result(0.31, 0.0006, n)
 
 
-plan = SimpleNamespace(around=_around)
+plan = SimpleNamespace(around=_around, tag_in_view=lambda *a, **k: True)
 capture = SimpleNamespace(run_plan=_run_plan)
 halcon = SimpleNamespace(CamParam=SimpleNamespace(read=lambda path: None))
 solve = SimpleNamespace(run=_run)

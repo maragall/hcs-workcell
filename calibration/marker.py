@@ -52,10 +52,37 @@ def _order(quad: np.ndarray) -> np.ndarray:
 BORDER_CELLS = (1.0, 0.66, 0.8, 0.5)
 
 
+def _four_corners(contour: np.ndarray) -> Optional[np.ndarray]:
+    """The 4 corners of a dark blob: the outline's convex hull simplified until it has 4 points (glare on the black or a
+    shadow edge leaves notches that make the plain outline 6 or 8 points; the hull closes them)."""
+    hull = cv2.convexHull(contour)
+    for eps in (0.02, 0.03, 0.045, 0.06, 0.08):
+        quad = cv2.approxPolyDP(hull, eps * cv2.arcLength(hull, True), True)
+        if len(quad) == 4:
+            return quad
+        if len(quad) < 4:
+            return None
+    return None
+
+
 def _flatten(warped: np.ndarray) -> np.ndarray:
     """The warped tag with the slowly varying light divided out (glare, a shadow edge), stretched to 0..255."""
     f = warped.astype(np.float32) / (cv2.GaussianBlur(warped.astype(np.float32), (0, 0), warped.shape[0] / 5.0) + 1.0)
     return cv2.normalize(f, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+
+def _local_bits(warped: np.ndarray, means: np.ndarray, b: float, cell: float, ring: int) -> np.ndarray:
+    """The same cells with a threshold that follows the light across the tag (a shaded side dims the whites and the blacks together):
+    the black level at each cell is read from the border on its row and column, the white level is the bright cells' level."""
+    n = warped.shape[0]
+    lo = max(1, int(b * 0.2))
+    rows = [(warped[int(b + i * cell + cell * .3):int(b + i * cell + cell * .7), lo:ring].mean()
+             + warped[int(b + i * cell + cell * .3):int(b + i * cell + cell * .7), n - ring:n - lo].mean()) / 2 for i in range(4)]
+    cols = [(warped[lo:ring, int(b + j * cell + cell * .3):int(b + j * cell + cell * .7)].mean()
+             + warped[n - ring:n - lo, int(b + j * cell + cell * .3):int(b + j * cell + cell * .7)].mean()) / 2 for j in range(4)]
+    black = (np.array(rows)[:, None] + np.array(cols)[None, :]) / 2
+    white = float(np.percentile(means, 85))
+    return (means > black + 0.35 * np.maximum(white - black, 1.0)).astype(int)
 
 
 def _inner_codes(warped: np.ndarray, mid: float):
@@ -67,13 +94,13 @@ def _inner_codes(warped: np.ndarray, mid: float):
         edge = np.concatenate([warped[:ring].ravel(), warped[-ring:].ravel(), warped[:, :ring].ravel(), warped[:, -ring:].ravel()])
         if (edge > mid).mean() > 0.15:                # the border is black
             continue
-        bits = np.zeros((4, 4), int)
+        means = np.zeros((4, 4))
         for i in range(4):
             for j in range(4):
                 y0, x0 = b + i * cell, b + j * cell
-                patch = warped[int(y0 + cell * 0.3):int(y0 + cell * 0.7), int(x0 + cell * 0.3):int(x0 + cell * 0.7)]
-                bits[i, j] = int(patch.mean() > mid)
-        yield bits
+                means[i, j] = warped[int(y0 + cell * 0.3):int(y0 + cell * 0.7), int(x0 + cell * 0.3):int(x0 + cell * 0.7)].mean()
+        yield (means > mid).astype(int)
+        yield _local_bits(warped, means, b, cell, ring)
 
 
 def detect_plate_tag(gray: np.ndarray) -> np.ndarray:
@@ -88,8 +115,8 @@ def detect_plate_tag(gray: np.ndarray) -> np.ndarray:
     for c in sorted(contours, key=cv2.contourArea, reverse=True)[:12]:
         if cv2.contourArea(c) < 0.002 * gray.size:
             break
-        quad = cv2.approxPolyDP(c, 0.03 * cv2.arcLength(c, True), True)
-        if len(quad) != 4 or not cv2.isContourConvex(quad):
+        quad = _four_corners(c)
+        if quad is None:
             continue
         q = _order(quad.reshape(4, 2).astype(np.float32))
         h, w = gray.shape
