@@ -73,3 +73,16 @@ def test_move_to_on_the_simulator_ends_at_the_hover():
     finally:
         tele.close()
         shutil.rmtree(tmp)
+
+
+def test_the_microscope_zone_allows_sideways_moves_only_above_the_instrument():
+    L = layout()
+    s = Safety(L, "supervised")
+    zone = L["regions"]["microscope"]
+    x, y = (zone["box"]["x"][0] + zone["box"]["x"][1]) / 2, (zone["box"]["y"][0] + zone["box"]["y"][1]) / 2
+    low, high = zone["z_floor"] + 5, zone["free_above_z"] + 5
+    with pytest.raises(SafetyViolation, match="lateral"):
+        s.check_no_swing([x, y, low, 0, 0, 0], [x + 20, y, low, 0, 0, 0], "low")
+    s.check_no_swing([x, y, high, 0, 0, 0], [x + 20, y, high, 0, 0, 0], "high")
+    with pytest.raises(SafetyViolation, match="lateral"):                  # a move that starts above and ends below is not free
+        s.check_no_swing([x, y, high, 0, 0, 0], [x + 20, y, low, 0, 0, 0], "down and across")

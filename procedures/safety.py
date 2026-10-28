@@ -95,6 +95,9 @@ class Safety:
             r = self.region_of(p)
             if not self.regions.get(r, {}).get("no_swing"):
                 continue
+            free = self.regions[r].get("free_above_z")            # above the instrument's highest part the arm may move sideways
+            if free is not None and min(a[2], b[2]) >= free:
+                continue
             lateral = max(abs(b[0] - a[0]), abs(b[1] - a[1]))
             if lateral > self.regions[r].get("max_lateral_mm", 2.0):
                 raise SafetyViolation(f"{label}: {lateral:.1f} mm lateral move inside the {r} zone")

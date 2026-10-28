@@ -37,6 +37,7 @@ BAND_BELOW, BAND_ABOVE = 0.1, {"short_edges": 0.5, "long_edges": 1.05}     # as 
 RESEATS = 3                       # carry, seat and re-grip cycles in the grips section
 ACQUISITION_TIMEOUT_S = 600
 TAG_VIEW_MARGIN_MM = 5.0         # headroom under the workspace top for the stage view
+TAG_AHEAD_MM = 40.0              # both tag views are taken this far ahead of the grip pose along the claw: the tag is 60 mm in from the plate's near edge
 SIZE_ROWS = (2, 4)                # rows where a 15-slot hotel has no shelf and a 30-slot one has
 VIEW_SEARCH_MM = ((0, 0), (25, 0), (-25, 0), (0, 25), (0, -25), (25, 25), (-25, -25), (25, -25), (-25, 25), (50, 0), (-50, 0))   # along, across the claw
 VIEW_LIFTS_MM = (0, 60, 120)      # heights above the seat hover the view is tried at (the camera has to focus on the plate)
@@ -105,6 +106,12 @@ class Bringup:
         L = self.cell.layout()
         rise = L["fixtures"][self.scope]["pose"][2] - L["fixtures"]["polar"]["pose_at_0"]["pose"][2]
         return round(L["workspace_box"]["z"][1] - rise - TAG_VIEW_MARGIN_MM, 1)
+
+    @staticmethod
+    def tag_view_xy(pose: List[float]) -> List[float]:
+        """Where the camera is taken to see the tag: TAG_AHEAD_MM ahead of a grip pose along the claw."""
+        a = math.radians(pose[5])
+        return [pose[0] + TAG_AHEAD_MM * math.cos(a), pose[1] + TAG_AHEAD_MM * math.sin(a)]
 
     def _servo(self) -> "servo.Servo":
         """The aruco servo (bringup/servo.py): the down camera's picture of the plate tag and small checked moves of the wrist. It
@@ -331,7 +338,8 @@ class Bringup:
             self.view_module()                                           # finds the plate; then straight above its grip pose, high
             cyc = self.cyc()
             for turned in (False, True):
-                self.guard(lambda: cyc.go_to([P0[0], P0[1], self.tag_height(), P0[3], P0[4], P0[5]], "tag view"))
+                vx, vy = self.tag_view_xy(P0)
+                self.guard(lambda: cyc.go_to([vx, vy, self.tag_height(), P0[3], P0[4], P0[5]], "tag view"))
                 s = self._servo()
                 try:
                     corners, view = s.observe()
@@ -509,11 +517,16 @@ class Bringup:
             z_same = seat[2] + (tag["view_z"] - tag["grip_z"])        # the module view's height above the plate, over the stage plate
             top = L["workspace_box"]["z"][1]
             heights = [z_same] if hz - 1 <= z_same <= top else []     # the same height over the plate as at the module: the same picture scale
+            if not heights:
+                raise Refused(f"the module view's height over the plate would be z {z_same:.0f} over the stage, outside {hz:.0f}..{top:.0f}")
             s = self._servo()
             ref = np.array(tag["corners"], float)
+            vx, vy = self.tag_view_xy([hx, hy, hz, rx, ry, hyaw])
             got, last = None, "the tag is not in the picture"
             for z in heights:
+                # straight up to the module view's height over the plate, then sideways (allowed above the instrument), then look
                 self.guard(lambda z=z: cyc._move("L", [hx, hy, z, rx, ry, hyaw], f"setup:look z{z:.0f}", cyc.safety.profile.approach))
+                self.guard(lambda z=z: cyc._move("L", [vx, vy, z, rx, ry, hyaw], "setup:look ahead", cyc.safety.profile.approach))
                 try:
                     est = s.estimate(ref)
                 except servo.ServoError as e:
@@ -521,12 +534,13 @@ class Bringup:
                     continue
                 got = (z, est)
                 break
+            self.guard(lambda: cyc._move("L", [hx, hy, got[0] if got else heights[0], rx, ry, hyaw], "setup:back over the seat", cyc.safety.profile.approach))
             self.guard(lambda: cyc._move("L", [hx, hy, hz, rx, ry, hyaw], "setup:back to the hover", cyc.safety.profile.approach))
             if got is None:
                 raise Refused(f"no aruco tag seen over the stage ({last}): check the aruco plate is in the holder and the "
                               "microscope stands on the marked area (a microscope far from the taught place needs a new route)")
             z, est = got
-            self.found["stage_view"] = (hx + est.offset[0], hy + est.offset[1], hyaw + est.offset[2])
+            self.found["stage_view"] = (vx + est.offset[0], vy + est.offset[1], hyaw + est.offset[2])
             self.found["stage_estimate"] = {"offset": [round(v, 3) for v in est.offset], "residual_px": round(est.residual_px, 2),
                                             "warning": est.warning, "seen_from_z": round(z), "same_height_z": round(z_same)}
             if est.warning:

@@ -210,7 +210,9 @@
       "max_yaw_change_deg": 0.5,
       "_rule": "inside the zone only vertical linear moves with fixed yaw; elbow swings happen below y 152 or on the taught route",
       "needs_parked": true,
-      "_needs_parked_note": "the arm enters only while the microscope reports its stage parked (devices.squid parked); run.py homes the stage and waits for it inside the arm lock"
+      "_needs_parked_note": "the arm enters only while the microscope reports its stage parked (devices.squid parked); run.py homes the stage and waits for it inside the arm lock",
+      "free_above_z": 350.0,
+      "_free_above_z_note": "From the operator (2026-10-28), heights above the base: stage lips 210 mm, stage 190 mm, flatfield module 260 mm; the platform top is robot z 35.6 (CAD 93 + k), so the highest part is about robot z 296. The claw's lowest edge is the wrist z - 25: from wrist z 350 it clears everything by about 30 mm. Above this height the no-swing rule (vertical moves only) does not apply, so the camera can be moved sideways to see the tag."
     },
     "stage_sweep": {
       "box": null,
