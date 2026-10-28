@@ -55,13 +55,12 @@
     "footprint_mm": "not needed: the seat and the microscope zone are taught, the footprint is outside the arm's reach volumes"
   },
   "unresolved": [
-    "Hotel depth: 139.29 mm (operator) against 240 mm from the slot line to the hotel end (490 - 250).",
-    "Platform y: 400 mm, but the module sits 305 mm from the arm axis in y (the arm reaches it there) and column C at -137.5; where is the arm axis between the platform's two long edges?",
-    "Module x against column A: operator not sure; the slot line at 316 and the module seat at 317 suggest they are aligned.",
-    "Heights above the tool point: hotel top, module top, arm links (needed for volumes)."
+    "k: the CAD-to-robot z offset. One touch fixes it: the bottom of a finger resting on the platform's top surface, read from the arm.",
+    "Heights above the tool point for the arm's links (the CAD gives them once k is fixed).",
+    "Microscope: not in the CAD."
   ],
   "reading_in_robot_frame": {
-    "_note": "'base' read as the base box's right edge, j1 (robot x 126) 60 mm beyond it. Then: base box x -84..66, slot line x 316, hotel end x 556, platform x -84..566. The slot line at 316 agrees with the module seat (317), the operator's 'aligned with column A'; the taught-pose hotel x (293, plate centre) is 23 mm off it.",
+    "_note": "'base' read as the base box's right edge, j1 (robot x 126) 60 mm beyond it. Then: base box x -84..66, slot line x 316, hotel end x 556, platform x -84..566. The slot line at 316 agrees with the module seat (317), the operator's 'aligned with column A'; the taught-pose hotel x (293, plate centre) is 23 mm off it. [Superseded by 'cad': the taught poses are wrist poses, the plate sits 205 mm ahead of them.]",
     "base_box_x": [
       -84,
       66
@@ -72,5 +71,123 @@
     ],
     "slot_line_x": 316,
     "hotel_end_x": 556
+  },
+  "cad": {
+    "_note": "From the manufacturer's STEP assembly (Polar R400 Z400, SolidWorks 2020; the file itself is not in the repo). CAD frame: x across the platform, y UP, z along the platform's long side. Mapping to the robot frame, fixed by the j1 axis (CAD x 0, z -102.1 = robot 126, 0): robot x = cad z + 228.1, robot y = cad x, robot z = cad y + k. It is right-handed. k is not fixed by the file (the CAD arm is stowed at an unknown column height); one touch of the finger bottom on the platform top fixes it.",
+    "mapping": {
+      "x_r": "z_c + 228.1",
+      "y_r": "x_c",
+      "z_r": "y_c + k",
+      "k": null
+    },
+    "checks": {
+      "link1_mm": 200.0,
+      "link2_mm": 200.0,
+      "fk_model_mm": [
+        199.98,
+        199.98
+      ],
+      "j1_cad_xz": [
+        0.0,
+        -102.1
+      ],
+      "j2_cad_xz": [
+        199.5,
+        -116.5
+      ],
+      "j4_cad_xz": [
+        1.2,
+        -90.2
+      ],
+      "pillar_x_edge_to_j1_mm": 65.9,
+      "operator_said": 490,
+      "hotel_end_from_pillar_edge_mm": 490.5
+    },
+    "platform": {
+      "y_r": [
+        -198.0,
+        198.0
+      ],
+      "x_r": [
+        -94.9,
+        551.1
+      ],
+      "top_y_c": 93.0,
+      "cover_top_y_c": 105.0,
+      "note": "396 x 646; the arm axis is on the centre line (y 0)"
+    },
+    "pillar": {
+      "y_r": [
+        -74.0,
+        74.0
+      ],
+      "x_r": [
+        -79.9,
+        60.1
+      ],
+      "y_c": [
+        90.5,
+        760.5
+      ],
+      "note": "148 (y) x 140 (x) x 670 tall; operator: 150 x 140"
+    },
+    "hotel": {
+      "columns_y_r": {
+        "A": 134.0,
+        "B": 0.0,
+        "C": -134.0
+      },
+      "column_width_mm": 91.0,
+      "side_panels_y_r": [
+        -188.0,
+        188.0
+      ],
+      "x_r": [
+        412.6,
+        550.6
+      ],
+      "depth_mm": 138.0,
+      "rows": 10,
+      "row_pitch_mm": 38.0,
+      "shelf_top_y_c_row1": 124.0,
+      "rack_top_y_c": 508.0,
+      "note": "operator: 139.29 x 376 and hotel end 490 from the pillar edge: both match"
+    },
+    "rotation_module": {
+      "axis_r": [
+        312.6,
+        118.0
+      ],
+      "plate_seat_x_r": [
+        244.6,
+        380.6
+      ],
+      "plate_seat_y_r": [
+        71.0,
+        165.0
+      ],
+      "top_y_c": 117.0,
+      "note": "axis x equals the taught seat x (312.5); the seat is a 94 x 136 pad centred on the axis"
+    },
+    "claw": {
+      "fingers_ahead_of_wrist_mm": 205.0,
+      "finger_length_mm": 134.0,
+      "finger_height_mm": 44.0,
+      "jaw_inner_gap_mm": 80.0,
+      "finger_y_offset_from_wrist_mm": [
+        -47.0,
+        47.0
+      ],
+      "body_half_width_mm": 72.0,
+      "body_behind_wrist_mm": 41.0,
+      "note": "the wrist axis (the pose the controller reports) is 205 mm BEHIND the fingertips at yaw 0"
+    }
+  },
+  "claw": {
+    "corner_from_tcp_mm": [
+      205.0,
+      47.0
+    ],
+    "source": "CAD: x-most, y-most corner of the y-most finger, claw pointing along +x"
   }
 }
