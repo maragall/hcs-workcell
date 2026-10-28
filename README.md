@@ -20,6 +20,9 @@ prediction models train on.
 
    ![where to put the microscope](docs/placement.png)
 
+   The arm is drawn on its taught approach to the rotation module (two 200 mm links); grey boxes are the zones the
+   safety check uses, the dashed outline is the arm's workspace.
+
    Distances in the robot base frame, mm (arm base at (126, 0), x to the right, y up), from the coordinates in the diagram:
 
    | from | to | distance | along x, along y |

@@ -1,107 +1,169 @@
-"""docs/placement.png: where the microscope goes, top view in the robot base frame (mm). Numbers from layout.json's
-regions and fixtures, written out here because the figure is for people who do not have the layout file.
+"""docs/placement.png: the cell from above in the robot base frame, black and white, one scale (mm), every distance on
+the figure. Positions and boxes come from layout.json, so the figure follows the file.
     python tools/placement_diagram.py
 """
+import json
 import math
 import os
+import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
-BASE, SEAT, MODULE = (126, 0), (123, 400), (317, 305)
-HOTEL_X, HOTEL_Y = 293, (-137.5, 137.5)
-REACH, INNER, TOL = 420, 240, 20
-S, SS = 1.0, 2                              # px per mm, supersampling
-X0, X1, Y0, Y1 = -330, 600, -445, 445       # world window, mm
-HEAD = 190
-W, H = int((X1 - X0) * S) + 40, int((Y1 - Y0) * S) + HEAD + 40
-INK, GREY, ORANGE, BLUE, GREEN = (24, 24, 24), (120, 130, 130), (196, 82, 24), (30, 85, 165), (40, 125, 45)
-FONT = "C:/Windows/Fonts/segoeui.ttf"
-BOLD = "C:/Windows/Fonts/segoeuib.ttf"
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, HERE)
+from routes_opt import fk  # noqa: E402
+
+L = json.load(open(os.path.join(HERE, "layout.json"), encoding="utf-8"))
+F, R = L["fixtures"], L["regions"]
+BASE, SEAT, MODULE = (126.0, 0.0), (123.0, 400.0), (317.0, 305.0)    # the nominal placement; the README distance table uses the same
+HOTEL_X = 293.0                                    # slot centre x; columns A and C at y = +-137.5
+A, C = (HOTEL_X, 137.5), (HOTEL_X, -137.5)
+ELBOW = fk.elbow_xy(L["trajectories"]["microscope_to_polar"]["joints"][-1])     # the elbow on the taught approach to the module
+TOL = 20
+WB = L["workspace_box"]
+
+S, SS = 1.6, 2                                     # px per mm, supersampling
+X0, X1, Y0, Y1 = -60, 430, -215, 480               # world window
+TOP = 90
+W, H = int((X1 - X0) * S) + 40, int((Y1 - Y0) * S) + TOP + 50
+FONT, BOLD = "C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/segoeuib.ttf"
+BLACK, GREY, LIGHT = (0, 0, 0), (110, 110, 110), (232, 232, 232)
+
+img = Image.new("RGB", (W * SS, H * SS), "white")
+d = ImageDraw.Draw(img)
 
 
 def font(size, bold=False):
     return ImageFont.truetype(BOLD if bold else FONT, size * SS)
 
 
-img = Image.new("RGB", (W * SS, H * SS), "white")
-d = ImageDraw.Draw(img)
+def P(p):
+    return ((20 + (p[0] - X0) * S) * SS, (TOP + (Y1 - p[1]) * S) * SS)
 
 
-def P(x, y):
-    return ((20 + (x - X0) * S) * SS, (HEAD + (Y1 - y) * S) * SS)
-
-
-def PT(x, y):
-    return tuple(v / SS for v in P(x, y))
-
-
-def text(xy, s, color=INK, size=22, bold=False, anchor="la"):
+def label(xy, s, size=16, bold=False, anchor="mm", color=BLACK):
     f = font(size, bold)
-    box = d.textbbox((xy[0] * SS, xy[1] * SS), s, font=f, anchor=anchor)
-    pad = 5 * SS
-    d.rectangle([box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad], fill="white")     # a ring never runs through a word
-    d.text((xy[0] * SS, xy[1] * SS), s, fill=color, font=f, anchor=anchor)
+    x, y = xy[0] * SS, xy[1] * SS
+    b = d.textbbox((x, y), s, font=f, anchor=anchor)
+    pad = 3 * SS
+    d.rectangle([b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad], fill="white")
+    d.text((x, y), s, fill=color, font=f, anchor=anchor)
 
 
-def dashed_circle(c, r, color, width=3, dash=14.0, gap=9.0):
-    step = dash + gap
-    n = int(2 * math.pi * r / step)
+def line(a, b, w=2, color=BLACK):
+    d.line([P(a), P(b)], fill=color, width=w * SS)
+
+
+def dashed(a, b, w=2, color=GREY, dash=9, gap=6):
+    (x0, y0), (x1, y1) = P(a), P(b)
+    n = max(1, int(math.hypot(x1 - x0, y1 - y0) / ((dash + gap) * SS)))
     for i in range(n):
-        a0, a1 = i * 360.0 / n, (i + dash / step) * 360.0 / n
-        (cx, cy), (rx, ry) = P(*c), (r * S * SS, r * S * SS)
-        d.arc([cx - rx, cy - ry, cx + rx, cy + ry], -a1, -a0, fill=color, width=width * SS)
+        t0, t1 = i / n, (i + dash / (dash + gap)) / n
+        d.line([(x0 + (x1 - x0) * t0, y0 + (y1 - y0) * t0), (x0 + (x1 - x0) * t1, y0 + (y1 - y0) * t1)], fill=color, width=w * SS)
 
 
-def disc(c, r_mm, fill, edge, label, label_color):
-    (cx, cy), r = P(*c), r_mm * S * SS
-    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=fill, outline=edge, width=4 * SS)
-    d.text((cx, cy), label, fill=label_color, font=font(22, True), anchor="mm")
+def rect(x, y, fill=None, dash=False, w=2, color=BLACK):
+    pts = [(x[0], y[0]), (x[1], y[0]), (x[1], y[1]), (x[0], y[1]), (x[0], y[0])]
+    if fill:
+        d.polygon([P(p) for p in pts], fill=fill)
+    for a, b in zip(pts, pts[1:]):
+        (dashed(a, b, w, color) if dash else line(a, b, w, color))
 
 
-text((40, 28), "Where to put the microscope", INK, 40, True)
-text((40, 84), "Top view of the cell from above, robot base frame, millimetres.", GREY, 21)
-text((40, 112), "Put the microscope so its plate holder is inside the orange circle (20 mm).", GREY, 21)
-text((40, 140), "The arm reaches 240 to 420 mm from its base. Numbers are from the Shanghai cell.", GREY, 21)
+def disc(c, r_mm, fill="white", w=3):
+    (cx, cy), r = P(c), r_mm * S * SS
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=fill, outline=BLACK, width=w * SS)
 
-dashed_circle(BASE, REACH, (150, 165, 165))
-dashed_circle(BASE, INNER, (150, 165, 165))
-text(PT(BASE[0] - REACH * 0.71 - 8, BASE[1] + REACH * 0.71 + 8), "reach limit 420", GREY, 20, anchor="ra")
-text(PT(BASE[0] - INNER * 0.71 + 12, BASE[1] - INNER * 0.71 - 22), "inner limit 240", GREY, 20, anchor="la")
 
-# route, scope to module
-d.line([P(*SEAT), P(*MODULE)], fill=(190, 190, 190), width=5 * SS)
-mid = ((SEAT[0] + MODULE[0]) / 2, (SEAT[1] + MODULE[1]) / 2)
-text((PT(*mid)[0] + 14, PT(*mid)[1] - 30), "route: keep it clear", GREY, 20)
+def arrow(p, q, size=9):
+    (x0, y0), (x1, y1) = P(p), P(q)
+    a = math.atan2(y1 - y0, x1 - x0)
+    s = size * SS
+    d.polygon([(x1, y1), (x1 - s * math.cos(a - 0.35), y1 - s * math.sin(a - 0.35)),
+               (x1 - s * math.cos(a + 0.35), y1 - s * math.sin(a + 0.35))], fill=BLACK)
 
-# hotel
-d.line([P(HOTEL_X, HOTEL_Y[0]), P(HOTEL_X, HOTEL_Y[1])], fill=GREEN, width=12 * SS)
-for y, name in ((HOTEL_Y[1], "A"), (HOTEL_Y[0], "C")):
-    cx, cy = P(HOTEL_X, y)
-    d.ellipse([cx - 16 * SS, cy - 16 * SS, cx + 16 * SS, cy + 16 * SS], fill="white", outline=GREEN, width=4 * SS)
-    d.text((cx, cy), name, fill=GREEN, font=font(20, True), anchor="mm")
-ax, ay = P(HOTEL_X - 6, 0)
-d.line([(ax, ay), (ax - 70 * SS, ay)], fill=GREEN, width=4 * SS)
-d.polygon([(ax - 70 * SS, ay), (ax - 54 * SS, ay - 9 * SS), (ax - 54 * SS, ay + 9 * SS)], fill=GREEN)
-text((P(HOTEL_X, 0)[0] / SS + 24, P(HOTEL_X, 0)[1] / SS - 28), "plate hotel", GREEN, 22, True)
-text((P(HOTEL_X, 0)[0] / SS + 24, P(HOTEL_X, 0)[1] / SS + 2), "columns A to C", GREEN, 20)
-text((PT(HOTEL_X, 0)[0] - 14, PT(HOTEL_X, 0)[1] - 44), "slots open toward -x", GREEN, 19, anchor="ra")
 
-# arm, module, microscope
-disc(BASE, 20, (242, 242, 242), INK, "", INK)
-text((P(*BASE)[0] / SS, P(*BASE)[1] / SS + 30), "arm base  (126, 0)", INK, 22, True, "ma")
-disc(MODULE, 20, (230, 238, 250), BLUE, "M", BLUE)
-text((P(*MODULE)[0] / SS, P(*MODULE)[1] / SS + 28), "rotation module  (317, 305)", BLUE, 22, True, "ma")
-disc(SEAT, TOL, (252, 238, 228), ORANGE, "S", ORANGE)
-text((PT(*SEAT)[0] - 34, PT(*SEAT)[1] - 14), "microscope seat  (123, 400)", ORANGE, 24, True, "rm")
-text((PT(*SEAT)[0] - 34, PT(*SEAT)[1] + 16), "within 20 mm, clear air above it", ORANGE, 20, anchor="rm")
+def dimension(p, q, text, off=0.0, side=1, size=16):
+    """A measure: a line offset sideways from p-q by `off` mm, arrows at both ends, the value on it."""
+    ux, uy = q[0] - p[0], q[1] - p[1]
+    n = math.hypot(ux, uy)
+    nx, ny = -uy / n * side, ux / n * side
+    a, b = (p[0] + nx * off, p[1] + ny * off), (q[0] + nx * off, q[1] + ny * off)
+    if off:
+        dashed(p, a, 1, GREY, 4, 3)
+        dashed(q, b, 1, GREY, 4, 3)
+    line(a, b, 1)
+    arrow(b, a)
+    arrow(a, b)
+    m = P(((a[0] + b[0]) / 2, (a[1] + b[1]) / 2))
+    label((m[0] / SS, m[1] / SS), text, size)
 
-# axes
-ox, oy = 50, H - 40
-d.line([(ox * SS, oy * SS), ((ox + 90) * SS, oy * SS)], fill=(70, 70, 70), width=4 * SS)
-d.line([(ox * SS, oy * SS), (ox * SS, (oy - 90) * SS)], fill=(70, 70, 70), width=4 * SS)
-text((ox + 98, oy), "x", GREY, 22, anchor="lm")
-text((ox, oy - 100), "y", GREY, 22, anchor="mb")
 
-out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "placement.png")
+d.text((20 * SS, 14 * SS), "The cell from above", fill=BLACK, font=font(30, True))
+d.text((20 * SS, 52 * SS), "Robot base frame, millimetres, one scale: 100 mm is the bar at lower left. Coordinates are x, y.",
+       fill=GREY, font=font(15))
+
+# workspace and zones
+rect(WB["x"], WB["y"], dash=True, w=2, color=GREY)
+label((P((WB["x"][1], WB["y"][1]))[0] / SS - 4, P((WB["x"][1], WB["y"][1]))[1] / SS + 12), "arm workspace", 14, anchor="rm", color=GREY)
+mz = R["microscope"]["box"]
+rect(mz["x"], mz["y"], fill=LIGHT, dash=True)
+label((P((mz["x"][0], mz["y"][1]))[0] / SS + 6, P((mz["x"][0], mz["y"][1]))[1] / SS + 12), "microscope zone (arm moves straight down only)", 13, anchor="lm")
+pz = R["polar"]["box"]
+rect(pz["x"], pz["y"], fill=LIGHT)
+hz = R["hotel"]["box"]
+rect(hz["x"], hz["y"], fill=LIGHT)
+
+# hotel columns
+line((HOTEL_X, -150), (HOTEL_X, 150), 4)
+for name, c in (("A", A), ("C", C)):
+    disc(c, 9, "white", 3)
+    d.text(P(c), name, fill=BLACK, font=font(15, True), anchor="mm")
+label((P((HOTEL_X + 40, 0))[0] / SS, P((HOTEL_X + 40, 0))[1] / SS), "plate hotel\nslots open toward -x", 15, bold=False)
+
+# the arm reaching the module: base, link 1, elbow, link 2
+line(BASE, ELBOW, 7)
+line(ELBOW, MODULE, 7)
+line(BASE, ELBOW, 3, "white")
+line(ELBOW, MODULE, 3, "white")
+disc(BASE, 14, LIGHT)
+disc(ELBOW, 10, "white")
+label((P(BASE)[0] / SS - 24, P(BASE)[1] / SS + 40), "arm base\n(126, 0)", 15, True, "rm")
+mid1 = ((BASE[0] + ELBOW[0]) / 2, (BASE[1] + ELBOW[1]) / 2)
+mid2 = ((ELBOW[0] + MODULE[0]) / 2, (ELBOW[1] + MODULE[1]) / 2)
+label((P(mid1)[0] / SS + 22, P(mid1)[1] / SS + 10), "link 200", 14)
+label((P(mid2)[0] / SS - 34, P(mid2)[1] / SS), "link 200", 14)
+
+# module and microscope seat
+disc(MODULE, 7, "black")
+label((P(MODULE)[0] / SS + 52, P(MODULE)[1] / SS - 30), f"rotation module ({MODULE[0]:.0f}, {MODULE[1]:.0f})", 15, True, "mm")
+disc(SEAT, TOL, "white", 3)
+d.line([(P(SEAT)[0] - 6 * SS, P(SEAT)[1]), (P(SEAT)[0] + 6 * SS, P(SEAT)[1])], fill=BLACK, width=2 * SS)
+d.line([(P(SEAT)[0], P(SEAT)[1] - 6 * SS), (P(SEAT)[0], P(SEAT)[1] + 6 * SS)], fill=BLACK, width=2 * SS)
+label((P(SEAT)[0] / SS + 14, P(SEAT)[1] / SS + 58), f"microscope seat ({SEAT[0]:.0f}, {SEAT[1]:.0f})\nplace within {TOL} mm", 15, True, "lm")
+
+# measures
+dist = lambda a, b: math.hypot(a[0] - b[0], a[1] - b[1])
+dimension(BASE, SEAT, f"{dist(BASE, SEAT):.1f}", off=26, side=1)
+dimension(SEAT, MODULE, f"{dist(SEAT, MODULE):.1f}", off=26, side=-1)
+dimension(BASE, A, f"{dist(BASE, A):.1f}", off=22, side=1)
+dimension(BASE, C, f"{dist(BASE, C):.1f}", off=22, side=-1)
+dimension(MODULE, A, f"{dist(MODULE, A):.1f}", off=26, side=1)
+dimension(A, C, f"{dist(A, C):.1f}", off=48, side=-1)
+
+# axes and scale bar
+ox, oy = 40, H - 30
+line_px = lambda a, b: d.line([(a[0] * SS, a[1] * SS), (b[0] * SS, b[1] * SS)], fill=BLACK, width=3 * SS)
+line_px((ox, oy), (ox + 60, oy))
+line_px((ox, oy), (ox, oy - 60))
+d.text(((ox + 68) * SS, oy * SS), "x", fill=BLACK, font=font(16, True), anchor="lm")
+d.text((ox * SS, (oy - 68) * SS), "y", fill=BLACK, font=font(16, True), anchor="mb")
+bx = ox + 150
+line_px((bx, oy), (bx + 100 * S, oy))
+line_px((bx, oy - 6), (bx, oy + 6))
+line_px((bx + 100 * S, oy - 6), (bx + 100 * S, oy + 6))
+d.text(((bx + 50 * S) * SS, (oy - 10) * SS), "100 mm", fill=BLACK, font=font(14), anchor="mb")
+
+out = os.path.join(HERE, "docs", "placement.png")
 img.resize((W, H), Image.LANCZOS).save(out)
-print(out, W, H)
+print(out, W, H, "elbow", [round(v, 1) for v in ELBOW])
