@@ -922,10 +922,16 @@ def cmd_setup(args):
     cell.discover()
     if not args.sim and cell.arm_error:
         sys.exit(f"the arm is not reachable: {cell.arm_error}. Close the GUI and RobStudio (one client at a time) and run again")
-    runner = Runner(ask=(lambda prompt: "") if args.yes else input, stop=cell.stop_event)
+    answers = {"15 or 30": str(args.hotel_size or "")}      # what a driver knows; the hands-clear Enter is the user's go
+    runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else input,
+                    stop=cell.stop_event)
     todo = Bringup(cell, squid, runner.ask).sections()
-    stopped = runner.run(todo, args.start)
+    stopped = runner.run(todo, args.start, args.step, pause_at_user=args.auto)
     cell.frames.stop()
+    if runner.waiting:
+        name, nxt = runner.waiting
+        print(f"\nwaiting for the user. After they have done it: python cli.py setup --auto --from \"{name}\" --step {nxt}")
+        return 3
     if stopped:
         print(f"\nstopped in '{stopped}'. Fix what it said, then: python cli.py setup --from \"{stopped}\"")
         return 2
@@ -1027,6 +1033,9 @@ def main():
     p.add_argument("--sim", action="store_true"); p.add_argument("--from", dest="start", help="continue from this section")
     p.add_argument("--yes", action="store_true", help="answer every prompt with Enter (simulator tests)")
     p.add_argument("--acquisition-s", type=float, default=0.0, help="how long the practice Squid pretends to image")
+    p.add_argument("--auto", action="store_true", help="a driver is watching: answer 'hands clear' with Enter, stop before each user step (exit 3)")
+    p.add_argument("--step", type=int, default=0, help="with --from: the first step of that section to run")
+    p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the answer to '15 or 30'")
     p.set_defaults(fn=cmd_setup)
     p = sub.add_parser("recover", help="after a hard stop or controller fault: clear errors, enable, leave the arm loose")
     p.add_argument("--sim", action="store_true"); p.set_defaults(fn=cmd_recover)

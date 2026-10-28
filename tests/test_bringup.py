@@ -168,3 +168,18 @@ def test_a_seat_a_little_off_is_written_with_the_old_one_kept():
     assert f["pose"][0] == pytest.approx(before[0] + 1.5, abs=0.2)
     assert any(k.startswith("previous_pose_") for k in f)
     cell.frames.stop()
+
+
+def test_the_hand_placed_near_the_module_docks_and_one_farther_is_refused():
+    from procedures.safety import SafetyViolation
+    cell, todo, runner, said, asked = make()
+    c = todo.cyc()
+    hover = c._position("polar.pose_at_0")
+    cell.robot.move_linear([hover[0] + 15, hover[1], hover[2] + 10] + list(hover[3:]))
+    assert c._position_here() is None
+    c.dock("polar.pose_at_0")
+    assert max(abs(a - b) for a, b in zip(cell.robot.pose()[:3], hover[:3])) < 1.0
+    cell.robot.move_linear([hover[0] + 60, hover[1], hover[2]] + list(hover[3:]))
+    with pytest.raises(SafetyViolation, match="within 30 mm"):
+        c.dock("polar.pose_at_0")
+    cell.frames.stop()

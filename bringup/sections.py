@@ -120,21 +120,30 @@ class Bringup:
             self.squid.home()
             return {"stage": "homed"}
 
+        def arrive_at_module(c):
+            """The hover over the module: the taught route when the arm is at a known position, else from the hand."""
+            if c._position_here() is None:
+                self.guard(lambda: c.dock("polar.pose_at_0"))
+            else:
+                self.guard(lambda: c.move_to("polar.pose_at_0"))
+
         def module_to_0():
             self.ready()
             c = self.cyc()
-            self.guard(lambda: c.move_to("polar.pose_at_0"))
+            arrive_at_module(c)
             if c.polar.angle != 0:
                 self.guard(lambda: c._polar_rotate(0, self.cell.layout()["fixtures"]["polar"]["pose_at_90"]["pose"]))
             return {"module": "0 deg"}
 
         def hover():
             self.ready()
-            self.guard(lambda: self.cyc().move_to("polar.pose_at_0"))
+            arrive_at_module(self.cyc())
 
         return Section("connect", [
             Step("computer", "search ports", search_ports),
             Step("squid", "home stage", home, moves=True),
+            Step("user", "hold the hand by hand over the rotation module, within 3 cm of its hover height (skip if it is already there)",
+                 before=self.loosen),
             Step("polar", "rotation module to 0 deg", module_to_0, moves=True),
             Step("polar", "hover hand onto rotation module centroid", hover, moves=True)])
 

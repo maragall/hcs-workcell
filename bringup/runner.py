@@ -45,18 +45,27 @@ class Runner:
             raise Quit()
         return answer
 
-    def run(self, sections: List[Section], start: Optional[str] = None) -> Optional[str]:
-        """Returns None when everything ran, else the name of the section that stopped (for --from)."""
+    def run(self, sections: List[Section], start: Optional[str] = None, start_step: int = 0,
+            pause_at_user: bool = False) -> Optional[str]:
+        """Returns None when everything ran, else the name of the section that stopped (for --from). With
+        pause_at_user the run stops before each step the user does (`self.waiting` = (section, index of the next step))
+        so a driver can ask the user in chat and continue with start_step."""
+        self.waiting = None
         names = [s.name for s in sections]
         if start is not None and start not in names:
             raise ValueError(f"no section {start!r}; the sections are {names}")
         todo = sections[names.index(start):] if start else sections
+        current = todo[0].name if todo else None
         try:
-            for sec in todo:
+            for n, sec in enumerate(todo):
+                current = sec.name
                 self.say(f"\n== {sec.name}")
-                if any(s.moves for s in sec.steps):
+                first = start_step if n == 0 else 0
+                if any(s.moves for s in sec.steps[first:]):
                     self._wait("   The arm moves in this section. Hands clear? Enter to go, q to quit: ")
-                for step in sec.steps:
+                for i, step in enumerate(sec.steps):
+                    if i < first:
+                        continue
                     if self.stop.is_set():
                         self.say("   STOP")
                         return sec.name
@@ -64,6 +73,9 @@ class Runner:
                     if step.run is None:
                         if step.before:
                             step.before()
+                        if pause_at_user:
+                            self.waiting = (sec.name, i + 1)
+                            return sec.name
                         self._wait("      done? Enter: ")
                         continue
                     try:
@@ -78,5 +90,5 @@ class Runner:
                         self.say("      -> " + ", ".join(f"{k} = {v}" for k, v in got.items()))
         except (Quit, EOFError):
             self.say("   quit")
-            return "quit"
+            return current
         return None
