@@ -904,8 +904,34 @@ def cmd_calibrate(args):
         return 0 if delta <= args.tolerance_mm else 2
 
 
+def _tee_console(name: str) -> str:
+    """Everything printed from here on also goes to runs/<name>_console_<time>.log, so a run that fails can be read afterwards."""
+    os.makedirs(RUNS, exist_ok=True)
+    path = os.path.join(RUNS, f"{name}_console_{time.strftime('%Y%m%d_%H%M%S')}.log")
+    log = open(path, "a", encoding="utf-8", buffering=1)
+
+    class Tee:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def write(self, text):
+            self.stream.write(text)
+            log.write(text)
+
+        def flush(self):
+            self.stream.flush()
+            log.flush()
+
+        def __getattr__(self, item):
+            return getattr(self.stream, item)
+    sys.stdout, sys.stderr = Tee(sys.stdout), Tee(sys.stderr)
+    return path
+
+
 def cmd_setup(args):
     """The one-click setup in the terminal: each line printed, Enter on the user's, the machine's run in order."""
+    log_path = _tee_console("setup")
+    print(f"this run is logged to {log_path} (and runs/setup_*/events.jsonl)")
 
     from bringup.runner import Runner
     from bringup.sections import Bringup
@@ -925,7 +951,7 @@ def cmd_setup(args):
     answers = {"slot in front of the camera": "yes" if args.hotel_size == 30 else "no" if args.hotel_size == 15 else ""}   # what a driver knows; the hands-clear Enter is the user's go
     runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else input,
                     stop=cell.stop_event)
-    todo = Bringup(cell, squid, runner.ask).sections()
+    todo = Bringup(cell, squid, runner.ask, confirm_stage=args.confirm_stage).sections()
     stopped = runner.run(todo, args.start, args.step, pause_at_user=args.auto, skip=args.skip.split(",") if args.skip else None,
                          stop_after=args.stop_after)
     cell.frames.stop()
@@ -1081,6 +1107,7 @@ def main():
     p.add_argument("--acquisition-s", type=float, default=0.0, help="how long the practice Squid pretends to image")
     p.add_argument("--auto", action="store_true", help="a driver is watching: answer 'hands clear' with Enter, stop before each user step (exit 3)")
     p.add_argument("--stop-after", type=int, help="with --from: stop after this step (index) of that section")
+    p.add_argument("--confirm-stage", action="store_true", help="the operator confirms, for this run, that lowering at the stage is safe (its lower-check has no pictures yet)")
     p.add_argument("--skip", help="sections to leave out, comma separated, e.g. cameras.toml")
     p.add_argument("--step", type=int, default=0, help="with --from: the first step of that section to run")
     p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the hotel you have, answers 'is there a slot here' for every row")

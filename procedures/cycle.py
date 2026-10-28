@@ -109,9 +109,9 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         step = f"pick:{fixture_name}"
         self.store.begin(step)
         self._health()
-        if trajectory_in:
-            self._waypoints(trajectory_in)
         hover = offset(pose, [0, 0, fixture["hover_mm"]])
+        if trajectory_in:
+            self._enter(trajectory_in, False, hover, fixture_name)
         self._arrive(hover, f"{step} hover", prof.approach)
         self._jaw_open(grip, fixture)
         corr = self._vision_correction(fixture, step)
@@ -174,9 +174,9 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         step = f"place:{fixture_name}"
         self.store.begin(step)
         self._health()
-        if trajectory_in:
-            self._waypoints(trajectory_in, reverse)
         hover = offset(pose, [0, 0, fixture["hover_mm"]])
+        if trajectory_in:
+            self._enter(trajectory_in, reverse, hover, fixture_name)
         self._arrive(hover, f"{step} hover", prof.approach)
         corr = self._vision_correction(fixture, step)
         target = self._seat(pose, corr)

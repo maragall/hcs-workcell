@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from devices.vision_box import VisionError
 from perception import hub
-from procedures.corrector import StopSafe
+from procedures.corrector import OperatorConfirmed, StopSafe
 
 
 class Gates:
@@ -145,7 +145,12 @@ class Gates:
                     self._learned_gate(label, f"{gate}_front", state, self.front_cam, front, "lower_front",
                                        "front camera: not clear to lower")
                 return
-            self.corr.on_lower_blocked(gate, attempt, attempts, v)
+            try:
+                self.corr.on_lower_blocked(gate, attempt, attempts, v)
+            except OperatorConfirmed:
+                self.lower.add_reference(gate, state, img)
+                self.tele.log("vision", f"{label} lower_check", "confirmed by the operator: this picture is now a reference", gate=gate, state=state)
+                return
         raise StopSafe(f"{label}: lower gate exhausted {attempts} attempts without a safe verdict")
 
     def _seated_front(self, step: str, gate: str):
@@ -225,3 +230,5 @@ class Gates:
             if not self.corr.operator_or_stop(step, "plate in gripper does not match references",
                                               "Plate is held correctly?"):
                 raise StopSafe("plate not held correctly after lift")
+            self.lower.add_reference("gripper", grip, img)               # a human said held: this view is a reference now
+            self.tele.log("vision", f"{step} plate_in_gripper", "confirmed held by a human: this picture is now a reference", grip=grip)

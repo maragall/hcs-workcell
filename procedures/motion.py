@@ -113,7 +113,8 @@ class Motion:
         """Reach a fixture hover. In a no-swing zone the trajectory must already end there: no joint move."""
         here = self.robot.pose()
         lateral = max(abs(here[0] - hover[0]), abs(here[1] - hover[1]))
-        if lateral <= 2.0:
+        allowed = self.safety.regions.get(self.safety.region_of(hover), {}).get("max_lateral_mm", 2.0)    # the zone's own limit
+        if lateral <= allowed:
             self._move("L", hover, label, speed)        # vertical: allowed anywhere
             return
         if self.safety.regions.get(self.safety.region_of(hover), {}).get("no_swing"):

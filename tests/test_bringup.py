@@ -102,7 +102,15 @@ def make(answers=None):
     cell.save(L)
     squid = FakeSquid("microscope")
     world_markers(cell)
-    return cell, Bringup(cell, squid, ask), runner, said, asked
+    todo = Bringup(cell, squid, ask)
+    F = cell.layout()["fixtures"]
+
+    def drag():
+        """The customer's hand: every 'let me move the arm' step ends with the hand over the microscope's plate holder."""
+        m = F["microscope"]
+        cell.robot.set_pose_for_test([m["pose"][0], m["pose"][1], m["pose"][2] + m["hover_mm"], 0, 0, m["pose"][5]])
+    todo.loosen = drag
+    return cell, todo, runner, said, asked
 
 
 def test_geometry_carries_the_grip_pose_with_the_marker():
@@ -135,9 +143,9 @@ def test_the_whole_setup_runs_on_the_simulator():
     assert L["setup"]["grips"]["grip_offset"] == 31.675
     assert L["squid"]["microscope"]["park_xy_mm"] == [0.0, 0.0]
     assert L["setup"]["microscope"]["found_at"]
-    assert any("carry the aruco plate from the module to the microscope stage" in line for line in said)
+    assert any("set it in the microscope's plate holder" in line for line in said)
     assert any("real plate on the rotation module" in line for line in said)
-    assert text.index("carry the aruco plate") < text.index("grips.toml") < text.index("remove the aruco plate")
+    assert text.index("take the aruco plate off the rotation module") < text.index("grips.toml") < text.index("remove the aruco plate")
     cell.frames.stop()
 
 
@@ -223,7 +231,7 @@ def test_a_microscope_that_moved_beyond_the_taught_route_is_refused_and_nothing_
     assert runner.run(todo.sections()) == "microscope.toml"
     # 30 mm off: either the tag has left the picture over the stage, or the offset found is beyond the zone's 2 mm
     assert any("beyond the taught route" in line or "no aruco tag seen" in line for line in said)
-    assert cell.layout()["fixtures"]["microscope"]["pose"] == before
+    assert cell.layout()["fixtures"]["microscope"]["pose"][:3] == before[:3]       # the hover the hand gave stands; the tag moved nothing
     cell.frames.stop()
 
 

@@ -77,7 +77,12 @@ class OracleRobot(SimRobot):
         self.report = Report()
         self._joints = list(fk.ik(self._pose, elbow=1)) + [0.0] * 4
         self._safety = Safety(layout, "supervised", self.joints)
-        self._cad = CadPoses(layout)
+        reg = layout.get("registration")                   # a layout built from the CAD alone carries its frame (bringup/scratch.py)
+        if reg:
+            from bringup.scratch import registration_from
+            self._cad = CadPoses(layout, registration=registration_from(reg))
+        else:
+            self._cad = CadPoses(layout)
         h = layout["fixtures"]["hotel"]
         self._slots = [(f"{c}{r}", self._cad.hotel_pose(f"{c}{r}")) for c in h["columns"] for r in h["rows"]]
         self._max_lift = float(h.get("max_lift_mm", 30.0))
@@ -103,13 +108,13 @@ class OracleRobot(SimRobot):
                 return name
         return None
 
-    def check(self, pose: List[float], label: str) -> None:
+    def check(self, pose: List[float], label: str, near_axis_ok: bool = False) -> None:
         grip = self.grip()
         grip = grip if grip and grip != "none" else None
         slot = self.corridor(pose)
         for margin, kind in ((0.0, "collision"), (self._vol(grip, True, 10.0).margin, "margin")):
             try:
-                self._vol(grip, slot is None, margin).check_pose(pose, label)
+                self._vol(grip, slot is None, margin).check_pose(pose, label, near_axis_ok=near_axis_ok)
             except SafetyViolation as e:
                 ev = Event(kind, label, [round(v, 1) for v in pose[:3]] + [round(pose[5], 1)], str(e))
                 self.report.events.append(ev)
@@ -139,7 +144,7 @@ class OracleRobot(SimRobot):
         n = max(1, int(max(max(abs(jb[i] - ja[i]) for i in (1, 2, 3)) / STEP_DEG, abs(jb[0] - ja[0]) / STEP_MM)))
         for k in range(1, n + 1):
             t = k / n
-            self.check(fk.fk([ja[i] + t * (jb[i] - ja[i]) for i in range(4)]), f"{label} {k}/{n}")
+            self.check(fk.fk([ja[i] + t * (jb[i] - ja[i]) for i in range(4)]), f"{label} {k}/{n}", near_axis_ok=True)   # a joint move may pass the axis
 
     def _ik(self, pose: List[float]) -> List[float]:
         cur = self._joints

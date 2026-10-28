@@ -51,5 +51,5 @@ def state(layout: dict) -> dict:
     h = layout["fixtures"]["hotel"]
     return {"size": 15 if h["rows"] == ROWS_15 else 30, "rows": h["rows"], "columns": h["columns"],
             "loaded": loaded_slots(layout), "order": plate_order(layout),
-            "taught_columns": [c for c in h["columns"] if f"{c}1" in h["taught"]],
+            "taught_columns": [c for c in h["columns"] if h.get("pose_source") == "cad" or f"{c}1" in h["taught"]],
             "microscopes": [label(s) for s in microscopes(layout) if layout["fixtures"][s].get("pose")] or ["Microscope"]}

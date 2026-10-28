@@ -10,6 +10,15 @@ import time
 from dataclasses import dataclass
 
 
+class OperatorConfirmed(Exception):
+    """The operator (or the setup, which knows) said the fixture is safe to lower onto: the gate stops asking, the picture
+    it looked at becomes a reference so that it passes by itself next time."""
+
+    def __init__(self, led_level=None):
+        super().__init__("operator confirmed")
+        self.led_level = led_level
+
+
 class StopSafe(Exception):
     """Cycle cannot continue without an operator. State on disk says where the plate is."""
 
@@ -72,7 +81,7 @@ class Corrector:
             return level
         if self.operator_or_stop("lower_check", f"{fixture}: scene does not match safe references ({verdict.reason})",
                                  "You looked at the fixture and it is safe to lower?"):
-            return self.led_levels[0]
+            raise OperatorConfirmed(self.led_levels[0])
         raise StopSafe(f"lower blocked at {fixture}")
 
     def on_grasp_failed(self, fixture: str, attempt: int, detail: str) -> None:

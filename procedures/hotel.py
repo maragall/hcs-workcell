@@ -57,7 +57,12 @@ class Hotel:
         """The poses computed from the CAD (procedures/cad_poses.py); built once per layout."""
         if getattr(self, "_cad", None) is None or self._cad_layout is not self.L:
             from procedures.cad_poses import CadPoses
-            self._cad, self._cad_layout = CadPoses(self.L), self.L
+            reg = self.L.get("registration")                  # a layout built from the CAD alone (bringup/scratch.py) carries its frame
+            if reg:
+                from bringup.scratch import registration_from
+                self._cad, self._cad_layout = CadPoses(self.L, registration=registration_from(reg)), self.L
+            else:
+                self._cad, self._cad_layout = CadPoses(self.L), self.L
         return self._cad
 
     def _lift_for(self, seat: List[float]) -> float:

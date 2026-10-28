@@ -52,7 +52,18 @@
   "microscope": {
     "distance_from_platform_mm": 500,
     "raw": "some 50 cm, but that might vary",
-    "footprint_mm": "not needed: the seat and the microscope zone are taught, the footprint is outside the arm's reach volumes"
+    "footprint_mm": "not needed: the seat and the microscope zone are taught, the footprint is outside the arm's reach volumes",
+    "placement": {
+      "seat_xy_robot_mm": [
+        123.0,
+        340.0
+      ],
+      "from_long_edge_mm": 142,
+      "from_left_end_mm": 218,
+      "tolerance_mm": 20,
+      "reach_from_j1_mm": 340.0,
+      "_note": "The customer places the microscope with a ruler: the centre of its plate holder this far beyond the platform's long edge nearest the rotation module (+y) and this far from the platform's left end (the end with the arm pillar). 340 mm from j1 keeps the wrist 60 mm inside the 400 mm reach, so the camera can be taken 40 mm ahead (bringup/sections.py TAG_AHEAD_MM) to see the plate's tag; a seat at 399 mm cannot (tried 2026-10-28)."
+    }
   },
   "unresolved": [
     "k: the CAD-to-robot z offset. One touch fixes it: the bottom of a finger resting on the platform's top surface, read from the arm.",

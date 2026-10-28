@@ -19,7 +19,7 @@ COLS, COL_W = CAD["hotel"]["columns_y_r"], CAD["hotel"]["column_width_mm"]
 PLAT_X, PLAT_Y = CAD["platform"]["x_r"], CAD["platform"]["y_r"]
 MOD_AXIS, MOD_X, MOD_Y = CAD["rotation_module"]["axis_r"], CAD["rotation_module"]["plate_seat_x_r"], CAD["rotation_module"]["plate_seat_y_r"]
 J1 = (126.0, 0.0)
-SEAT = tuple(LAY["fixtures"]["microscope"]["pose"][:2])
+SEAT = tuple(json.load(open(os.path.join(HERE, "hardware.json"), encoding="utf-8"))["microscope"]["placement"]["seat_xy_robot_mm"])
 MODULE_WRIST = LAY["fixtures"]["polar"]["pose_at_0"]["pose"]
 CRASH = (199.3, 121.0, 9.0)                       # wrist x, y, yaw where the arm stopped on 2026-10-27
 
@@ -116,7 +116,7 @@ disc(MOD_AXIS, 7, "black")
 label((MOD_AXIS[0], MOD_Y[0]), f"ROTATION MODULE\naxis ({MOD_AXIS[0]:.0f}, {MOD_AXIS[1]:.0f}), on the platform", 13, True, anchor="ma", dy=8)
 
 disc(SEAT, 20)
-label(SEAT, f"microscope seat ({SEAT[0]:.0f}, {SEAT[1]:.0f})", 13, True, anchor="lm", dx=30)
+label(SEAT, f"microscope: holder centre ({SEAT[0]:.0f}, {SEAT[1]:.0f}),\n14 cm beyond the long edge, 22 cm from the left end", 13, True, anchor="lm", dx=30)
 
 dim((PILLAR["x"][1], -100), (J1[0], -100), "66  pillar edge to j1", dy=-14)
 dim((PILLAR["x"][1], -150), (HOTEL_X[1], -150), "490  pillar edge to hotel end", dy=-14)
