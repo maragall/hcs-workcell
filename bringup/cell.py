@@ -70,6 +70,7 @@ class Cell:
                 self.vision_error = str(e)
                 self.log("setup", "vision", f"not reachable (try {attempt + 1} of 3): {e}")
         self.frames.start()
+        self._read_arm()                              # a section that moves the arm may be the first thing the run does
         threading.Thread(target=self._readout, daemon=True, name="readout").start()
 
     def stop_file_seen(self) -> bool:
@@ -85,18 +86,21 @@ class Cell:
         self.stop_event.set()
         self.note("STOP")
 
+    def _read_arm(self) -> None:
+        self.stop_file_seen()
+        if self.arm_error is None:
+            try:
+                st, p = self.robot.state(), self.robot.pose()
+                self.arm = {"ok": True, "pose": [round(v, 1) for v in p], "jaw": round(self.robot.jaw(), 2),
+                            "enabled": st.enabled, "moving": st.moving, "drag": st.drag}
+            except Exception as e:
+                self.arm = {"ok": False, "error": str(e)}
+        else:
+            self.arm = {"ok": False, "error": self.arm_error}
+
     def _readout(self) -> None:
         while True:
-            self.stop_file_seen()
-            if self.arm_error is None:
-                try:
-                    st, p = self.robot.state(), self.robot.pose()
-                    self.arm = {"ok": True, "pose": [round(v, 1) for v in p], "jaw": round(self.robot.jaw(), 2),
-                                "enabled": st.enabled, "moving": st.moving, "drag": st.drag}
-                except Exception as e:
-                    self.arm = {"ok": False, "error": str(e)}
-            else:
-                self.arm = {"ok": False, "error": self.arm_error}
+            self._read_arm()
             time.sleep(READOUT_S)
 
     def discover(self) -> None:
