@@ -11,9 +11,10 @@ from __future__ import annotations
 
 from typing import Callable, List, Optional, Sequence
 
-STEP_MM = 20.0                       # x, y offsets: at 140 mm from the tag the picture holds the tag and about 35 mm of slack
-RISE_MM = (0.0, 25.0, 50.0)          # the three heights, up from the start
-YAW_DEG = (-8.0, -3.0, 3.0, 8.0)     # the camera sits 115 mm off the tool axis: a yaw swings the view 2 mm per degree
+STEPS_MM = (20.0, 30.0, 40.0, 50.0)  # x, y offsets per height: the higher, the more of the table the picture holds around the tag
+STEP_MM = STEPS_MM[0]
+RISE_MM = (0.0, 35.0, 70.0, 105.0)   # the heights, up from the start (the tag 140 mm below the camera at the first)
+YAW_DEG = (-15.0, -5.0, 5.0, 15.0)   # the camera sits 115 mm off the tool axis: a yaw swings the view 2 mm per degree; tag_in_view drops the ones that lose the tag
 FOCAL_PX, HALF_VIEW_PX = 2632.0, 1232.0   # the down camera: focal length and half the picture's short side (vendor lens)
 CAMERA_AHEAD_MM, TAG_HALF_DIAG_MM = 115.0, 28.3
 
@@ -34,8 +35,9 @@ def around(here: Sequence[float], check: Optional[Callable[[List[float]], None]]
     here = [float(v) for v in here]
     out, k = [], 0
     for h, dz in enumerate(rises):
-        for dx in (-step_mm, 0.0, step_mm):
-            for dy in (-step_mm, 0.0, step_mm):
+        step = STEPS_MM[h] if (step_mm == STEP_MM and h < len(STEPS_MM)) else step_mm
+        for dx in (-step, 0.0, step):
+            for dy in (-step, 0.0, step):
                 if h and dx == 0.0 == dy:
                     continue
                 yaw = yaws[k % len(yaws)]

@@ -63,9 +63,9 @@ def test_division_model_file_has_kappa_group(tmp_path):
 def test_plan_spreads_and_ends_where_it_started():
     here = [400.0, -30.0, 300.0, 0, 0, -2.0]
     poses = plan.around(here)
-    assert 24 <= len(poses) <= 30 and poses[-1] == here
+    assert 30 <= len(poses) <= 36 and poses[-1] == here
     arr = np.array(poses[:-1])
-    assert len(set(arr[:, 2])) == 3 and len(set(arr[:, 5])) == 4
+    assert len(set(arr[:, 2])) == 4 and len(set(arr[:, 5])) == 4
     assert arr[:, 0].min() < here[0] - 15 < here[0] + 15 < arr[:, 0].max()
     dropped = plan.around(here, check=lambda p: (_ for _ in ()).throw(ValueError()) if p[2] > 320 else None)
     assert all(p[2] <= 320 for p in dropped) and dropped[-1] == here
