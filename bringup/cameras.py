@@ -96,6 +96,19 @@ def _picked(L: dict, camera) -> List[tuple]:
     return got
 
 
+def _local_reads(cell, cam: str, led) -> bool:
+    """Our own detector (calibration/marker.py) on a full frame of that camera."""
+    try:
+        import cv2
+        import numpy as np
+        from calibration import marker
+        data = cell.vision.frame_full(cam, led)
+        marker.detect(cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_GRAYSCALE), None)
+        return True
+    except Exception:
+        return False
+
+
 def read_marker(cell, camera=None) -> None:
     """One camera reads the marker on the practice plate, or the row says what to do."""
     L = cell.layout()
@@ -105,6 +118,8 @@ def read_marker(cell, camera=None) -> None:
             seen = any(cell.vision.aruco_pose(cam, 1, None, L["vision"]["led"]).pixel)
         except Exception:
             seen = False
+        if not seen:                                       # the box's reader misses the plate's tag in glare: ours flattens the light
+            seen = _local_reads(cell, cam, L["vision"]["led"])
         cell.edit(lambda L, cam=cam, seen=seen: _node(L, cam).update(marker="ok" if seen else "not read", marker_at=_stamp()))
         said.append(f"{label} camera: {'reads it' if seen else 'cannot read the marker: clean the lens, move the plate closer'}")
     cell.note("; ".join(said))

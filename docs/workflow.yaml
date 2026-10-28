@@ -30,7 +30,7 @@ cameras.toml:
 hotel.toml:
     - polar : arm to nest, hotel view
     - nova : image hotel with the front camera
-    - polar : camera to each even row slot, is there a slot here
+    - polar : camera to each slot, is there a slot here
     - computer : detect hotel size, 15 or 30   # -> size, detected_at
     - computer : refuse if neither size matches
 
