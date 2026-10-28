@@ -40,6 +40,7 @@ TAG_VIEW_MARGIN_MM = 5.0         # headroom under the workspace top for the stag
 SEAT_MOVED_DROP_ROUTE_MM = 8.0       # a hover this far from the taught seat: the taught route belongs to another place
 STAGE_SEARCH_MM = ((0, 0), (35, 0), (-35, 0), (0, 35), (0, -35), (35, 35), (-35, 35), (35, -35), (-35, -35),
                    (70, 0), (-70, 0), (0, 70), (0, -70))        # where the arm looks for the tag around the hover, x and y
+MIN_STAGE_FROM_ARM_MM = 250.0     # the Squid base must be at least this far from the arm's base
 TAG_AHEAD_MM = 40.0              # both tag views are taken this far ahead of the grip pose along the claw: the tag is 60 mm in from the plate's near edge
 SIZE_ROWS = (2, 4)                # rows where a 15-slot hotel has no shelf and a 30-slot one has
 VIEW_SEARCH_MM = ((0, 0), (25, 0), (-25, 0), (0, 25), (0, -25), (25, 25), (-25, -25), (25, -25), (-25, 25), (50, 0), (-50, 0))   # along, across the claw
@@ -141,9 +142,10 @@ class Bringup:
         old = f.get("pose")
         moved = round(geometry.moved_mm(old, seat), 1) if old else None
         r = math.hypot(seat[0] - 126.0, seat[1])
-        if L.get("volumes") and not 240.0 <= r <= 395.0:                       # the real cell's frame; the simulator's fakes have their own
-            raise Refused(f"the hand is {r:.0f} mm from the arm's axis: the microscope's plate holder must be between 240 and 395 mm "
-                          "from it. Drag the hand to a spot in that range and put the microscope under it")
+        if L.get("volumes") and not MIN_STAGE_FROM_ARM_MM <= r <= 395.0:        # the real cell's frame; the simulator's fakes have their own
+            raise Refused(f"the hand is {r:.0f} mm from the arm's axis: the microscope must be at least {MIN_STAGE_FROM_ARM_MM / 10:.0f} cm "
+                          "from the arm's base and its plate holder no more than 39 cm from the axis. Drag the hand to a spot in that "
+                          "range and put the microscope under it")
     
         def write(L):
             f = L["fixtures"][self.scope]
@@ -271,7 +273,8 @@ class Bringup:
         return Section("connect", [
             Step("user", "drag the arm by hand to where the microscope stage will be: hover the hand there, claw square to the instrument, the "
                          "fingers about 7 cm above where the aruco plate will sit; then put the microscope so its plate holder is "
-                         "right under the hand, and press Enter", before=self.loosen),
+                         "right under the hand. The microscope (Squid) base must be at least 25 cm away from the arm's base. "
+                         "Press Enter", before=self.loosen),
             Step("computer", "take that pose as the microscope's hover and calculate where the stage is from it", self.stage_hover),
             Step("computer", "search ports", search_ports),
             Step("squid", "home stage", home, moves=True),
