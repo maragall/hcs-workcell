@@ -42,12 +42,12 @@ def test_a_host_that_is_not_a_vision_box_is_not_saved(monkeypatch):
     cell = real_cell(monkeypatch)
     before = cell.layout()
     monkeypatch.setattr(discover, "arm", lambda L, connected=False: {"error": "none"})
-    monkeypatch.setattr(discover, "vision_box", lambda L: {"host": "10.9.9.9", "error": "10.9.9.9 answers but not as a vision box: x"})
+    monkeypatch.setattr(discover, "vision_box", lambda L: {"host": "10.9.9.9", "port": 9000, "error": "10.9.9.9 answers but not as a vision box: x"})
     monkeypatch.setattr(discover, "squid", lambda *a: {"error": "no"})
     cell.vision_error = None
     cell.discover()
     assert cell.layout()["vision"]["host"] == before["vision"]["host"]
-    monkeypatch.setattr(discover, "vision_box", lambda L: {"host": "10.9.9.9", "version": "v", "cameras": 2})
+    monkeypatch.setattr(discover, "vision_box", lambda L: {"host": "10.9.9.9", "port": 9000, "version": "v", "cameras": 2})
     cell.discover()
     assert cell.layout()["vision"]["host"] == "10.9.9.9"
 
@@ -122,3 +122,44 @@ def test_squid_is_found_in_the_saved_folder_then_the_fallback_and_else_asks_for_
     assert out["error"] == "can't find the Squid software folder" and out["browse"]
     monkeypatch.setattr(discover, "SQUID_FALLBACKS", (str(tmp_path),))
     assert "module" in discover.squid({})
+
+
+def test_vision_box_found_on_another_port_by_its_get_version_reply(monkeypatch):
+    """The saved port is dead; 9001 is open but silent, 8888 answers get_version: that one is the box, and is reported with its port."""
+    from bringup import discover
+    from devices import nova
+
+    class Client:
+        def __init__(self, host, port, timeout=5, **kw):
+            self.host, self.port = host, port
+
+        def version(self):
+            if self.port != 8888:
+                raise TimeoutError("timed out")
+            return "service_name:VIBVision Service"
+
+        def status(self):
+            return type("S", (), {"cameras": 2})()
+
+    monkeypatch.setattr(nova, "VisionClient", Client)
+    monkeypatch.setattr(discover, "port_open", lambda host, port, timeout=0.4: host == "10.0.0.5" and port in (9001, 8888))
+    got = discover.vision_box({"vision": {"host": "10.0.0.5", "port": 9000}})
+    assert got["host"] == "10.0.0.5" and got["port"] == 8888 and got["cameras"] == 2
+
+
+def test_vision_box_nothing_answering_says_what_each_port_did(monkeypatch):
+    from bringup import discover
+    from devices import nova
+
+    class Client:
+        def __init__(self, *a, **kw):
+            pass
+
+        def version(self):
+            raise TimeoutError("timed out")
+
+    monkeypatch.setattr(nova, "VisionClient", Client)
+    monkeypatch.setattr(discover, "port_open", lambda host, port, timeout=0.4: host == "10.0.0.5" and port == 9001)
+    monkeypatch.setattr(discover, "local_subnets", lambda: [])
+    got = discover.vision_box({"vision": {"host": "10.0.0.5", "port": 9000}})
+    assert "error" in got and "10.0.0.5:9000 timed out" in got["error"] and "9001 open" in got["error"]

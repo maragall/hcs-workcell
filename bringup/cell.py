@@ -61,12 +61,14 @@ class Cell:
         except Exception as e:
             self.arm_error = str(e)
             self.log("setup", "arm", f"not connected: {e}")
-        try:
-            self.vision.status()
-            self.vision_error = None
-        except Exception as e:
-            self.vision_error = str(e)
-            self.log("setup", "vision", f"not reachable: {e}")
+        for attempt in range(3):                      # the box can be slow to accept; discover() then looks wider
+            try:
+                self.vision.status()
+                self.vision_error = None
+                break
+            except Exception as e:
+                self.vision_error = str(e)
+                self.log("setup", "vision", f"not reachable (try {attempt + 1} of 3): {e}")
         self.frames.start()
         threading.Thread(target=self._readout, daemon=True, name="readout").start()
 
@@ -111,13 +113,13 @@ class Cell:
         arm, box, squid = discover.arm(L, connected=self.arm_error is None), discover.vision_box(L), discover.squid(L)
         if "ip" in arm and (arm["ip"] != L["robot"]["ip"] or arm["port"] != L["robot"]["port"]):
             self.edit(lambda L: L["robot"].update(ip=arm["ip"], port=arm["port"]))
-        if "cameras" in box and box["host"] != L["vision"]["host"]:       # only a host that answered as a vision box
-            self.edit(lambda L: L["vision"].update(host=box["host"]))
+        if "cameras" in box and (box["host"], box["port"]) != (L["vision"]["host"], L["vision"]["port"]):   # only one that answered as a vision box
+            self.edit(lambda L: L["vision"].update(host=box["host"], port=box["port"]))
         if "ip" in arm and self.arm_error:
             self.robot.ip, self.robot.port = arm["ip"], arm["port"]
             self.connect_arm_again()
         if "host" in box and self.vision_error:
-            self.vision.host = box["host"]
+            self.vision.host, self.vision.port = box["host"], box["port"]
             try:
                 self.vision.status()
                 self.vision_error = None
@@ -127,7 +129,7 @@ class Cell:
         self.devices = [
             {"name": "Arm", "found": arm.get("ip", "not found"), "ok": "ip" in arm and a.get("ok", False),
              "state": arm.get("error") or (self.arm_error or self._arm_words(a))},
-            {"name": "Vision box", "found": box.get("host", "not found"), "ok": "cameras" in box,
+            {"name": "Vision box", "found": f"{box['host']}:{box['port']}" if "host" in box else "not found", "ok": "cameras" in box,
              "state": box.get("error") or f"{box['cameras']} cameras, video above"},
             {"name": "Rotation module", "found": "through the arm", "ok": a.get("ok", False),
              "state": self._stage_words(L) if a.get("ok") else "needs the arm"},

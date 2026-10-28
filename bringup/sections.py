@@ -112,7 +112,8 @@ class Bringup:
             rows = {d["name"]: d for d in self.cell.devices}
             bad = [n for n in ("Arm", "Vision box") if not rows.get(n, {}).get("ok")]
             if bad:
-                raise Refused(f"not found: {', '.join(bad)}. Check power and cables, then run again")
+                raise Refused(f"not found: {', '.join(bad)} ({'; '.join(rows[n]['state'] for n in bad if rows.get(n))}). "
+                              "Check power and cables, then run again")
             return {"arm": rows["Arm"]["found"], "nova": rows["Vision box"]["found"]}
 
         def home():

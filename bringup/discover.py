@@ -1,6 +1,6 @@
 """
 Find the arm and the vision box on the network, so there is nothing to type. The known addresses in the
-positions file are tried first, then every /24 this PC sits on. A host answers as the vision box when TCP 9000
+positions file are tried first, then every /24 this PC sits on. A host answers as the vision box when one of VISION_PORTS
 replies to get_version; as the arm when its controller ports (SDK 52525, BRCAPI 56788) accept a connection.
 Squid is found when its software is importable on this PC.
 """
@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 
 from devices import nova
 
-VISION_PORT, ARM_PORTS = 9000, (52525, 56788)
+VISION_PORTS, ARM_PORTS = (9000, 9001, 8888), (52525, 56788)
 PROBE_TIMEOUT_S = 0.4
 
 
@@ -61,17 +61,61 @@ def scan(port: int, first: Optional[str] = None) -> Optional[str]:
     return None
 
 
+def ask_version(host: str, port: int, timeout: float, tries: int = 1) -> str:
+    """The box's get_version reply, or raises the last error. A port counts as the vision box only if it answers."""
+    last: Exception = OSError("no attempt")
+    for _ in range(tries):
+        try:
+            return nova.VisionClient(host, port, timeout=timeout).version()
+        except Exception as e:
+            last = e
+    raise last
+
+
+def why(e: Exception) -> str:
+    """One word the user can act on: refused (nothing listens), timed out (listens or filtered, no reply), or the error."""
+    if isinstance(e, ConnectionRefusedError):
+        return "refused"
+    if isinstance(e, (TimeoutError, socket.timeout)) or "timeout" in str(e).lower() or "timed out" in str(e).lower():
+        return "timed out"
+    return str(e)
+
+
 def vision_box(layout: dict) -> Dict[str, str]:
-    """{"host", "version", "cameras"} or {"error"}."""
+    """{"host", "port", "version", "cameras"} or {"error"}. The saved host and port first, patiently (the box can take
+    seconds to accept; 3 tries of 5 s), then the other candidate ports on that host, then every host of the local
+    subnets with any candidate port open. A port is the vision box only if it answers get_version, so a stray open
+    port is never taken for it."""
     v = layout["vision"]
-    host = scan(v["port"], v["host"])
-    if not host:
-        return {"error": "no vision box answers on port 9000"}
-    client = nova.VisionClient(host, v["port"], timeout=5)
+    ports = (v["port"],) + tuple(p for p in VISION_PORTS if p != v["port"])
+    notes: List[str] = []
+
+    def found(host: str, port: int, version: str) -> Dict[str, str]:
+        try:
+            cams = nova.VisionClient(host, port, timeout=5).status().cameras
+        except Exception as e:
+            return {"host": host, "port": port, "version": version, "error": f"{host}:{port} answers get_version but not get_status: {why(e)}"}
+        return {"host": host, "port": port, "version": version, "cameras": cams}
+
     try:
-        return {"host": host, "version": client.version(), "cameras": client.status().cameras}
+        return found(v["host"], v["port"], ask_version(v["host"], v["port"], 5.0, tries=3))
     except Exception as e:
-        return {"host": host, "error": f"{host} answers but not as a vision box: {e}"}
+        notes.append(f"{v['host']}:{v['port']} {why(e)}")
+    for port in ports[1:]:
+        if port_open(v["host"], port, 1.0):
+            try:
+                return found(v["host"], port, ask_version(v["host"], port, 3.0))
+            except Exception as e:
+                notes.append(f"{v['host']}:{port} open, {why(e)} on get_version")
+    hosts = [str(h) for net in local_subnets() for h in net.hosts() if str(h) != v["host"]]
+    with ThreadPoolExecutor(max_workers=64) as pool:
+        hits = [(h, p) for h, p, ok in pool.map(lambda hp: (*hp, port_open(*hp)), [(h, p) for h in hosts for p in ports]) if ok]
+    for host, port in hits:
+        try:
+            return found(host, port, ask_version(host, port, 3.0))
+        except Exception:
+            continue
+    return {"error": "no vision box answers: " + "; ".join(notes or ["nothing tried"]) + f"; no other host on {len(hosts)} addresses"}
 
 
 def arm(layout: dict, connected: bool = False) -> Dict[str, str]:
