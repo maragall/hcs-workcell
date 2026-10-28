@@ -270,7 +270,10 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self._run_steps(self._steps(slot)[1], from_step)
 
     def _to_hotel(self):
-        """From the microscope hover or the stage hover to the hotel junction, along the taught routes."""
+        """From the microscope hover or the stage hover to the hotel junction, along the taught routes. With the hotel's
+        poses from the CAD nothing is replayed: the move to a slot plans its own way."""
+        if self._planned():
+            return
         here = self._position_here()
         if here and not here.startswith("polar"):          # at a microscope hover (this one, or one sharing its pose)
             self._waypoints(self.L["fixtures"][here].get("trajectory", "microscope_to_polar"))

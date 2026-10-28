@@ -31,6 +31,9 @@ def plate_order(layout: dict):
     return interleave(*([f"{col}{row}" for row in rows] for col, rows in loaded.items()))
 
 
+MIN_LIFT_MM = 12.0          # least the plate is raised above its seat to clear the slot's rails
+
+
 class Hotel:
     """The plate hotel: slot geometry, the climb and slide in, pick and place in a slot."""
 
@@ -56,10 +59,20 @@ class Hotel:
             self._cad, self._cad_layout = CadPoses(self.L), self.L
         return self._cad
 
+    def _lift_for(self, seat: List[float]) -> float:
+        """The carry lift above a seat: fixtures.hotel.lift_mm, less where the workspace ends first (the top row: its seat is
+        at 416 and the box ends at 435). A lift under MIN_LIFT_MM does not clear the slot's rails."""
+        lift = min(self.L["fixtures"]["hotel"]["lift_mm"], self.safety.box["z"][1] - seat[2] - 1.0)
+        if lift < MIN_LIFT_MM:
+            raise SafetyViolation(f"the seat at z {seat[2]:.0f} leaves {lift:.0f} mm of lift under the workspace top "
+                                  f"({self.safety.box['z'][1]:.0f}); a plate needs {MIN_LIFT_MM:.0f} mm to clear the rails")
+        return lift
+
     def _hotel_geometry(self, slot: str):
         h = self.L["fixtures"]["hotel"]
         p = self.hotel_slot_pose(slot)
-        ax, mm, lift = h["approach"]["axis"], h["approach"]["mm"], h["lift_mm"]
+        ax, mm = h["approach"]["axis"], h["approach"]["mm"]
+        lift = self._lift_for(p)
         approach = offset(p, [ax[0] * mm, ax[1] * mm, lift])
         align = offset(p, [ax[0] * mm, ax[1] * mm, 0])
         carry = offset(p, [0, 0, lift])
@@ -84,10 +97,22 @@ class Hotel:
         top = [x, approach[1], approach[2]] + list(approach[3:])
         return foot, top
 
+    def _planned(self) -> bool:
+        """fixtures.hotel.pose_source = "cad": the slot poses come from the CAD and the way to a slot is planned around the
+        hotel's volume with the claw and the plate in it (routes/volumes.py), not replayed from the taught route A."""
+        return self.L["fixtures"]["hotel"].get("pose_source") == "cad"
+
     def _hotel_go_to_approach(self, slot: str, step: str):
-        """Route A end -> junction -> (retreat, climb) -> approach point of the slot, all at carry height."""
+        """Route A end -> junction -> (retreat, climb) -> approach point of the slot, all at carry height. Planned: from
+        wherever the arm is straight to the approach point, around the hotel."""
         prof = self.safety.profile
         _, approach, _, _ = self._hotel_geometry(slot)
+        if self._planned():
+            if max(abs(self.robot.pose()[i] - approach[i]) for i in range(3)) <= 5.0:     # resuming at the approach point
+                self.resuming = False
+                return
+            self.go_to(approach, f"hotel approach {slot}")
+            return
         foot, top = self._hotel_climb(slot)
         junction = self._hotel_junction(slot)
         here = self.robot.pose()
@@ -105,6 +130,8 @@ class Hotel:
     def _hotel_leave_approach(self, slot: str, step: str):
         """Approach point -> (descend at the climb column) -> junction, ready for route A reversed."""
         prof = self.safety.profile
+        if self._planned():
+            return                                   # the next move plans its own way from the approach point
         foot, top = self._hotel_climb(slot)
         if foot is not None:
             self._move("L", top, f"{step} back to column", prof.approach)
@@ -171,15 +198,18 @@ class Hotel:
         step = f"pick:hotel:{slot}"
         self.store.begin(step)
         self._health()
-        junction = self._hotel_junction(slot)
-        here = self.robot.pose()
-        if max(abs(here[i] - junction[i]) for i in range(3)) > 5.0:
-            self._move("J", junction, f"{step} junction", prof.approach)
-        foot, top = self._hotel_climb(slot)
-        if foot is not None:
-            self._move("L", foot, f"{step} retreat", prof.approach)
-            self._move("L", top, f"{step} climb", prof.approach)
-            self._move("L", approach, f"{step} approach", prof.approach)
+        if self._planned():
+            self._hotel_go_to_approach(slot, step)
+        else:
+            junction = self._hotel_junction(slot)
+            here = self.robot.pose()
+            if max(abs(here[i] - junction[i]) for i in range(3)) > 5.0:
+                self._move("J", junction, f"{step} junction", prof.approach)
+            foot, top = self._hotel_climb(slot)
+            if foot is not None:
+                self._move("L", foot, f"{step} retreat", prof.approach)
+                self._move("L", top, f"{step} climb", prof.approach)
+                self._move("L", approach, f"{step} approach", prof.approach)
         sv = self._slot_view(step, slot, "occupied")
         if sv and sv.decision == "empty":
             self._fault(step, "slot_empty", f"empty {sv.score_empty:.3f} vs occupied {sv.score_occupied:.3f}")
@@ -203,7 +233,8 @@ class Hotel:
         self.store.s.hotel.pop(slot, None)
         self.store.done(plate_at="gripper", grip="long_edges", home_slot=slot)
         self._hotel_leave_approach(slot, step)
-        self._waypoints("polar_to_hotel", reverse=True)
+        if not self._planned():
+            self._waypoints("polar_to_hotel", reverse=True)
 
     def _choose_slot(self, slot: str) -> str:
         """`random` draws from fixtures.hotel.active_slots, never a slot the state says is occupied."""

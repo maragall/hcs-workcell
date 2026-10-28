@@ -23,13 +23,17 @@ RELAX_SHRINK_MM = 5.0
 
 
 class Volumes:
-    def __init__(self, layout: dict, safety: Safety):
+    def __init__(self, layout: dict, safety: Safety, holding: Optional[str] = None):
         v = layout.get("volumes") or {}
         self.margin = float(v.get("margin_mm", 10.0))
         self.obstacles: Dict[str, dict] = v.get("obstacles", {})
         claw = v.get("claw") or {}
         self.z, self.links_z = claw.get("z", [-25.0, 60.0]), claw.get("links_z", [-25.0, 130.0])
-        self.footprint = [(r["x"], r["y"]) for r in (claw.get("body"), claw.get("fingers")) if r]
+        self.footprint = [(r["x"], r["y"], False) for r in (claw.get("body"), claw.get("fingers")) if r]
+        held = (v.get("held") or {}).get(holding or "")
+        if held:                                    # the plate in the claw is part of what moves
+            self.footprint.append((held["x"], held["y"], True))
+        self.front_allow = float((v.get("held") or {}).get("hotel_front_allowance_mm", 0.0))
         self.safety = safety
         self.box = safety.box
         self.relax: Optional[List[float]] = None       # where the arm is now, if it already stands within the margin
@@ -40,20 +44,21 @@ class Volumes:
         return bool(self.obstacles and self.footprint)
 
     # ---- one pose
-    def _inside(self, name: str, x: float, y: float, z_lo: float, z_hi: float, m: Optional[float] = None) -> bool:
+    def _inside(self, name: str, x: float, y: float, z_lo: float, z_hi: float, m: Optional[float] = None,
+                front: float = 0.0) -> bool:
         b = self.obstacles[name]
         m = self.margin if m is None else m
-        return (b["x"][0] - m <= x <= b["x"][1] + m and b["y"][0] - m <= y <= b["y"][1] + m
+        return (b["x"][0] - m + front <= x <= b["x"][1] + m and b["y"][0] - m <= y <= b["y"][1] + m
                 and z_hi >= b["z"][0] - m and z_lo <= b["z"][1] + m)
 
     def _claw_samples(self, x: float, y: float, yaw: float):
         c, s = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
-        for (x0, x1), (y0, y1) in self.footprint:
+        for (x0, x1), (y0, y1), held in self.footprint:
             nx, ny = max(1, int((x1 - x0) / SAMPLE_MM)), max(1, int((y1 - y0) / SAMPLE_MM))
             for i in range(nx + 1):
                 for j in range(ny + 1):
                     u, w = x0 + (x1 - x0) * i / nx, y0 + (y1 - y0) * j / ny
-                    yield x + u * c - w * s, y + u * s + w * c
+                    yield x + u * c - w * s, y + u * s + w * c, held
 
     def settle(self, here: List[float]) -> None:
         """The arm may already stand where the model overlaps an obstacle by a hair (folded at home beside the pillar:
@@ -68,9 +73,10 @@ class Volumes:
     def check_pose(self, p: List[float], label: str = "pose") -> None:
         m = -RELAX_SHRINK_MM if self.relax is not None and math.dist(p[:3], self.relax) <= RELAX_MM else None
         x, y, z, yaw = p[0], p[1], p[2], p[5]
-        for px, py in self._claw_samples(x, y, yaw):
+        for px, py, held in self._claw_samples(x, y, yaw):
             for name in self.obstacles:
-                if self._inside(name, px, py, z + self.z[0], z + self.z[1], m):
+                front = self.front_allow if held and name == "hotel" else 0.0
+                if self._inside(name, px, py, z + self.z[0], z + self.z[1], m, front):
                     raise SafetyViolation(f"{label}: the claw at x={px:.0f} y={py:.0f} would be inside the {name} "
                                           f"(wrist x={x:.0f} y={y:.0f} z={z:.0f}, yaw {yaw:.0f})")
         for branch in self.safety._branches():

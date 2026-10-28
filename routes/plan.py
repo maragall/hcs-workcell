@@ -57,11 +57,12 @@ def taught_route(layout: dict, from_name: Optional[str], to_name: Optional[str])
     return None
 
 
-def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: List[float]) -> Route:
+def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: List[float],
+                      holding: Optional[str] = None) -> Route:
     """Without a taught route: lift, travel, lower. With `routes.safe_z_mm` the travel is at that height; without it the
     travel is at the higher of the two ends and goes around the solid volumes (routes/volumes.py). Either way every
     leg is checked against the claw and the links, not just the wrist."""
-    vol = Volumes(layout, safety)
+    vol = Volumes(layout, safety, holding)
     safe_z = layout.get("routes", {}).get("safe_z_mm")
     if safe_z is None and not vol.active:
         raise SafetyViolation("no taught route between these positions and routes.safe_z_mm is not set")
@@ -118,10 +119,10 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
 
 
 def plan(layout: dict, safety: Safety, here: List[float], target: List[float],
-         from_name: Optional[str] = None, to_name: Optional[str] = None) -> Route:
+         from_name: Optional[str] = None, to_name: Optional[str] = None, holding: Optional[str] = None) -> Route:
     route = taught_route(layout, from_name, to_name)
     if route is not None:
         for i, p in enumerate(route.poses, 1):
             safety.check_target(p, f"{route.name}[{i}/{len(route.poses)}]")
         return route
-    return lift_travel_lower(layout, safety, here, target)
+    return lift_travel_lower(layout, safety, here, target, holding)

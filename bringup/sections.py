@@ -39,9 +39,10 @@ VIEW_LIFTS_MM = (0, 60, 120)      # heights above the seat hover the view is tri
 
 
 def reachable(cyc: Cycle, slot: str) -> bool:
-    """The slot's seat is inside the workspace box and above its region's floor."""
+    """The slot's seat, its approach point and its carry height are all inside the workspace box and above their floors."""
     try:
-        cyc.safety.check_target(cyc.hotel_slot_pose(slot), f"slot {slot}", allow_floor_regions=("hotel",))
+        for name, pose in zip(("seat", "approach", "align", "carry"), cyc._hotel_geometry(slot)):
+            cyc.safety.check_target(pose, f"slot {slot} {name}", allow_floor_regions=("hotel",))
         return True
     except SafetyViolation:
         return False

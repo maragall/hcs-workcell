@@ -36,6 +36,7 @@ def test_the_hotel_answers_with_the_taught_pose_unless_the_layout_says_cad():
         def __init__(self, L):
             self.L = L
     L = copy.deepcopy(LAYOUT)
+    L["fixtures"]["hotel"]["pose_source"] = "taught"
     taught = Stub(L).hotel_slot_pose("A1")
     assert taught == L["fixtures"]["hotel"]["taught"]["A1"]
     L["fixtures"]["hotel"]["pose_source"] = "cad"

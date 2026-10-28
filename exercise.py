@@ -30,7 +30,10 @@ from procedures.safety import SafetyViolation  # noqa: E402
 
 
 def along(cyc, route, reverse=False):
-    """Travel a taught route, the way the cycle does between its parts."""
+    """Travel a taught route, the way the cycle does between its parts. With the hotel's poses from the CAD route A is not
+    replayed: the next move plans its own way."""
+    if route == "polar_to_hotel" and cyc._planned():
+        return
     cyc._waypoints(route, reverse=reverse)
 
 

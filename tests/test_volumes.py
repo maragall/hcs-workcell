@@ -54,3 +54,58 @@ def test_a_start_with_the_claw_inside_the_hotel_is_refused_with_the_volume_named
     L, safety = make()
     with pytest.raises(SafetyViolation, match="hotel"):
         planner.plan(L, safety, [199.3, 121.0, 335.0, 0.0, 0.0, 9.0], [300.0, 150.0, 200.0, 0.0, 0.0, 0.0])
+
+
+def _approach(L, slot):
+    from procedures.cad_poses import CadPoses
+    p = CadPoses(L).hotel_pose(slot)
+    h = L["fixtures"]["hotel"]
+    return [p[0] - h["approach"]["mm"], p[1], p[2] + h["lift_mm"], 0.0, 0.0, p[5]]
+
+
+def test_the_way_from_the_module_to_a_hotel_slot_is_planned_with_and_without_a_plate_in_the_claw():
+    L, safety = make()
+    hover = list(L["fixtures"]["polar"]["pose_at_0"]["pose"])
+    hover[2] += L["fixtures"]["polar"]["hover_mm"]
+    for slot in ("A1", "B3", "C1", "A9"):
+        for holding in (None, "long_edges"):
+            ap = _approach(L, slot)
+            route = planner.plan(L, safety, hover, ap, None, f"hotel approach {slot}", holding=holding)
+            vol, prev = Volumes(L, safety, holding), hover
+            for p in route.poses:
+                vol.check_leg(prev, p)
+                prev = p
+            assert route.poses[-1] == ap and not route.taught
+
+
+def test_a_plate_in_the_claw_makes_the_swing_beside_the_hotel_longer_than_the_empty_claw_can_get_away_with():
+    """The plate sticks out 70 mm past the fingertips: a pose that clears the hotel empty can put the plate into it."""
+    L, safety = make()
+    near = [185.0, 60.0, 150.0, 0.0, 0.0, 0.0]               # fingertips at 390: clear empty; the plate reaches 468
+    Volumes(L, safety).check_pose(near)
+    with pytest.raises(SafetyViolation, match="hotel"):
+        Volumes(L, safety, "long_edges").check_pose(near)
+
+
+def test_all_thirty_slots_have_an_approach_point_inside_the_workspace_and_a_planned_way_to_it():
+    """3 columns x 10 rows. The top row's carry lift is cut to what the workspace allows; every approach point is then
+    reachable from the module hover with a plate in the claw."""
+    from procedures.hotel import Hotel
+
+    class Stub(Hotel):
+        def __init__(self, L, safety):
+            self.L, self.safety = L, safety
+    L, safety = make()
+    L["fixtures"]["hotel"]["pose_source"] = "cad"
+    hover = list(L["fixtures"]["polar"]["pose_at_0"]["pose"])
+    hover[2] += L["fixtures"]["polar"]["hover_mm"]
+    stub, planned = Stub(L, safety), 0
+    for col in "ABC":
+        for row in range(1, 11):
+            slot = f"{col}{row}"
+            seat, approach, _, carry = stub._hotel_geometry(slot)
+            assert carry[2] - seat[2] >= 12.0 and carry[2] <= safety.box["z"][1], slot
+            route = planner.plan(L, safety, hover, approach, None, f"hotel approach {slot}", holding="long_edges")
+            assert route.poses[-1] == approach
+            planned += 1
+    assert planned == 30

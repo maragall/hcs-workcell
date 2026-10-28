@@ -91,7 +91,11 @@
     "calibration": {
       "auto_teach_camera": {
         "marker": "ok",
-        "marker_at": "2026-10-25 23:09:42"
+        "marker_at": "2026-10-27 22:41:43",
+        "pictures": 20,
+        "px": 249.032,
+        "mm": 104.702,
+        "captured_at": "2026-10-27 22:43:52"
       }
     }
   },
@@ -696,7 +700,8 @@
           0,
           1.08
         ]
-      }
+      },
+      "pose_source": "cad"
     },
     "microscope_2": {
       "pose": null,
@@ -737,15 +742,90 @@
     "z_offset_k": -57.4,
     "margin_mm": 10.0,
     "obstacles": {
-      "hotel": {"x": [412.6, 550.6], "y": [-188.0, 188.0], "z": [40.0, 460.0]},
-      "pillar": {"x": [-79.9, 60.1], "y": [-74.0, 74.0], "z": [33.0, 703.0], "links": false}
+      "hotel": {
+        "x": [
+          412.6,
+          550.6
+        ],
+        "y": [
+          -188.0,
+          188.0
+        ],
+        "z": [
+          40.0,
+          460.0
+        ]
+      },
+      "pillar": {
+        "x": [
+          -79.9,
+          60.1
+        ],
+        "y": [
+          -74.0,
+          74.0
+        ],
+        "z": [
+          33.0,
+          703.0
+        ],
+        "links": false
+      }
     },
     "claw": {
       "_note": "Body and fingers as rectangles in the tool frame (x along the fingers, y across), relative to the wrist axis the controller reports; z relative to the reported z. Links and the carriage ride above the claw.",
-      "body": {"x": [-41.0, 88.0], "y": [-72.0, 72.0]},
-      "fingers": {"x": [88.0, 205.0], "y": [-48.0, 48.0]},
-      "z": [-25.0, 60.0],
-      "links_z": [-25.0, 130.0]
+      "body": {
+        "x": [
+          -41.0,
+          88.0
+        ],
+        "y": [
+          -72.0,
+          72.0
+        ]
+      },
+      "fingers": {
+        "x": [
+          88.0,
+          205.0
+        ],
+        "y": [
+          -48.0,
+          48.0
+        ]
+      },
+      "z": [
+        -25.0,
+        60.0
+      ],
+      "links_z": [
+        -25.0,
+        130.0
+      ]
+    },
+    "held": {
+      "_note": "The plate in the claw, as rectangles in the tool frame: its centre is 219.9 ahead of the wrist on the long edges (hotel: taught wrist x 261.7 against the CAD plate centre 481.6) and 186.5 on the short edges (module: wrist y 304.5 against axis y 118). The plate's front edge may be this far inside the hotel's footprint: at the approach point it is above the slot, about 33 mm in, before it slides in.",
+      "long_edges": {
+        "x": [
+          156.2,
+          283.6
+        ],
+        "y": [
+          -42.6,
+          42.6
+        ]
+      },
+      "short_edges": {
+        "x": [
+          143.9,
+          229.1
+        ],
+        "y": [
+          -63.7,
+          63.7
+        ]
+      },
+      "hotel_front_allowance_mm": 45.0
     }
   },
   "routes": {

@@ -135,6 +135,8 @@ def layout() -> dict:
     L["gripper"]["open"] = {"short_edges": 10.0, "long_edges": 10.0}
     L["polar"]["ext_axis"]["direction"] = -1
     L["routes"] = {"safe_z_mm": 160.0, "positions": ["microscope", "polar.pose_at_0", "polar.pose_at_90"]}
+    L["volumes"] = None                                         # the CAD volumes and poses are in the real cell's frame; the fakes' world is their own
+    L["fixtures"]["hotel"]["pose_source"] = "taught"
     L["fixtures"]["hotel"]["rows"] = list(range(1, 11))         # the rig's bench is its own, not whatever the live file says
     L["fixtures"]["hotel"]["loaded"] = {"A": [1, 3, 5, 7, 9], "C": [2, 4, 6, 8]}   # row 10 extrapolates above the rig's box
     return L
