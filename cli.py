@@ -926,7 +926,7 @@ def cmd_setup(args):
     runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else input,
                     stop=cell.stop_event)
     todo = Bringup(cell, squid, runner.ask).sections()
-    stopped = runner.run(todo, args.start, args.step, pause_at_user=args.auto)
+    stopped = runner.run(todo, args.start, args.step, pause_at_user=args.auto, skip=args.skip.split(",") if args.skip else None)
     cell.frames.stop()
     if runner.waiting:
         name, nxt = runner.waiting
@@ -1048,6 +1048,7 @@ def main():
     p.add_argument("--yes", action="store_true", help="answer every prompt with Enter (simulator tests)")
     p.add_argument("--acquisition-s", type=float, default=0.0, help="how long the practice Squid pretends to image")
     p.add_argument("--auto", action="store_true", help="a driver is watching: answer 'hands clear' with Enter, stop before each user step (exit 3)")
+    p.add_argument("--skip", help="sections to leave out, comma separated, e.g. cameras.toml")
     p.add_argument("--step", type=int, default=0, help="with --from: the first step of that section to run")
     p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the answer to '15 or 30'")
     p.set_defaults(fn=cmd_setup)

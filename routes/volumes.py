@@ -70,6 +70,24 @@ class Volumes:
             self.relax = list(here[:3])
             self.check_pose(here, "the arm now")           # raises when the overlap is deeper than the shrink
 
+    def withdraw(self, here: List[float]) -> Optional[List[float]]:
+        """The arm stands inside an obstacle (it touched the hotel and stopped): the first spot, straight back along the
+        claw's axis in steps of 10 mm, where the claw and links are clear with the full margin. None if there is none."""
+        c, s = math.cos(math.radians(here[5])), math.sin(math.radians(here[5]))
+        for mm in range(10, 101, 10):
+            p = [here[0] - mm * c, here[1] - mm * s] + list(here[2:])
+            try:
+                self.safety.check_target(p, "withdraw")
+                saved, self.relax = self.relax, None
+                try:
+                    self.check_pose(p, "withdraw")
+                finally:
+                    self.relax = saved
+                return p
+            except SafetyViolation:
+                continue
+        return None
+
     def check_pose(self, p: List[float], label: str = "pose") -> None:
         m = -RELAX_SHRINK_MM if self.relax is not None and math.dist(p[:3], self.relax) <= RELAX_MM else None
         x, y, z, yaw = p[0], p[1], p[2], p[5]

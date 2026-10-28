@@ -66,8 +66,17 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
     safe_z = layout.get("routes", {}).get("safe_z_mm")
     if safe_z is None and not vol.active:
         raise SafetyViolation("no taught route between these positions and routes.safe_z_mm is not set")
+    withdrawn = None
     if vol.active:
-        vol.settle(here)
+        try:
+            vol.settle(here)
+        except SafetyViolation as why:      # the arm stands inside an obstacle (it touched it and stopped): back out first
+            withdrawn = vol.withdraw(here)
+            if withdrawn is None:
+                raise SafetyViolation(f"{why}; and there is no clear spot straight back along the claw")
+            safety.check_segment(here, withdrawn, "withdraw")
+            vol.relax = None
+            here = withdrawn
         vol.check_pose(target, "the target")
     unfold = None
     if safe_z is None and vol.active and math.dist(here[:2], (fk.MODEL["x0"], fk.MODEL["y0"])) < SINGULAR_MM:
@@ -92,6 +101,8 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
                 break
             if unfold:
                 break
+        if unfold is not None and withdrawn is not None:
+            raise SafetyViolation("the arm stands inside an obstacle beside its own axis: move it by hand")
         if unfold is None:
             raise SafetyViolation(f"no way to unfold the arm from beside its own axis without the claw meeting the hotel or the pillar: {why}")
         here = unfold
@@ -103,19 +114,20 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
     else:
         up = list(here[:2]) + [safe_z] + list(here[3:])
         candidates = [up, list(target[:2]) + [safe_z] + list(target[3:]), target]
-    start = unfold or here
-    poses, prev = ([unfold] if unfold else []), here
+    prefix = ([withdrawn] if withdrawn else []) + ([unfold] if unfold else [])
+    start = prefix[-1] if prefix else here
+    poses, prev = list(prefix), here
     for p in candidates:                       # a zero-length leg is skipped; the route always ends at the target
         if p != prev:
             poses.append(p)
             prev = p
     prev = start
-    for i, p in enumerate(poses[1 if unfold else 0:], 1):
+    for i, p in enumerate(poses[len(prefix):], 1):
         safety.check_segment(prev, p, f"route {i}/{len(poses)}")
         if vol.active:
             vol.check_leg(prev, p, f"route {i}/{len(poses)}")
         prev = p
-    return Route("lift-travel-lower", poses, first_joint=unfold is not None)
+    return Route("lift-travel-lower", poses, first_joint=unfold is not None and withdrawn is None)
 
 
 def plan(layout: dict, safety: Safety, here: List[float], target: List[float],

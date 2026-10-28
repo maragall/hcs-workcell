@@ -46,7 +46,7 @@ class Runner:
         return answer
 
     def run(self, sections: List[Section], start: Optional[str] = None, start_step: int = 0,
-            pause_at_user: bool = False) -> Optional[str]:
+            pause_at_user: bool = False, skip: Optional[List[str]] = None) -> Optional[str]:
         """Returns None when everything ran, else the name of the section that stopped (for --from). With
         pause_at_user the run stops before each step the user does (`self.waiting` = (section, index of the next step))
         so a driver can ask the user in chat and continue with start_step."""
@@ -55,6 +55,7 @@ class Runner:
         if start is not None and start not in names:
             raise ValueError(f"no section {start!r}; the sections are {names}")
         todo = sections[names.index(start):] if start else sections
+        todo = [sec for sec in todo if sec.name not in (skip or [])]
         current = todo[0].name if todo else None
         try:
             for n, sec in enumerate(todo):

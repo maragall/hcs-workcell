@@ -109,3 +109,19 @@ def test_all_thirty_slots_have_an_approach_point_inside_the_workspace_and_a_plan
             assert route.poses[-1] == approach
             planned += 1
     assert planned == 30
+
+
+def test_an_arm_that_stopped_against_the_hotel_backs_out_along_its_claw_before_anything_else():
+    """The pose where the claw touched the hotel on 2026-10-27: the planner does not refuse to move, it withdraws straight
+    back along the claw, then plans from the clear spot."""
+    L, safety = make()
+    stuck = [257.8, 262.6, 102.7, 0.0, 0.0, -48.3]
+    with pytest.raises(SafetyViolation, match="hotel"):
+        Volumes(L, safety).settle(stuck)
+    target = list(L["fixtures"]["polar"]["pose_at_0"]["pose"])
+    route = planner.plan(L, safety, stuck, target)
+    first = route.poses[0]
+    back = ((first[0] - stuck[0]) ** 2 + (first[1] - stuck[1]) ** 2) ** 0.5
+    assert 5.0 <= back <= 100.0 and abs(first[5] - stuck[5]) < 1e-9          # straight back, claw not turned
+    Volumes(L, safety).check_pose(first)                                     # the spot it backs out to is clear with the full margin
+    assert route.poses[-1] == target
