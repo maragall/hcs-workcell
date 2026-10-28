@@ -66,10 +66,10 @@ class Volumes:
         the claw's bounding box overlaps the pillar's corner by a millimetre; the arm is physically there). It must be
         able to leave: within RELAX_MM of this pose obstacles shrink by RELAX_SHRINK_MM. A deeper overlap still raises."""
         try:
-            self.check_pose(here, "the arm now")
+            self.check_pose(here, "the arm now", near_axis_ok=True)
         except SafetyViolation:
             self.relax = list(here[:3])
-            self.check_pose(here, "the arm now")           # raises when the overlap is deeper than the shrink
+            self.check_pose(here, "the arm now", near_axis_ok=True)           # raises when the overlap is deeper than the shrink
 
     def withdraw(self, here: List[float]) -> Optional[List[float]]:
         """The arm stands inside an obstacle (it touched the hotel and stopped): the first spot, straight back along the
