@@ -113,8 +113,7 @@ label(CRASH[:2], "wrist where the arm stopped (199, 121);\nthe claw points +x, f
 
 rect(MOD_X, MOD_Y, fill=(205, 205, 205), w=4)             # the module is on the platform: drawn last, heavy, labelled
 disc(MOD_AXIS, 7, "black")
-label((MOD_AXIS[0], MOD_Y[0]), f"ROTATION MODULE
-axis ({MOD_AXIS[0]:.0f}, {MOD_AXIS[1]:.0f}), on the platform", 13, True, anchor="ma", dy=8)
+label((MOD_AXIS[0], MOD_Y[0]), f"ROTATION MODULE\naxis ({MOD_AXIS[0]:.0f}, {MOD_AXIS[1]:.0f}), on the platform", 13, True, anchor="ma", dy=8)
 
 disc(SEAT, 20)
 label(SEAT, f"microscope seat ({SEAT[0]:.0f}, {SEAT[1]:.0f})", 13, True, anchor="lm", dx=30)
