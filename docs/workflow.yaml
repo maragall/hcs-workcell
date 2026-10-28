@@ -1,0 +1,80 @@
+# The setup workflow as `python cli.py setup` runs it (2026-10-28).
+
+# Prereqs
+user : place squid on the indicated region (base 25 cm or more from the polar base)
+user : connect squid
+user : connect polar   # robot
+user : connect nova    # vision
+user : place aruco plate on rotation module
+
+# Connect system modules
+connect:
+    - user : drag the hand over the microscope stage spot, about 7 cm up; put the microscope under it
+    - computer : take that pose as microscope hover   # -> seat
+    - computer : search ports   # connects to nova, polar, and squid
+    - squid : home stage
+    - polar : arm to nest
+    - polar : rotation module to 0 deg
+    - polar : hover hand onto rotation module centroid
+
+# Set initial state parameters
+cameras.toml:
+    - nova : detect aruco with the down camera
+    - polar : centre the camera over the tag
+    - polar : drive the capture plan   # -> pictures, captured_at
+    - computer : solve intrinsic and extrinsic calibration together   # -> error_px, error_mm
+    - computer : refuse if px > 0.5 or mm > 1.0
+    - computer : re-upload to nova, which restarts   # -> uploaded_at
+    - nova : validate. detect aruco from two poses   # -> check_mm, checked_at
+
+hotel.toml:
+    - polar : arm to nest, hotel view
+    - nova : image hotel with the front camera
+    - polar : camera to each even row slot, is there a slot here
+    - computer : detect hotel size, 15 or 30   # -> size, detected_at
+    - computer : refuse if neither size matches
+
+# Swap the plates
+swap:
+    - nova : detect aruco on the module plate with the down camera   # -> plate_offset
+    - user : move the aruco plate to the microscope holder, tag toward the hand
+    - user : drag the hand above the stage
+    - computer : take that pose as hover; the arm searches around it for the aruco
+    - user : place a real plate on the rotation module
+
+grips.toml:
+    - polar : grip the short edges at the module pose + plate_offset, close until stall   # -> short_closed
+    - computer : choose long-edge grip offset for the hotel size   # -> grip_offset
+    - polar : rotate module to 90, grip long edges set back by grip_offset, close until stall   # -> long_closed
+    - computer : accept band around each closed width   # -> accept_band, measured_at
+    - polar : carry, seat and re-grip three times
+    - computer : refuse if a re-grip width leaves the band
+    - polar : place plate back on the module at 0 deg
+
+microscope.toml:
+    - computer : read stage travel limits from squid   # -> stage_sweep_box, park_xy, park_tolerance
+    - polar : descend over the scope region
+    - nova : detect aruco on the stage plate   # -> seat_pose, found_at
+    - computer : plan route from module hover to seat pose, claw clear of the scope zone   # -> route
+    - polar : drive the route slowly, empty hand
+
+# Clear the stage
+user : remove the aruco plate from the stage
+
+system_state.json:
+    - computer : detect occupancy per slot from the hotel image   # -> contents[slot] = 0 | 1 | -1
+    - polar : look at microscope, module and gripper
+    - nova : image each location
+    - computer : detect plate or empty, choose first task   # -> contents[location]
+
+# Test
+test:
+    - polar : rotate module to 0 deg
+    - polar : get plate from the module
+    - polar : place on microscope stage
+    - squid : run acquisition
+    - squid : home stage
+    - polar : get plate from microscope stage
+    - polar : place on the module at 0 deg
+    - polar : rotate module to 90, grip long edges set back by grip_offset
+    - polar : place on a random free hotel slot
