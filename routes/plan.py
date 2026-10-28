@@ -21,6 +21,7 @@ from routes.volumes import Volumes
 from routes_opt import fk
 
 SINGULAR_MM = 60.0     # a wrist this close to the arm's own axis cannot make a straight move
+FOLD_MM = 30.0          # a target this close to the axis (the folded nest) is reached by a joint move, not a straight one
 UNFOLD_MM = 100.0      # where the joint move unfolds the arm to, along the line to the target
 
 
@@ -68,7 +69,7 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
     if safe_z is None and not vol.active:
         raise SafetyViolation("no taught route between these positions and routes.safe_z_mm is not set")
     x0, y0 = fk.MODEL["x0"], fk.MODEL["y0"]
-    if safe_z is None and vol.active and math.dist(target[:2], (x0, y0)) < SINGULAR_MM:
+    if safe_z is None and vol.active and math.dist(target[:2], (x0, y0)) < FOLD_MM:
         # the target is beside the arm's own axis (the folded nest): a straight move cannot end there. Plan to a point
         # UNFOLD_MM out, where the arm is unfolded, and fold in with one joint move that keeps the claw and links clear.
         toward = math.degrees(math.atan2(here[1] - y0, here[0] - x0))
