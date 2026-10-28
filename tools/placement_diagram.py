@@ -60,7 +60,7 @@ def rect(x, y, **kw):
     poly([(x[0], y[0]), (x[1], y[0]), (x[1], y[1]), (x[0], y[1])], **kw)
 
 
-def claw(wx, wy, yaw, fill):
+def claw(wx, wy, yaw, fill=None):
     c, s = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
     for part in ("body", "fingers"):
         (x0, x1), (y0, y1) = CLAW[part]["x"], CLAW[part]["y"]
@@ -104,16 +104,17 @@ for name, y in COLS.items():
     label((HOTEL_X[0] + 24, y), name, 14, True)
 label((HOTEL_X[1] - 46, -150), f"plate hotel\n{CAD['hotel']['depth_mm']:.0f} x {HOTEL_Y[1] * 2:.0f}", 13, True)
 
-rect(MOD_X, MOD_Y, fill="white")
-disc(MOD_AXIS, 6, "black")
-label(MOD_AXIS, f"rotation module\naxis ({MOD_AXIS[0]:.0f}, {MOD_AXIS[1]:.0f})", 13, True, anchor="rm", dx=-14)
+claw(MODULE_WRIST[0], MODULE_WRIST[1], MODULE_WRIST[5])
+disc(MODULE_WRIST[:2], 5, "black")
+label(MODULE_WRIST[:2], "wrist at the module seat (taught 313, 305);\nthe claw points -y over the module", 12, anchor="lm", dx=12, dy=-26)
+claw(CRASH[0], CRASH[1], CRASH[2])
+disc(CRASH[:2], 5, "black")
+label(CRASH[:2], "wrist where the arm stopped (199, 121);\nthe claw points +x, fingertips 10 mm from the hotel", 12, anchor="rm", dx=-14, dy=-44)
 
-claw(MODULE_WRIST[0], MODULE_WRIST[1], MODULE_WRIST[5], (205, 205, 205))
-disc(MODULE_WRIST[:2], 6, "black")
-label(MODULE_WRIST[:2], "wrist at the module seat\ntaught (313, 305), claw pointing -y", 12, anchor="lm", dx=12, dy=-30)
-claw(CRASH[0], CRASH[1], CRASH[2], "white")
-disc(CRASH[:2], 6, "black")
-label(CRASH[:2], "wrist where the arm stopped\n(199, 121), claw pointing +x", 12, anchor="rm", dx=-14, dy=-40)
+rect(MOD_X, MOD_Y, fill=(205, 205, 205), w=4)             # the module is on the platform: drawn last, heavy, labelled
+disc(MOD_AXIS, 7, "black")
+label((MOD_AXIS[0], MOD_Y[0]), f"ROTATION MODULE
+axis ({MOD_AXIS[0]:.0f}, {MOD_AXIS[1]:.0f}), on the platform", 13, True, anchor="ma", dy=8)
 
 disc(SEAT, 20)
 label(SEAT, f"microscope seat ({SEAT[0]:.0f}, {SEAT[1]:.0f})", 13, True, anchor="lm", dx=30)
