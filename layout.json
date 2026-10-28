@@ -732,6 +732,22 @@
     "di": null,
     "_name": "rotation module: the plate turntable on the arm's base, driven as the arm's external axis E2. 'polar' is its name in the code"
   },
+  "volumes": {
+    "_note": "Solid things the planner routes around (routes/plan.py), from the manufacturer CAD (hardware.json 'cad'). Robot frame, mm. z is the CAD height plus k = -57.4, which assumes the wrist axis sits at the fingers' mid height; it is checked against the taught seats to about 1 mm (module top 59.6, hotel row-1 shelf top 66.6 against TCP 66.8 and 74.6) and is refined by one finger-on-platform touch (hardware.json cad.mapping.k).",
+    "z_offset_k": -57.4,
+    "margin_mm": 10.0,
+    "obstacles": {
+      "hotel": {"x": [412.6, 550.6], "y": [-188.0, 188.0], "z": [40.0, 460.0]},
+      "pillar": {"x": [-79.9, 60.1], "y": [-74.0, 74.0], "z": [33.0, 703.0]}
+    },
+    "claw": {
+      "_note": "Body and fingers as rectangles in the tool frame (x along the fingers, y across), relative to the wrist axis the controller reports; z relative to the reported z. Links and the carriage ride above the claw.",
+      "body": {"x": [-41.0, 88.0], "y": [-72.0, 72.0]},
+      "fingers": {"x": [88.0, 205.0], "y": [-48.0, 48.0]},
+      "z": [-25.0, 60.0],
+      "links_z": [-25.0, 130.0]
+    }
+  },
   "routes": {
     "safe_z_mm": null,
     "positions": [

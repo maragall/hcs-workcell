@@ -183,30 +183,3 @@ def test_the_hand_placed_near_the_module_docks_and_one_farther_is_refused():
     with pytest.raises(SafetyViolation, match="within 30 mm"):
         c.dock("polar.pose_at_0")
     cell.frames.stop()
-
-
-def test_landmarks_are_read_from_the_arm_and_written_to_the_measures_file(tmp_path, monkeypatch):
-    import argparse
-    import json
-    import shutil
-    import cli
-    out = tmp_path / "hardware.json"
-    shutil.copy(os.path.join(os.path.dirname(HERE), "hardware.json"), out)
-    hw = json.load(open(out, encoding="utf-8"))
-    hw["claw"] = {"corner_from_tcp_mm": [10.0, 5.0]}
-    json.dump(hw, open(out, "w", encoding="utf-8"))
-    monkeypatch.setattr("builtins.input", lambda prompt="": "")
-    assert cli.cmd_landmarks(argparse.Namespace(sim=True, out=str(out), max_yaw_deg=360.0)) == 0
-    got = json.load(open(out, encoding="utf-8"))["landmarks"]
-    assert len([k for k in got if not k.startswith("_")]) == len(cli.LANDMARKS)
-    assert all(len(v) == 3 for k, v in got.items() if not k.startswith("_"))
-
-
-def test_landmarks_ask_for_the_claw_corner_offset_first(tmp_path):
-    import argparse
-    import shutil
-    import cli
-    out = tmp_path / "hardware.json"
-    shutil.copy(os.path.join(os.path.dirname(HERE), "hardware.json"), out)
-    with pytest.raises(SystemExit, match="measure once"):
-        cli.cmd_landmarks(argparse.Namespace(sim=True, out=str(out), max_yaw_deg=10.0))

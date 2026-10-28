@@ -17,8 +17,6 @@ from __future__ import annotations
 import argparse
 import copy
 import glob
-import json
-import math
 import os
 import sys
 import time
@@ -941,64 +939,6 @@ def cmd_setup(args):
     return 0
 
 
-CORNER = "the x-most, y-most corner of the y-most finger"
-LANDMARKS = (
-    ("pillar_right_plus_y", "on the arm pillar's x-most edge, at its +y corner (top view, y up)"),
-    ("pillar_right_minus_y", "on the arm pillar's x-most edge, at its -y corner"),
-    ("module_centre", "over the centre of the rotation module's turntable"),
-    ("module_corner_near", "on the module's corner nearest the pillar and the -y side"),
-    ("module_corner_far", "on the module's opposite corner (farthest in +x and +y)"),
-    ("hotel_front_plus_y", "on the hotel's front face (the face the slots open on), at its +y end"),
-    ("hotel_front_minus_y", "on the hotel's front face, at its -y end"),
-)
-
-
-def cmd_landmarks(args):
-    """The arm as the ruler: it is left loose, the user holds the claw's reference corner on each landmark with the claw
-    pointing along +x (yaw 0) and presses Enter. The corner's position is the wrist pose plus the corner's offset from
-    the wrist axis (claw.corner_from_tcp_mm in hardware.json, measured once at yaw 0), turned by the yaw read. Written
-    under `landmarks`; xy is what counts."""
-    path = args.out or os.path.join(HERE, "hardware.json")
-    with open(path, encoding="utf-8") as f:
-        hw = json.load(f)
-    c = (hw.get("claw") or {}).get("corner_from_tcp_mm")
-    if not c:
-        sys.exit(f"measure once, claw pointing along +x (yaw 0): from the wrist axis to {CORNER}, along x and along y, in mm; "
-                 f'put it in hardware.json as "claw": {{"corner_from_tcp_mm": [dx, dy]}} and run again')
-    layout = load_layout()
-    robot = make_robot(layout, args, lambda *a: None)
-    robot.connect()
-    got = {}
-    try:
-        robot.clear_errors()
-        robot.drag(True)
-        print(f"the arm is loose. Claw pointing along +x; hold {CORNER} at each place, then Enter (q to stop)")
-        for name, words in LANDMARKS:
-            while True:
-                if input(f"  {words}: ").strip().lower() in ("q", "quit"):
-                    raise KeyboardInterrupt
-                x, y, z, yaw = *robot.pose()[:3], robot.pose()[5]
-                yaw = (yaw + 180.0) % 360.0 - 180.0
-                if abs(yaw) <= args.max_yaw_deg:
-                    break
-                print(f"      the claw is turned {yaw:.0f} deg; point it along +x and press Enter again")
-            a = math.radians(yaw)
-            got[name] = [round(x + c[0] * math.cos(a) - c[1] * math.sin(a), 1), round(y + c[0] * math.sin(a) + c[1] * math.cos(a), 1), round(z, 1)]
-            print(f"      {name} = x {got[name][0]}, y {got[name][1]}")
-    except KeyboardInterrupt:
-        pass
-    finally:
-        robot.disconnect()
-    if got:
-        hw.setdefault("landmarks", {}).update(got)
-        hw["landmarks"]["_note"] = f"robot-frame positions of {CORNER}, held on each landmark by the operator (cli.py landmarks)"
-        with open(path, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(hw, f, indent=2)
-            f.write("\n")
-        print(f"{len(got)} landmarks written to {path}. The arm is still loose.")
-    return 0
-
-
 def cmd_recover(args):
     """After a hard stop or a controller fault: clear the errors, auto, enabled, then the arm loose so you can move it.
     Nothing moves. Close RobStudio first (one client at a time)."""
@@ -1097,10 +1037,6 @@ def main():
     p.add_argument("--step", type=int, default=0, help="with --from: the first step of that section to run")
     p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the answer to '15 or 30'")
     p.set_defaults(fn=cmd_setup)
-    p = sub.add_parser("landmarks", help="touch the arm pillar, rotation module and hotel with the claw tip; positions go to hardware.json")
-    p.add_argument("--sim", action="store_true"); p.add_argument("--out", help="write here instead of hardware.json")
-    p.add_argument("--max-yaw-deg", type=float, default=10.0, help="how far from +x the claw may point")
-    p.set_defaults(fn=cmd_landmarks)
     p = sub.add_parser("recover", help="after a hard stop or controller fault: clear errors, enable, leave the arm loose")
     p.add_argument("--sim", action="store_true"); p.set_defaults(fn=cmd_recover)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
