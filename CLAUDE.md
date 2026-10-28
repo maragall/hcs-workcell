@@ -40,6 +40,9 @@ Four packages plus the main loop. Each box calls only the boxes below it; `perce
   reported wrist pose) and the links by `volumes.py` (obstacles and claw from `layout.json volumes`, which come from the CAD, see
   `hardware.json`). With `routes.safe_z_mm` the travel is at that height; with it null the planner searches a path around the volumes;
   `Motion.move_to(position)` executes it, to the hover only. `cli.py goto NAME` drives it by hand.
+- `procedures/cad_poses.py`: wrist poses computed from the manufacturer CAD (`hardware.json cad`) with a frame fit from the hand-taught
+  hotel poses (agree to about 1 mm); `python cli.py cad-poses` compares, `fixtures.hotel.pose_source = "cad"` switches the hotel to them.
+  The pose the controller reports is the wrist axis; the fingertips are 205 mm ahead of it, the down camera looks 115 mm ahead.
 - `tools/`: standalone scripts that are not part of the loop: `analyze_runs.py`, `build_refs_from_runs.py`, `record_slot.py`,
   `teach_daemon.py`, `torque_probe.py`, `run_matrix.py`, `review_queue.py`, `placement_diagram.py` (redraws `docs/placement.png`).
   There is no GUI: `python cli.py setup` replaces it, `python cli.py recover` is its Recover button.

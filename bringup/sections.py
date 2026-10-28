@@ -10,6 +10,7 @@ Not run on the real arm yet: the sections are exercised on the simulator (tests/
 """
 from __future__ import annotations
 
+import math
 import os
 import random
 import time
@@ -20,6 +21,7 @@ from bringup import geometry
 from bringup.runner import Refused, Section, Step
 from bringup import bench, cameras, hand
 from perception.hotel_size import HotelSize
+from procedures import cad_poses
 from procedures.corrector import StopSafe
 from procedures.cycle import Cycle
 from procedures.motion import offset
@@ -32,6 +34,7 @@ SEARCH_HEIGHTS = 4                # heights tried below the microscope hover, hi
 BAND_BELOW, BAND_ABOVE = 0.1, {"short_edges": 0.5, "long_edges": 1.05}     # as gripper.accept_band was set 2026-10-22
 RESEATS = 3                       # carry, seat and re-grip cycles in the grips section
 ACQUISITION_TIMEOUT_S = 600
+VIEW_SEARCH_MM = ((0, 0), (25, 0), (-25, 0), (0, 25), (0, -25), (25, 25), (-25, -25), (25, -25), (-25, 25), (50, 0), (-50, 0))   # along, across the claw
 
 
 def reachable(cyc: Cycle, slot: str) -> bool:
@@ -88,6 +91,35 @@ class Bringup:
         if why:
             raise Refused(why)
 
+    def module_view_pose(self, along: float = 0.0, across: float = 0.0) -> List[float]:
+        """The wrist pose that puts the down camera over the module's plate: the taught seat's wrist pose moved along
+        the claw. The camera looks `camera_ahead_of_wrist_mm` ahead of the wrist, the plate centre is
+        `module_wrist_to_plate_mm` ahead of it at the seat (both in hardware.json, from the CAD)."""
+        claw = cad_poses.load_hardware()["claw"]
+        taught = self.cyc()._position("polar.pose_at_0")
+        yaw = math.radians(taught[5])
+        d, n = (math.cos(yaw), math.sin(yaw)), (-math.sin(yaw), math.cos(yaw))
+        shift = claw["module_wrist_to_plate_mm"] - claw["camera_ahead_of_wrist_mm"] + along
+        return [taught[0] + shift * d[0] + across * n[0], taught[1] + shift * d[1] + across * n[1], taught[2], 0.0, 0.0, taught[5]]
+
+    def view_module(self) -> List[float]:
+        """Take the camera over the module's plate and read the marker: the CAD pose first, then a small cross of
+        offsets (the camera's sideways offset from the claw is not known). Remembers where it read."""
+        c, v = self.cell, self.cell.layout()["vision"]
+        cyc = self.cyc()
+        tries = [self.found["module_view"]] if self.found.get("module_view") else []
+        tries += [self.module_view_pose(a, b) for a, b in VIEW_SEARCH_MM]
+        for pose in tries:
+            self.guard(lambda pose=pose: cyc.go_to(pose, "module view"))
+            try:
+                if any(c.vision.aruco_pose(v["down_camera"], 1, None, v["led"]).pixel):
+                    self.found["module_view"] = pose
+                    return pose
+            except Exception:
+                pass
+        raise Refused("the down camera cannot read the aruco plate over the module: is the practice plate on the module, "
+                      "marker up, and the lens clean?")
+
     @staticmethod
     def guard(fn):
         """Run a motion step: the cell's own refusals become the setup's, with the message."""
@@ -130,7 +162,7 @@ class Bringup:
 
         def hover():
             self.ready()
-            self.guard(lambda: self.cyc().move_to("polar.pose_at_0"))
+            self.view_module()
 
         return Section("connect", [
             Step("computer", "search ports", search_ports),
@@ -242,10 +274,9 @@ class Bringup:
 
         def read_plate():
             self.ready()
-            cyc = self.cyc()
             L = c.layout()
             v, F = L["vision"], L["fixtures"]["polar"]
-            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
+            self.view_module()
             a = c.vision.aruco_pose(v["down_camera"], F.get("aruco_marker_id", 1), None, v["led"])
             target = [float(x) for x in a.target]
             ref = F.get("aruco_reference")

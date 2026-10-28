@@ -40,12 +40,21 @@ class Hotel:
         col, row = slot[:1], slot[1:]
         if col not in h["columns"] or not row.isdigit() or int(row) not in h["rows"]:
             raise SafetyViolation(f"slot {slot} does not exist")
+        if h.get("pose_source") == "cad":
+            return self.cad_poses().hotel_pose(slot)
         if slot in h["taught"]:
             return list(h["taught"][slot])
         a, b, n = h["row_vector_from"]
         rv = [(h["taught"][b][i] - h["taught"][a][i]) / n for i in range(3)]
         base = h["taught"][col + "1"]
         return [base[i] + (int(row) - 1) * rv[i] for i in range(3)] + list(base[3:])
+
+    def cad_poses(self):
+        """The poses computed from the CAD (procedures/cad_poses.py); built once per layout."""
+        if getattr(self, "_cad", None) is None or self._cad_layout is not self.L:
+            from procedures.cad_poses import CadPoses
+            self._cad, self._cad_layout = CadPoses(self.L), self.L
+        return self._cad
 
     def _hotel_geometry(self, slot: str):
         h = self.L["fixtures"]["hotel"]

@@ -939,6 +939,20 @@ def cmd_setup(args):
     return 0
 
 
+def cmd_cad_poses(args):
+    """Hotel wrist poses computed from the manufacturer CAD against the ones taught by hand. Nothing moves."""
+    from procedures.cad_poses import CadPoses
+    c = CadPoses(load_layout())
+    f = c.fit
+    print(f"frame fit from the taught poses: rotation {f['theta_deg']:.3f} deg, shift x {f['x']:.2f} y {f['y']:.2f}, "
+          f"row-1 wrist z {f['z_row1']:.2f}, row pitch {c.pitch:.1f}")
+    print(f"{'slot':5} {'taught x, y, z, yaw':34} {'cad x, y, z, yaw':34} diff")
+    for r in c.compare():
+        print(f"{r['slot']:5} {str(r['taught']):34} {str(r['cad']):34} {r['diff']}")
+    print(f"rms {c.rms_mm():.2f} mm over {len(c.compare())} taught slots. To use the CAD poses: fixtures.hotel.pose_source = \"cad\"")
+    return 0
+
+
 def cmd_recover(args):
     """After a hard stop or a controller fault: clear the errors, auto, enabled, then the arm loose so you can move it.
     Nothing moves. Close RobStudio first (one client at a time)."""
@@ -1037,6 +1051,8 @@ def main():
     p.add_argument("--step", type=int, default=0, help="with --from: the first step of that section to run")
     p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the answer to '15 or 30'")
     p.set_defaults(fn=cmd_setup)
+    p = sub.add_parser("cad-poses", help="hotel poses computed from the CAD against the taught ones (nothing moves)")
+    p.set_defaults(fn=cmd_cad_poses)
     p = sub.add_parser("recover", help="after a hard stop or controller fault: clear errors, enable, leave the arm loose")
     p.add_argument("--sim", action="store_true"); p.set_defaults(fn=cmd_recover)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")

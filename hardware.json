@@ -188,6 +188,10 @@
       205.0,
       47.0
     ],
-    "source": "CAD: x-most, y-most corner of the y-most finger, claw pointing along +x"
+    "source": "CAD: x-most, y-most corner of the y-most finger, claw pointing along +x",
+    "camera_ahead_of_wrist_mm": 115.0,
+    "camera_note": "the down camera is 90 mm behind the fingertips (docs/PLACEMENT.md), the fingertips 205 mm ahead of the wrist: the camera looks at the point 115 mm ahead of the wrist along the claw. Lateral offset not known; the view search covers it.",
+    "module_wrist_to_plate_mm": 186.5,
+    "module_wrist_note": "from the CAD: the taught wrist pose at the module (y 304.5) to the module axis (y 118), along the claw (yaw -91). Short-edge grip."
   }
 }

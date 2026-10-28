@@ -136,7 +136,7 @@ class Volumes:
         def moves(k):
             if k in (("s",), ("g",)):
                 near = [m for m in xy if m[0] not in ("s", "g") and math.dist(xy[k], xy[m]) <= 2.2 * GRID_MM]
-                return near + ([("g",)] if k == ("s",) and math.dist(xy[k], xy[("g",)]) <= 3 * GRID_MM else [])
+                return near + ([("g",)] if k == ("s",) else [])        # the straight line is always tried
             i, j = k
             out = [(i + di, j + dj) for di in (-1, 0, 1) for dj in (-1, 0, 1) if (di or dj) and (i + di, j + dj) in xy]
             if math.dist(xy[k], xy[("g",)]) <= 2.2 * GRID_MM:

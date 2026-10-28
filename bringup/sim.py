@@ -25,6 +25,7 @@ def build():
     r = rig()
     tmp = tempfile.mkdtemp(prefix="setup_sim_")
     L = r.layout()
+    L["volumes"] = None                      # the real cell's obstacles are in the real frame; the fakes' fixtures are elsewhere
     layout_path = os.path.join(tmp, "layout.json")
     positions.save(L, layout_path)
     ref_dir = os.path.join(tmp, "reference_images")
