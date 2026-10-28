@@ -12,11 +12,16 @@ refuses. That is on purpose: a number nobody measured must not move the arm.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import List, Optional
 
 from procedures.safety import Safety, SafetyViolation
 from routes.volumes import Volumes
+from routes_opt import fk
+
+SINGULAR_MM = 60.0     # a wrist this close to the arm's own axis cannot make a straight move
+UNFOLD_MM = 100.0      # where the joint move unfolds the arm to, along the line to the target
 
 
 @dataclass
@@ -25,6 +30,7 @@ class Route:
     poses: List[List[float]]                    # Cartesian waypoints, straight lines between them
     joints: Optional[List[List[float]]] = None  # a taught route: replay these; poses are its checkpoints
     reverse: bool = False                       # the taught route is stored the other way round
+    first_joint: bool = False                   # the first leg is a joint move (unfolding from beside the arm's own axis)
 
     @property
     def taught(self) -> bool:
@@ -62,6 +68,32 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
     if vol.active:
         vol.settle(here)
         vol.check_pose(target, "the target")
+    unfold = None
+    if safe_z is None and vol.active and math.dist(here[:2], (fk.MODEL["x0"], fk.MODEL["y0"])) < SINGULAR_MM:
+        # the wrist is beside the arm's own axis: a straight move from there is a singularity, the controller refuses
+        # it. A joint move unfolds the arm first, to a point UNFOLD_MM from the axis at a direction and claw yaw whose
+        # joint-interpolated path keeps the claw and links clear, and from which a route to the target exists.
+        x0, y0 = fk.MODEL["x0"], fk.MODEL["y0"]
+        toward = math.degrees(math.atan2(target[1] - y0, target[0] - x0))
+        why = None
+        for ang in dict.fromkeys([toward, 90.0, 135.0, 45.0, 180.0, 0.0, -45.0]):
+            for yaw in dict.fromkeys([here[5], target[5], 0.0, 90.0, -90.0, 180.0]):
+                cand = [x0 + UNFOLD_MM * math.cos(math.radians(ang)), y0 + UNFOLD_MM * math.sin(math.radians(ang)), here[2]]                     + list(here[3:5]) + [yaw]
+                try:
+                    vol.check_joint_leg(here, cand, "unfold")
+                    safety.check_target(cand, "unfold")
+                    z = max(cand[2], target[2])
+                    vol.search(list(cand[:2]) + [z] + list(cand[3:]), target)
+                except SafetyViolation as e:
+                    why = e
+                    continue
+                unfold = cand
+                break
+            if unfold:
+                break
+        if unfold is None:
+            raise SafetyViolation(f"no way to unfold the arm from beside its own axis without the claw meeting the hotel or the pillar: {why}")
+        here = unfold
     if safe_z is None:
         z = max(here[2], target[2])
         up = list(here[:2]) + [z] + list(here[3:])
@@ -70,18 +102,19 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
     else:
         up = list(here[:2]) + [safe_z] + list(here[3:])
         candidates = [up, list(target[:2]) + [safe_z] + list(target[3:]), target]
-    poses, prev = [], here
+    start = unfold or here
+    poses, prev = ([unfold] if unfold else []), here
     for p in candidates:                       # a zero-length leg is skipped; the route always ends at the target
         if p != prev:
             poses.append(p)
             prev = p
-    prev = here
-    for i, p in enumerate(poses, 1):
+    prev = start
+    for i, p in enumerate(poses[1 if unfold else 0:], 1):
         safety.check_segment(prev, p, f"route {i}/{len(poses)}")
         if vol.active:
             vol.check_leg(prev, p, f"route {i}/{len(poses)}")
         prev = p
-    return Route("lift-travel-lower", poses)
+    return Route("lift-travel-lower", poses, first_joint=unfold is not None)
 
 
 def plan(layout: dict, safety: Safety, here: List[float], target: List[float],

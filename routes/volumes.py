@@ -87,6 +87,17 @@ class Volumes:
                         if o.get("links", True) and self._inside(name, qx, qy, z + self.links_z[0], z + self.links_z[1], m):
                             raise SafetyViolation(f"{label}: the {part} at x={qx:.0f} y={qy:.0f} would be inside the {name}")
 
+    def check_joint_leg(self, a: List[float], b: List[float], label: str = "joint leg") -> None:
+        """A joint move (the arm unfolding from beside its own axis): the joints are interpolated, every sample's claw
+        and links are checked. Both elbow branches when the branch is unknown."""
+        for branch in self.safety._branches():
+            ja = self.safety._ik(a, branch, label)
+            jb = self.safety._ik(b, branch, label, ref=ja)
+            n = max(1, int(max(abs(jb[i] - ja[i]) for i in (1, 2, 3)) / 2.0))
+            for k in range(n + 1):
+                p = fk.fk([ja[i] + k / n * (jb[i] - ja[i]) for i in range(4)])
+                self.check_pose([p[0], p[1], p[2], 0.0, 0.0, p[5]], f"{label} ({k}/{n})")
+
     def check_leg(self, a: List[float], b: List[float], label: str = "leg") -> None:
         n = max(1, int(max(math.dist(a[:2], b[:2]), abs(b[2] - a[2]), abs(b[5] - a[5]) * 1.5) / SAMPLE_MM))
         for k in range(n + 1):

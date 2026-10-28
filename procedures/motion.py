@@ -203,4 +203,5 @@ class Motion:
             self._arrive(target, f"move_to {name} arrive", self.safety.profile.approach)
             return
         for i, p in enumerate(route.poses, 1):
-            self._move("L", p, f"move_to {name} [{i}/{len(route.poses)}]", self.safety.profile.travel)
+            kind = "J" if i == 1 and route.first_joint else "L"
+            self._move(kind, p, f"move_to {name} [{i}/{len(route.poses)}]", self.safety.profile.travel)
