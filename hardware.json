@@ -1,0 +1,39 @@
+{
+  "_note": "What the machine is, measured with calipers by the operator (2026-10-27). Not taught poses (those are layout.json). Robot base frame as in the operator's sketch: x to the right, y up, the arm lies along +x, slots open toward -x. Raw answers are kept as given; 'reading' is how the program reads them. Anything in 'unresolved' is not used until the operator settles it.",
+  "platform": {
+    "x_mm": 650, "y_mm": 400,
+    "raw": "65 cm along x, 40 cm along y",
+    "holds": ["arm base", "rotation module", "plate hotel"],
+    "outside": ["microscope (Squid)"]
+  },
+  "arm_base": {
+    "x_mm": 150, "y_mm": 140,
+    "raw": "15 cm on x, 14 cm on y",
+    "links_mm": [200, 200],
+    "links_source": "routes_opt/fk_model.json, fitted from logged poses"
+  },
+  "hotel": {
+    "x_mm": 139.29, "y_mm": 376,
+    "raw": "x width is 139.29 mm, y width is 376 mm",
+    "columns": {"A": 137.5, "B": 0.0, "C": -137.5},
+    "columns_note": "y of each column's slot centre in the robot frame (layout.json fixtures.hotel, taught poses)"
+  },
+  "rotation_module": {
+    "to_column_a_mm": {"dy": 169.67, "dx_reading": "aligned with column A, a couple of mm"},
+    "raw": "169.67 mm; aligned with column A, a couple of mm from it",
+    "reading": "169.67 is along y (the layout has 167.5); the x offset is a couple of mm, the layout has 24"
+  },
+  "microscope": {
+    "distance_from_platform_mm": 500,
+    "raw": "some 50 cm, but that might vary",
+    "footprint_mm": null
+  },
+  "unresolved": [
+    "Where the arm base and the hotel sit inside the 650 x 400 platform: the sketch puts the base at the left edge and the hotel at the right edge, but with the hotel's slot line at x 293 (167 mm from the arm axis, taught) the 650 mm does not fit that.",
+    "Module x offset from column A: 'a couple of mm' (operator) against 24 mm between the taught poses.",
+    "Where the hotel's slot line is inside its 139.29 mm depth.",
+    "Whether the Squid's 500 mm is from the platform edge to its near face; the taught seat is 400 mm in y from the arm axis, 200 mm beyond the platform edge if the platform is centred on the arm axis.",
+    "Squid footprint.",
+    "Height of the hotel, the module and the arm links above the tool point (needed for volumes)."
+  ]
+}
