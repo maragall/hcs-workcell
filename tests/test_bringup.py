@@ -135,9 +135,9 @@ def test_the_whole_setup_runs_on_the_simulator():
     assert L["setup"]["grips"]["grip_offset"] == 31.675
     assert L["squid"]["microscope"]["park_xy_mm"] == [0.0, 0.0]
     assert L["setup"]["microscope"]["found_at"]
-    assert any("aruco plate to the microscope stage" in line for line in said)
+    assert any("carry the aruco plate from the module to the microscope stage" in line for line in said)
     assert any("real plate on the rotation module" in line for line in said)
-    assert text.index("move the aruco plate") < text.index("grips.toml") < text.index("remove the aruco plate")
+    assert text.index("carry the aruco plate") < text.index("grips.toml") < text.index("remove the aruco plate")
     cell.frames.stop()
 
 

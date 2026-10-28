@@ -12,7 +12,7 @@ import importlib
 import importlib.util
 import os
 import time
-from typing import List
+from typing import List, Optional
 
 from procedures.safety import Safety
 from routes.volumes import Volumes
@@ -119,26 +119,51 @@ def pictures(cell, by_hand: bool, camera=None) -> dict:
     for label, cam in _picked(L, camera):
         if cell.stop_event.is_set():
             break
+        folder = _dir(cell, cam, "capture")
+        if not by_hand:                                    # a plan is one set: pictures of an earlier run (another arm state) would mix in
+            for name in os.listdir(folder):
+                if name.endswith((".png", ".json")):
+                    os.remove(os.path.join(folder, name))
         got[cam] = calib.capture.run_plan(None if by_hand else plan_around(cell, L, here), cam, cell.robot, cell.vision,
-                                          _dir(cell, cam, "capture"), L["vision"]["led"], stop=cell.stop_event)
+                                          folder, L["vision"]["led"], stop=cell.stop_event)
     return got
 
 
+def marker_height_m(L: dict) -> Optional[float]:
+    """The practice plate's marker above the base plane: the module's top from the CAD (hardware.json) in the robot's z
+    (volumes.z_offset_k) plus the practice plate's height. None where the cell has no CAD volumes (the simulator), and
+    the solve is then the general one."""
+    try:
+        from procedures import cad_poses
+        top = cad_poses.load_hardware()["cad"]["rotation_module"]["top_y_c"]
+        return (top + L["volumes"]["z_offset_k"] + L["plate"]["height_practice"]) / 1000.0
+    except (KeyError, TypeError, OSError):
+        return None
+
+
 def solve(cell, camera=None) -> dict:
-    """One joint solve per camera from its pictures: lens numbers and where the camera sits on the hand. Redo above
-    LIMIT_PX or LIMIT_MM. Returns {camera name: {"px", "mm", "pictures", "ok"}}."""
+    """One solve per camera from its pictures: lens numbers and where the camera sits on the hand. A solve above the
+    limits (vision.calibration_limits px / mm in the positions file, else LIMIT_PX / LIMIT_MM) writes no file and no
+    number into the camera's record except `last_failed`, and the next solve starts from the vendor's numbers or the
+    last calibration that was accepted, never from a refused one. Returns {camera: {"px", "mm", "pictures", "ok"}}."""
     calib, L = package(cell), cell.layout()
+    limits = L["vision"].get("calibration_limits") or {}
+    lim_px, lim_mm = float(limits.get("px", LIMIT_PX)), float(limits.get("mm", LIMIT_MM))
     out = {}
     for label, cam in _picked(L, camera):
-        camparam, _ = _files(cell, cam)
+        camparam, _ = _files(cell, cam)                     # exists only for an accepted calibration
         start = camparam if os.path.exists(camparam) else VENDOR_START
-        res = calib.solve.run(_dir(cell, cam, "capture"), calib.halcon.CamParam.read(start), L["vision"]["marker_mm"] / 1000.0)
-        res.write(_dir(cell, cam))
+        res = calib.solve.run(_dir(cell, cam, "capture"), calib.halcon.CamParam.read(start), L["vision"]["marker_mm"] / 1000.0,
+                              marker_z_m=marker_height_m(L))
         px, mm = round(float(res.reprojection_px), 3), round(float(res.mean_error_m) * 1000.0, 3)
-        ok = px <= LIMIT_PX and mm <= LIMIT_MM
-        cell.edit(lambda L, cam=cam: _node(L, cam).update(pictures=res.images, px=px, mm=mm, captured_at=_stamp()))
+        ok = px <= lim_px and mm <= lim_mm
+        if ok:
+            res.write(_dir(cell, cam))
+            cell.edit(lambda L, cam=cam: _node(L, cam).update(pictures=res.images, px=px, mm=mm, captured_at=_stamp()))
+        else:
+            cell.edit(lambda L, cam=cam: _node(L, cam).update(last_failed={"pictures": res.images, "px": px, "mm": mm, "at": _stamp()}))
         cell.note(f"{label} camera: {res.images} pictures, error {px} px, {mm} mm: "
-                  f"{'ok' if ok else f'redo, above {LIMIT_PX} px or {LIMIT_MM:.0f} mm'}")
+                  f"{'ok' if ok else f'redo, above {lim_px:g} px or {lim_mm:g} mm; nothing was written'}")
         out[cam] = {"px": px, "mm": mm, "pictures": res.images, "ok": ok}
     return out
 

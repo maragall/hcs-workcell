@@ -37,6 +37,7 @@ def _detector() -> "cv2.aruco.ArucoDetector":
 # The tag on the practice plate as the cell has it (seen 2026-10-27, read by the box as id 1): a black square with a 4 x 4
 # code inside, not the dictionary tag the drawing names. Interior cells from the top-left, 1 = white.
 PLATE_TAG = np.array([[1, 1, 0, 1], [1, 1, 0, 1], [0, 0, 1, 1], [0, 1, 1, 0]])
+EDGE_PX = 12
 TAG_GRID, TAG_PX, MAX_CODE_MISMATCH = 6, 24, 2          # 6 x 6 cells with the border; warped 24 px a cell
 
 
@@ -62,6 +63,9 @@ def detect_plate_tag(gray: np.ndarray) -> np.ndarray:
         if len(quad) != 4 or not cv2.isContourConvex(quad):
             continue
         q = _order(quad.reshape(4, 2).astype(np.float32))
+        h, w = gray.shape
+        if (q[:, 0] < EDGE_PX).any() or (q[:, 1] < EDGE_PX).any() or (q[:, 0] > w - 1 - EDGE_PX).any() or (q[:, 1] > h - 1 - EDGE_PX).any():
+            continue                              # a tag cut by the picture's edge has the edge for a side: wrong corners
         warped = cv2.warpPerspective(gray, cv2.getPerspectiveTransform(q, target), (side, side))
         cells = warped.reshape(TAG_GRID, TAG_PX, TAG_GRID, TAG_PX)[:, 4:-4, :, 4:-4].mean(axis=(1, 3))
         mid = (float(warped.min()) + float(warped.max())) / 2

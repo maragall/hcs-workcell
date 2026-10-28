@@ -329,15 +329,19 @@ class Bringup:
             P0 = L["fixtures"]["polar"]["pose_at_0"]["pose"]
             grip = (P0[0], P0[1], P0[5])
             self.view_module()                                           # finds the plate; then straight above its grip pose, high
-            self.guard(lambda: self.cyc().go_to([P0[0], P0[1], self.tag_height(), P0[3], P0[4], P0[5]], "tag view"))
-            s = self._servo()
-            try:
-                corners, view = s.observe()
-            except servo.ServoError as e:
-                raise Refused(f"the tag is not whole in the picture from straight above the module's grip pose ({e}). The plate's "
-                              "tab with the tag must be at the end nearest the arm's wrist (the +y end when the claw points at -y): "
-                              'turn the plate 180 deg on the module by hand once, then run again from "swap". The arm carries it '
-                              "to the stage the same way up")
+            cyc = self.cyc()
+            for turned in (False, True):
+                self.guard(lambda: cyc.go_to([P0[0], P0[1], self.tag_height(), P0[3], P0[4], P0[5]], "tag view"))
+                s = self._servo()
+                try:
+                    corners, view = s.observe()
+                    break
+                except servo.ServoError as e:
+                    if turned:
+                        raise Refused(f"the tag is not whole in the picture from straight above the module's grip pose, in either "
+                                      f"orientation of the plate: {e}")
+                    # the tab with the tag is at the far end of the plate: the module turns the plate half a turn (the arm clears it)
+                    self.guard(lambda: cyc._polar_rotate(180, P0))
             prev = self.setup_node(L).get("module_tag")
             try:
                 if prev:
@@ -372,10 +376,13 @@ class Bringup:
             self.guard(lambda: cyc._place(self.scope, F[self.scope]["pose"], F[self.scope], self.scope, route, reverse=True))
             cyc.store.s.contents = dict(cyc.store.s.contents, **{"module": "empty", self.scope: "full"})
             cyc.store.save()
+            if cyc.polar.angle != 0:                                   # the half turn is undone with the module empty
+                self.guard(lambda: cyc.move_to("polar.pose_at_0"))
+                self.guard(lambda: cyc._polar_rotate(0, F["polar"]["pose_at_0"]["pose"]))
             return {"aruco plate": f"module -> {self.scope} stage"}
 
         return Section("swap", [
-            Step("nova", "detect aruco on the plate in the rotation module with the down camera (tab with the tag toward the wrist)", read_plate, moves=True),
+            Step("nova", "detect aruco on the plate in the rotation module with the down camera (the module turns the plate half a turn if the tag is at the far end)", read_plate, moves=True),
             Step("polar", "carry the aruco plate from the module to the microscope stage", to_stage, moves=True),
             Step("user", "place a real plate on the rotation module")])
 

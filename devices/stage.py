@@ -40,12 +40,16 @@ class PolarStage:
 
     # ---- ext_axis -------------------------------------------------------------
     def _axis_target(self, deg: int) -> float:
+        """Axis reading for an angle. The stage turns freely one way only: past `forward_max_deg` (the travel the cycle's 0 and
+        90 use, about 100) the angle is reached the other way round, 360 - deg backwards, which has the same end position."""
         a = self.cfg["ext_axis"]
+        if deg > float(a.get("forward_max_deg", 100.0)):
+            return a["zero_reading"] - a["direction"] * (360 - deg)
         return a["zero_reading"] + a["direction"] * deg
 
     def read_angle(self) -> float:
         a = self.cfg["ext_axis"]
-        return (self.robot.ext_axis(int(a["index"])) - a["zero_reading"]) * a["direction"]
+        return ((self.robot.ext_axis(int(a["index"])) - a["zero_reading"]) * a["direction"]) % 360.0
 
     def _at(self, deg: int) -> bool:
         if self.driver != "ext_axis":

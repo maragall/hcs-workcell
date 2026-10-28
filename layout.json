@@ -722,10 +722,12 @@
       "index": 1,
       "zero_reading": 89.808,
       "direction": -1,
-      "speed": 0.02,
+      "speed": 0.3,
       "tolerance_deg": 0.5,
       "_note": "stage turns -90 (axis reading decreases) from parallel-to-x to the long-edge orientation",
-      "_speed_note": "speed is the arm's speed scale for this axis, 0.01..1.0. Raise it on the cell with: cli.py rotation-speed X --save (turns 0 -> 90 -> 0, times them, verifies the readback)"
+      "_speed_note": "speed 0.3 turns 90 deg in 3.5 s with the readback exact (tried 0.12: 6.6 s, 0.2: 4.6 s, 0.3: 3.5 s on 2026-10-28; 0.02 took 60 s for 180 deg). Raise with cli.py rotation-speed X --save",
+      "forward_max_deg": 100.0,
+      "_forward_note": "the stage turns freely 0..100 deg the configured way (axis reading falling from zero_reading); a half turn goes the other way round (360 - deg backwards): the operator turned it by hand on 2026-10-28, and commanding -180 the configured way stopped at axis reading -10.1"
     },
     "do": {
       "rotate_90": "POLAR_ROT",

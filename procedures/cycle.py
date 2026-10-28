@@ -215,7 +215,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
             try:
                 self.polar.rotate_to(deg)
                 if self.polar.driver == "ext_axis":
-                    err = self.polar.read_angle() - deg
+                    err = (self.polar.read_angle() - deg + 180.0) % 360.0 - 180.0
                     self.tele.log("polar", "readback", deg=deg, err_deg=round(err, 3))
                     self._observe(f"polar_err:{deg}", err)
                 break

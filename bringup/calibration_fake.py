@@ -57,7 +57,7 @@ def _run_plan(poses, camera, robot, box, out_dir, led=0, stop=None):
     return have + (len(poses) if poses is not None else 1)
 
 
-def _run(folder, start, marker_size_m):
+def _run(folder, start, marker_size_m, *args, marker_z_m=None, **kwargs):
     n = len([f for f in os.listdir(folder) if f.endswith(".jpg")])
     return Result(0.31, 0.0006, n)
 

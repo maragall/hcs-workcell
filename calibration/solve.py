@@ -21,7 +21,7 @@ from __future__ import annotations
 import glob
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import List, Optional, Sequence, Tuple
 
 import cv2
@@ -193,8 +193,12 @@ def _residuals(x, caps: Captures, obj, sy, pin_z):
 
 
 def run(folder: str, start: halcon.CamParam, marker_size_m: float, marker_id: Optional[int] = marker.MARKER_ID,
-        sy: float = IMX219_CELL_M) -> Result:
+        sy: float = IMX219_CELL_M, marker_z_m: Optional[float] = None) -> Result:
+    """With `marker_z_m` (the height of the marker above the base plane, known where the plate sits on a fixed pad) the
+    marker is a flat target at that height and the solve is staged (fit_flat); without it, the general joint solve."""
     caps = load_folder(folder, marker_id)
+    if marker_z_m is not None:
+        return fit_flat(caps, start, marker_size_m, marker_z_m, sy)
     return fit(caps, start, marker_size_m, sy)
 
 
@@ -219,3 +223,134 @@ def fit(caps: Captures, start: halcon.CamParam, marker_size_m: float, sy: float 
             for T, c in zip(caps.T_bt, caps.corners)]
     return Result(cam.with_error(px), halcon.Pose.from_matrix(T_tc), halcon.Pose.from_matrix(T_bm), px,
                   float(np.mean(errs)), len(caps.files), ("tool z",) if single_axis else (), tuple(caps.skipped))
+
+
+# ------------------------------------------------------------------ the staged solve for a flat marker at a known height
+STAGES = (("focus", "cx", "cy"), ("focus", "cx", "cy", "k1"), ("focus", "cx", "cy", "k1", "k2"),
+          ("focus", "cx", "cy", "k1", "k2", "k3", "p1", "p2"))
+FLAT_SCALE = {"r1": 1, "r2": 1, "r3": 1, "tx": .1, "ty": .1, "tz": .1, "mx": .1, "my": .1, "myaw": 1, "focus": .1, "cx": 100,
+              "cy": 100, "k1": 1e4, "k2": 1e9, "k3": 1e14, "p1": 10.0, "p2": 10.0}
+FLAT_NAMES = ("r1", "r2", "r3", "tx", "ty", "tz", "mx", "my", "myaw", "focus", "cx", "cy", "k1", "k2", "k3", "p1", "p2")
+EXTRINSICS = FLAT_NAMES[:9]
+# the focal length trades against the camera's height when the marker height is pinned and the plan has few heights, so every
+# parameter stays near where it started: a lens is a few percent off, a principal point a few hundred pixels
+FLAT_BOUND = {"r1": 10, "r2": 10, "r3": 10, "tx": 0.4, "ty": 0.4, "tz": 0.4, "mx": 1.0, "my": 1.0, "myaw": 20.0, "focus": 0.12,
+              "cx": 300.0, "cy": 300.0, "k1": 3.0, "k2": 30.0, "k3": 30.0, "p1": 30.0, "p2": 30.0}
+START_YAWS_DEG, START_CAM_Z_M, CAM_AHEAD_M = range(0, 360, 30), (-0.3, -0.15, 0.0, 0.1), 0.115
+REFINE_STARTS = 3                 # the sweep is a few iterations each; only the best starts are run to the end
+MAX_TAG_FRACTION = 0.35           # a tag wider than this share of the picture is too close: out of focus, at the lens's edge
+OUTLIER_FACTOR = 3.0
+ROBUST_PX = 4.0                   # residuals beyond this many pixels count less (a picture taken too close, a mis-read corner)
+
+
+def distinct(caps: Captures, tol_mm: float = 0.5, tol_deg: float = 0.5) -> List[int]:
+    """Indices of the captures at distinct arm poses (the plan can visit a pose twice; a repeat adds no information)."""
+    keep: List[int] = []
+    poses: List[np.ndarray] = []
+    for i, T in enumerate(caps.T_bt):
+        yaw = np.degrees(np.arctan2(T[1, 0], T[0, 0]))
+        key = np.array([*(T[:3, 3] * 1e3), yaw])
+        if any(np.abs(key[:3] - k[:3]).max() < tol_mm and abs((key[3] - k[3] + 180) % 360 - 180) < tol_deg for k in poses):
+            continue
+        poses.append(key)
+        keep.append(i)
+    return keep
+
+
+def _flat_model(z, start: halcon.CamParam, marker_z: float):
+    cam = replace(start, focus=start.focus * (1 + z[9]), cx=start.cx + z[10], cy=start.cy + z[11],
+                  poly=(start.poly[0] + z[12] * 1e4, start.poly[1] + z[13] * 1e9, start.poly[2] + z[14] * 1e14,
+                        start.poly[3] + z[15] * 10.0, start.poly[4] + z[16] * 10.0))
+    T_bm = np.eye(4)
+    T_bm[:3, :3] = halcon.rot_z(z[8])
+    T_bm[:3, 3] = [z[6], z[7], marker_z]
+    return cam, _to_mat(z[:6]), T_bm
+
+
+def _flat_residuals(z, T_bt, corners, obj, start, marker_z):
+    cam, T_tc, T_bm = _flat_model(z, start, marker_z)
+    T_ct = _inv(T_tc)
+    out = []
+    for T, c in zip(T_bt, corners):
+        P = T_ct @ _inv(T) @ T_bm
+        out.append(cam.project(obj @ P[:3, :3].T + P[:3, 3]) - c)
+    return np.concatenate(out).ravel()
+
+
+def _fit_names(z0, names, args, max_nfev: int = 600, loss: str = "soft_l1"):
+    idx = [FLAT_NAMES.index(n) for n in names]
+
+    def f(v):
+        z = z0.copy()
+        z[idx] = v
+        return _flat_residuals(z, *args)
+    lo = np.array([-FLAT_BOUND[n] for n in names])
+    hi = np.array([FLAT_BOUND[n] for n in names])
+    r = least_squares(f, np.clip(z0[idx], lo + 1e-9, hi - 1e-9), x_scale=np.array([FLAT_SCALE[n] for n in names]),
+                      bounds=(lo, hi), loss=loss, f_scale=ROBUST_PX, xtol=1e-13, ftol=1e-13, max_nfev=max_nfev)
+    z = z0.copy()
+    z[idx] = r.x
+    return z, float(np.sqrt(np.mean(np.sum(r.fun.reshape(-1, 2) ** 2, axis=1)))), r.fun
+
+
+def fit_flat(caps: Captures, start: halcon.CamParam, marker_size_m: float, marker_z_m: float,
+             sy: float = IMX219_CELL_M) -> Result:
+    """The marker lies flat at `marker_z_m` above the base plane (x, y and yaw unknown). Stage A: camera-in-tool and marker
+    with the start lens, from a sweep of starting camera rotations (the closed-form hand-eye start is unreliable on a few
+    poses of a SCARA); stage B: the focal length and principal point; stage C: K1, then K2. Pictures that fit three times
+    worse than the median are dropped once. The camera's offset along tool z is real here because the marker height is
+    pinned."""
+    use = [i for i in distinct(caps)
+           if np.linalg.norm(caps.corners[i][1] - caps.corners[i][0]) <= MAX_TAG_FRACTION * caps.width]
+    if len(use) < 6:
+        raise marker.MarkerNotFound(f"only {len(use)} usable pictures at distinct poses, need at least 6")
+    T_bt, corners = [caps.T_bt[i] for i in use], [caps.corners[i] for i in use]
+    obj = marker.object_points(marker_size_m)
+    T_cm = [marker_pose(c, start, marker_size_m) for c in corners]
+    starts = []
+    for th in START_YAWS_DEG:
+        for flip in (0, 1):
+            R = halcon.rot_z(np.radians(th)) @ (halcon.rot_x(np.pi) if flip else np.eye(3))
+            for cz in START_CAM_Z_M:
+                X = np.eye(4)
+                X[:3, :3], X[:3, 3] = R, [CAM_AHEAD_M, 0.0, cz]
+                bm = np.mean([_to_vec(T @ X @ C) for T, C in zip(T_bt, T_cm)], axis=0)
+                z0 = np.zeros(len(FLAT_NAMES))
+                z0[:6], z0[6:9] = _to_vec(X), [bm[3], bm[4], bm[2]]
+                starts.append(z0)
+    args = (T_bt, corners, obj, start, marker_z_m)
+
+    def robust_score(res):
+        return float(np.median(np.sqrt(np.sum(res.reshape(len(corners), 4, 2) ** 2, axis=2).mean(axis=1))))   # one bad picture must not pick the basin
+    rough = []
+    for z0 in starts:
+        try:
+            z, _, res = _fit_names(z0, EXTRINSICS, args, max_nfev=40)
+        except (np.linalg.LinAlgError, ValueError):
+            continue
+        rough.append((robust_score(res), len(rough), z))
+    best = None
+    for _, _, z in sorted(rough, key=lambda r: r[:2])[:REFINE_STARTS]:
+        z, px, res = _fit_names(z, EXTRINSICS, args)
+        score = robust_score(res)
+        if best is None or score < best[3]:
+            best = (z, px, res, score)
+    if best is None:
+        raise np.linalg.LinAlgError("no starting camera rotation gave a fit")
+    z, px, res, _ = best
+    per = np.sqrt(np.sum(res.reshape(len(corners), 4, 2) ** 2, axis=2).mean(axis=1))
+    good = per <= max(OUTLIER_FACTOR * float(np.median(per)), 1.0)
+    if good.sum() >= 6 and not good.all():
+        T_bt, corners = [t for t, g in zip(T_bt, good) if g], [c for c, g in zip(corners, good) if g]
+        use = [u for u, g in zip(use, good) if g]
+    args = (T_bt, corners, obj, start, marker_z_m)
+    z, px, res = _fit_names(z, EXTRINSICS, args, loss="linear")      # the basin is found and the outliers dropped: plain least squares
+    for names in STAGES:
+        z, px, res = _fit_names(z, EXTRINSICS + names, args, loss="linear")
+    cam, T_tc, T_bm = _flat_model(z, start, marker_z_m)
+    errs = [np.linalg.norm((_inv(T_tc) @ _inv(T) @ T_bm)[:3, 3] - marker_pose(c, cam, marker_size_m)[:3, 3])
+            for T, c in zip(T_bt, corners)]
+    kept = {caps.files[i] for i in use}
+    skipped = tuple(caps.skipped) + tuple(os.path.basename(f) for f in caps.files if f not in kept)
+    return Result(cam.with_error(px), halcon.Pose.from_matrix(T_tc), halcon.Pose.from_matrix(T_bm), px, float(np.mean(errs)),
+                  len(use), ("marker height",), skipped)

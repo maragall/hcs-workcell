@@ -224,7 +224,6 @@ def test_the_plate_tag_is_found_in_any_turn_with_the_same_corner_first():
         angle = turn * 90 + 17.0
         centre = (6 * cell / 2, 6 * cell / 2)
         R = cv2.getRotationMatrix2D(centre, -angle, 1.0)
-        pasted = np.zeros((6 * cell, 6 * cell), np.uint8)
         pts = np.hstack([corners_tag, np.ones((4, 1), np.float32)]) @ R.T
         shift = np.array([380.0, 250.0], np.float32) - pts.mean(0)
         M = np.vstack([R, [0, 0, 1]]).astype(np.float64)
@@ -233,3 +232,100 @@ def test_the_plate_tag_is_found_in_any_turn_with_the_same_corner_first():
         got = marker.detect(canvas, None)
         want = (np.hstack([corners_tag, np.ones((4, 1), np.float32)]) @ (T @ M)[:2].T)
         assert np.abs(got - want).max() < 2.0, (turn, got.tolist(), want.tolist())
+
+
+# ------------------------------------------------------------------ the staged solve for a flat marker at a known height
+CELL_CAMINTOOL = halcon.Pose.from_matrix(np.block([[cv2.Rodrigues(np.array([2.257, -2.257, 0.126]))[0], np.array([[0.0785], [0.0014], [0.0127]])],
+                                                   [np.zeros((1, 3)), np.ones((1, 1))]]))
+CELL_MARKER = np.block([[halcon.rot_z(np.radians(-176.8)), np.array([[0.3203], [0.1205], [0.0741]])], [np.zeros((1, 3)), np.ones((1, 1))]])
+
+
+def _cell_folder(tmp_path, noise_px=0.3):
+    """The cell's geometry: the camera looks down from the hand, the plate lies flat 74 mm above the base plane."""
+    start = [311.0, 233.1, 161.2, 0.0, 0.0, -91.3]
+    scene = synth.Scene(VCAM, CELL_CAMINTOOL, CELL_MARKER, 0.04, noise_px)
+    arm = validate._Arm(start)
+    capture.run_plan(plan.around(start), "cam", arm, synth.FakeBox(scene, arm), str(tmp_path))
+    return scene
+
+
+def test_the_flat_solve_recovers_the_camera_from_noisy_synthetic_captures(tmp_path):
+    _cell_folder(tmp_path)
+    res = solve.run(str(tmp_path), START, 0.04, marker_z_m=0.0741)
+    # the lens is the weak part (12 poses, 4 corners each): about 2 px is left even from the true extrinsics, the extrinsics are right to a mm
+    assert res.reprojection_px < 3.5 and res.mean_error_m < 1e-3
+    assert np.abs((np.array(res.camintool.t) - np.array(CELL_CAMINTOOL.t)) * 1e3).max() < 1.5            # mm
+    assert np.abs((res.marker_in_base.matrix[:2, 3] - CELL_MARKER[:2, 3]) * 1e3).max() < 1.5
+    assert res.unobservable == ("marker height",)
+
+
+def test_the_flat_solve_drops_a_picture_taken_too_close_and_repeats_of_one_pose(tmp_path):
+    _cell_folder(tmp_path)
+    caps = solve.load_folder(str(tmp_path))
+    twice = solve.Captures(caps.T_bt + caps.T_bt[:3], caps.corners + caps.corners[:3], caps.files + caps.files[:3],
+                           caps.width, caps.height)
+    assert len(solve.distinct(twice)) == len(caps.files)
+
+
+def test_the_flat_solve_on_the_real_captures_of_the_cell():
+    folder = os.path.join(ROOT, "reference_images", "calibration", "auto_teach_camera", "capture")
+    if len(glob.glob(os.path.join(folder, "*.png"))) < 20:
+        pytest.skip("this checkout has no real captures")
+    start = halcon.CamParam.read(os.path.join(CAL, "IniIntrinsic", "CamParam.dat"))
+    res = solve.run(folder, start, 0.04, marker_z_m=0.0741)
+    assert res.reprojection_px < 5.0 and res.mean_error_m < 1e-3                  # 3.0 px, 0.4 mm when written
+    x, y = res.marker_in_base.matrix[:2, 3] * 1e3
+    assert abs(x - 312.6) < 15 and abs(y - 118.0) < 15                            # the module's axis in the CAD
+
+
+class _Cell:
+    """What bringup.cameras.solve needs of a cell."""
+    sim = False
+
+    def __init__(self, tmp):
+        self.ref_dir = str(tmp)
+        self.L = {"vision": {"down_camera": "down_cam", "front_camera": "front_cam", "marker_mm": 40, "led": 0}}
+        self.notes = []
+
+    def layout(self):
+        return self.L
+
+    def edit(self, fn):
+        fn(self.L)
+
+    def note(self, text):
+        self.notes.append(text)
+
+
+def _result(px, mm):
+    from types import SimpleNamespace
+    written = []
+    return SimpleNamespace(reprojection_px=px, mean_error_m=mm / 1e3, images=9, write=lambda d: written.append(d)), written
+
+
+def test_a_refused_solve_writes_no_file_and_no_number_but_last_failed(tmp_path, monkeypatch):
+    from bringup import cameras
+    cell = _Cell(tmp_path)
+    res, written = _result(9.0, 5.0)
+    monkeypatch.setattr(solve, "run", lambda *a, **k: res)
+    out = cameras.solve(cell, "down")
+    node = cell.L["vision"]["calibration"]["down_cam"]
+    assert out["down_cam"]["ok"] is False and not written
+    assert "px" not in node and node["last_failed"]["px"] == 9.0
+    assert "nothing was written" in cell.notes[-1]
+
+
+def test_an_accepted_solve_writes_and_the_next_one_starts_from_it_not_from_a_refused_one(tmp_path, monkeypatch):
+    from bringup import cameras
+    cell = _Cell(tmp_path)
+    starts = []
+
+    good, written = _result(0.3, 0.5)
+    monkeypatch.setattr(solve, "run", lambda folder, start, *a, **k: (starts.append(start), good)[1])
+    cameras.solve(cell, "down")
+    assert written and cell.L["vision"]["calibration"]["down_cam"]["px"] == 0.3
+    # a refused solve afterwards leaves the accepted files where they are
+    bad, none_written = _result(9.0, 5.0)
+    monkeypatch.setattr(solve, "run", lambda *a, **k: bad)
+    cameras.solve(cell, "down")
+    assert not none_written and cell.L["vision"]["calibration"]["down_cam"]["px"] == 0.3
