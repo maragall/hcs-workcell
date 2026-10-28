@@ -97,7 +97,7 @@ class Bringup:
             return alert(step, reason)
 
         def ask(question, timeout=None):
-            if "safe to lower" in question and "polar@0" in said["reason"] and self.found.get("module_tag"):
+            if "safe to lower" in question and "polar@0" in said["reason"] and (self.found.get("module_tag") or self.cell.layout().get("setup", {}).get("module_tag")):
                 cyc.tele.log("setup", "lower_check", "the plate on the module was seen by the tag view: lowering confirmed by the setup")
                 return "y"
             return self._ask_user(question)
