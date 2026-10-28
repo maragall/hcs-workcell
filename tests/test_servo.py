@@ -149,18 +149,18 @@ def test_the_reader_finds_the_plate_tag_in_a_frame_and_none_without_one():
     from bringup.servo import corner_reader
     from calibration import marker
     cell = 60
-    tag = np.zeros((6 * cell, 6 * cell), np.uint8)
-    for i in range(4):
-        for j in range(4):
+    tag = np.zeros((8 * cell, 8 * cell), np.uint8)
+    for i in range(6):
+        for j in range(6):
             if marker.PLATE_TAG[i, j]:
                 tag[(i + 1) * cell:(i + 2) * cell, (j + 1) * cell:(j + 2) * cell] = 255
     canvas = np.full((900, 1200), 235, np.uint8)
-    canvas[200:200 + 6 * cell, 300:300 + 6 * cell] = tag
+    canvas[200:200 + 8 * cell, 300:300 + 8 * cell] = tag
     ok, png = cv2.imencode(".png", canvas)
     corners = corner_reader(lambda: png.tobytes())()
     assert corners is not None and corners.shape == (4, 2)
     assert corner_reader(lambda: cv2.imencode(".png", np.full((900, 1200), 235, np.uint8))[1].tobytes())() is None
-    canvas[200:200 + 6 * cell, 0:6 * cell] = tag                                               # touching the left edge: rejected
+    canvas[200:200 + 8 * cell, 0:8 * cell] = tag                                               # touching the left edge: rejected
     assert corner_reader(lambda: cv2.imencode(".png", canvas)[1].tobytes())() is None
 
 

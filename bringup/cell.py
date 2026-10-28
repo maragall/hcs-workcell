@@ -69,9 +69,21 @@ class Cell:
             except Exception as e:
                 self.vision_error = str(e)
                 self.log("setup", "vision", f"not reachable (try {attempt + 1} of 3): {e}")
+        self._set_led()
         self.frames.start()
         self._read_arm()                              # a section that moves the arm may be the first thing the run does
         threading.Thread(target=self._readout, daemon=True, name="readout").start()
+
+    def _set_led(self) -> None:
+        """The down camera's light at layout.json vision.led_percent (0..100; the box's turn_on_led, the `led` argument of get_frame
+        does nothing). Too bright makes the satin black of the plate tag glare: 2026-10-28 half power. Unset leaves the light alone."""
+        v = self.layout()["vision"]
+        pct = v.get("led_percent")
+        if self.vision_error is None and pct is not None and hasattr(self.vision, "led"):
+            try:
+                self.vision.led(v["down_camera"], int(pct))
+            except Exception as e:
+                self.log("setup", "vision", f"led not set: {e}")
 
     def stop_file_seen(self) -> bool:
         """runs/STOP, the file run_forever.py and cli.py run end on: while the setup runs it is a STOP."""

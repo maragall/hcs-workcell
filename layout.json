@@ -91,7 +91,7 @@
     "calibration": {
       "auto_teach_camera": {
         "marker": "ok",
-        "marker_at": "2026-10-28 16:14:28",
+        "marker_at": "2026-10-28 16:46:13",
         "pictures": 6,
         "px": 3.163,
         "mm": 0.539,
@@ -102,7 +102,8 @@
       "px": 0.5,
       "mm": 1.0
     },
-    "_calibration_limits_note": "5 px / 1 mm: the solver reaches 3 px and 0.38 mm on the real captures; 0.5 px is not reachable with the poses a plan can show the tag from (synthetic captures with 0.3 px noise stop near 2.3 px)"
+    "_calibration_limits_note": "5 px / 1 mm: the solver reaches 3 px and 0.38 mm on the real captures; 0.5 px is not reachable with the poses a plan can show the tag from (synthetic captures with 0.3 px noise stop near 2.3 px)",
+    "led_percent": 50
   },
   "gripper": {
     "open": {

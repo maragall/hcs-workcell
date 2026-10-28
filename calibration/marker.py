@@ -34,11 +34,13 @@ def _detector() -> "cv2.aruco.ArucoDetector":
     return cv2.aruco.ArucoDetector(cv2.aruco.getPredefinedDictionary(DICTIONARY), params)
 
 
-# The tag on the practice plate as the cell has it (seen 2026-10-27, read by the box as id 1): a black square with a 4 x 4
-# code inside, not the dictionary tag the drawing names. Interior cells from the top-left, 1 = white.
-PLATE_TAG = np.array([[1, 1, 0, 1], [1, 1, 0, 1], [0, 0, 1, 1], [0, 1, 1, 0]])
+# The tag on the practice plate (drawing aruco标定板: a 40 x 40 mm black frame; read from the real pictures 2026-10-28): 8 x 8 cells of
+# 5 mm, a black border one cell wide around a 6 x 6 code, not a dictionary tag OpenCV knows. Interior cells from the top-left,
+# 1 = white. The box reads it as id 1.
+PLATE_TAG = np.array([[1, 1, 1, 0, 0, 0], [1, 1, 1, 0, 1, 1], [1, 0, 1, 0, 0, 1], [0, 0, 0, 1, 1, 0], [0, 0, 1, 1, 0, 0], [0, 1, 1, 0, 0, 1]])
 EDGE_PX = 12
-TAG_GRID, TAG_PX, MAX_CODE_MISMATCH = 6, 24, 2          # 6 x 6 cells with the border; warped 24 px a cell
+TAG_CELLS, TAG_PX, MAX_CODE_MISMATCH = 8, 24, 3         # 8 x 8 cells with the border; warped 24 px a cell; a glare cell or two is allowed
+CORRELATION_MIN = 0.6
 
 
 def _order(quad: np.ndarray) -> np.ndarray:
@@ -47,9 +49,24 @@ def _order(quad: np.ndarray) -> np.ndarray:
     return np.array([quad[np.argmin(s)], quad[np.argmin(d)], quad[np.argmax(s)], quad[np.argmax(d)]], np.float32)
 
 
-# The black border around the code is not always a whole cell wide (the practice plate's is about two thirds of one): the
-# interior is read for each width and the first that is dark all round is used.
-BORDER_CELLS = (1.0, 0.66, 0.8, 0.5)
+def _cells(warped: np.ndarray) -> np.ndarray:
+    """(6, 6) mean level of each code cell (the middle half of the cell), from the warped 8 x 8 square."""
+    c = TAG_PX
+    lo, hi = int(c * 0.25), int(c * 0.75)
+    return np.array([[warped[(i + 1) * c + lo:(i + 1) * c + hi, (j + 1) * c + lo:(j + 1) * c + hi].mean() for j in range(6)]
+                     for i in range(6)])
+
+
+def _border_dark(warped: np.ndarray, mid: float) -> bool:
+    c = TAG_PX
+    ring = np.concatenate([warped[:c].ravel(), warped[-c:].ravel(), warped[:, :c].ravel(), warped[:, -c:].ravel()])
+    return float((ring > mid).mean()) <= 0.15
+
+
+def _flatten(warped: np.ndarray) -> np.ndarray:
+    """The warped tag with the slowly varying light divided out (glare, a shadow edge), stretched to 0..255."""
+    f = warped.astype(np.float32) / (cv2.GaussianBlur(warped.astype(np.float32), (0, 0), warped.shape[0] / 5.0) + 1.0)
+    return cv2.normalize(f, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
 
 
 def _four_corners(contour: np.ndarray) -> Optional[np.ndarray]:
@@ -65,53 +82,52 @@ def _four_corners(contour: np.ndarray) -> Optional[np.ndarray]:
     return None
 
 
-def _flatten(warped: np.ndarray) -> np.ndarray:
-    """The warped tag with the slowly varying light divided out (glare, a shadow edge), stretched to 0..255."""
-    f = warped.astype(np.float32) / (cv2.GaussianBlur(warped.astype(np.float32), (0, 0), warped.shape[0] / 5.0) + 1.0)
-    return cv2.normalize(f, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-
-
-def _local_bits(warped: np.ndarray, means: np.ndarray, b: float, cell: float, ring: int) -> np.ndarray:
-    """The same cells with a threshold that follows the light across the tag (a shaded side dims the whites and the blacks together):
+def _local_bits(warped: np.ndarray, means: np.ndarray) -> np.ndarray:
+    """The cells with a threshold that follows the light across the tag (a shaded side dims the whites and the blacks together):
     the black level at each cell is read from the border on its row and column, the white level is the bright cells' level."""
-    n = warped.shape[0]
-    lo = max(1, int(b * 0.2))
-    rows = [(warped[int(b + i * cell + cell * .3):int(b + i * cell + cell * .7), lo:ring].mean()
-             + warped[int(b + i * cell + cell * .3):int(b + i * cell + cell * .7), n - ring:n - lo].mean()) / 2 for i in range(4)]
-    cols = [(warped[lo:ring, int(b + j * cell + cell * .3):int(b + j * cell + cell * .7)].mean()
-             + warped[n - ring:n - lo, int(b + j * cell + cell * .3):int(b + j * cell + cell * .7)].mean()) / 2 for j in range(4)]
-    black = (np.array(rows)[:, None] + np.array(cols)[None, :]) / 2
-    white = float(np.percentile(means, 85))
+    c, n = TAG_PX, warped.shape[0]
+    mid = [slice((i + 1) * c + int(c * .25), (i + 1) * c + int(c * .75)) for i in range(6)]
+    rows = np.array([(warped[m, 4:c - 4].mean() + warped[m, n - c + 4:n - 4].mean()) / 2 for m in mid])
+    cols = np.array([(warped[4:c - 4, m].mean() + warped[n - c + 4:n - 4, m].mean()) / 2 for m in mid])
+    black = (rows[:, None] + cols[None, :]) / 2
+    white = float(np.percentile(means, 70))
     return (means > black + 0.35 * np.maximum(white - black, 1.0)).astype(int)
 
 
-def _inner_codes(warped: np.ndarray, mid: float):
-    side = warped.shape[0]
-    for r in BORDER_CELLS:
-        cell = side / (4 + 2 * r)
-        b = r * cell
-        ring = int(max(2, b * 0.6))
-        edge = np.concatenate([warped[:ring].ravel(), warped[-ring:].ravel(), warped[:, :ring].ravel(), warped[:, -ring:].ravel()])
-        if (edge > mid).mean() > 0.15:                # the border is black
-            continue
-        means = np.zeros((4, 4))
-        for i in range(4):
-            for j in range(4):
-                y0, x0 = b + i * cell, b + j * cell
-                means[i, j] = warped[int(y0 + cell * 0.3):int(y0 + cell * 0.7), int(x0 + cell * 0.3):int(x0 + cell * 0.7)].mean()
-        yield (means > mid).astype(int)
-        yield _local_bits(warped, means, b, cell, ring)
+def _correlation_turn(warped: np.ndarray) -> Optional[int]:
+    """Quarter turns k at which the warped square correlates with the tag (black border, PLATE_TAG inside) above CORRELATION_MIN:
+    glare brightens black cells past any threshold, the pattern still correlates. None when no turn does."""
+    img = warped.astype(np.float32)
+    best, best_k = CORRELATION_MIN, None
+    for k in range(4):
+        code = np.rot90(PLATE_TAG, -k)
+        tpl = np.zeros(img.shape, np.float32)
+        for i in range(6):
+            for j in range(6):
+                if code[i, j]:
+                    tpl[(i + 1) * TAG_PX:(i + 2) * TAG_PX, (j + 1) * TAG_PX:(j + 2) * TAG_PX] = 1.0
+        score = float(cv2.matchTemplate(img, tpl, cv2.TM_CCOEFF_NORMED)[0, 0])
+        if score > best:
+            best, best_k = score, k
+    return best_k
 
 
 def detect_plate_tag(gray: np.ndarray) -> np.ndarray:
     """(4, 2) subpixel corners of the plate's own tag in the marker's order (so the corners mean the same thing in every
     picture, whatever the yaw): find dark convex quadrilaterals, warp each, accept the one whose border is dark and whose
-    4 x 4 interior matches PLATE_TAG in one of the four turns, and turn the corners by that."""
+    6 x 6 interior matches PLATE_TAG (a few cells off allowed, or correlating with it) in one of the four turns, and turn
+    the corners by that."""
     small = cv2.GaussianBlur(gray, (5, 5), 0)
     _, dark = cv2.threshold(small, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     contours, _ = cv2.findContours(dark, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    side = TAG_GRID * TAG_PX
+    # a second mask against the local light: glare that lifts a corner of the black above the global threshold still looks dark
+    # next to the white tab around it, and the outline then follows the tag's real edge
+    rel = small.astype(np.float32) / (cv2.GaussianBlur(small.astype(np.float32), (0, 0), gray.shape[0] / 8.0) + 1.0)
+    _, dark2 = cv2.threshold(cv2.normalize(rel, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8), 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    contours = list(contours) + list(cv2.findContours(dark2, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)[0])
+    side = TAG_CELLS * TAG_PX
     target = np.array([[0, 0], [side, 0], [side, side], [0, side]], np.float32)
+    h, w = gray.shape
     for c in sorted(contours, key=cv2.contourArea, reverse=True)[:12]:
         if cv2.contourArea(c) < 0.002 * gray.size:
             break
@@ -119,19 +135,30 @@ def detect_plate_tag(gray: np.ndarray) -> np.ndarray:
         if quad is None:
             continue
         q = _order(quad.reshape(4, 2).astype(np.float32))
-        h, w = gray.shape
         if (q[:, 0] < EDGE_PX).any() or (q[:, 1] < EDGE_PX).any() or (q[:, 0] > w - 1 - EDGE_PX).any() or (q[:, 1] > h - 1 - EDGE_PX).any():
             continue                              # a tag cut by the picture's edge has the edge for a side: wrong corners
-        warped = cv2.warpPerspective(gray, cv2.getPerspectiveTransform(q, target), (side, side))
-        warped = _flatten(warped)                     # a glare patch lifts the black cells: divide the smooth light out
-        mid = float(cv2.threshold(warped, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0])
-        for inner in _inner_codes(warped, mid):
-            for k in range(4):
-                if int((np.rot90(inner, k) != PLATE_TAG).sum()) <= MAX_CODE_MISMATCH:
-                    q = np.roll(q, -k, axis=0)        # k quarter turns of the code: the first corner moves with it
-                    ref = q.reshape(4, 1, 2).copy()
-                    cv2.cornerSubPix(gray, ref, (7, 7), (-1, -1), (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.01))
-                    return ref.reshape(4, 2).astype(float)
+        raw = cv2.warpPerspective(gray, cv2.getPerspectiveTransform(q, target), (side, side))
+        flat = _flatten(raw)
+        mid = float(cv2.threshold(flat, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0])
+        if not _border_dark(flat, mid):
+            continue
+        means = _cells(flat)
+        k = None
+        for bits in ((means > mid).astype(int), _local_bits(flat, means)):
+            for turn in range(4):
+                if int((np.rot90(bits, turn) != PLATE_TAG).sum()) <= MAX_CODE_MISMATCH:
+                    k = turn
+                    break
+            if k is not None:
+                break
+        if k is None:
+            k = _correlation_turn(raw)
+        if k is None:
+            continue
+        q = np.roll(q, -k, axis=0)                # k quarter turns of the code: the first corner moves with it
+        ref = q.reshape(4, 1, 2).copy()
+        cv2.cornerSubPix(gray, ref, (7, 7), (-1, -1), (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.01))
+        return ref.reshape(4, 2).astype(float)
     raise MarkerNotFound("no plate tag in the image")
 
 
