@@ -922,7 +922,7 @@ def cmd_setup(args):
     cell.discover()
     if not args.sim and cell.arm_error:
         sys.exit(f"the arm is not reachable: {cell.arm_error}. Close the GUI and RobStudio (one client at a time) and run again")
-    answers = {"15 or 30": str(args.hotel_size or "")}      # what a driver knows; the hands-clear Enter is the user's go
+    answers = {"slot in front of the camera": "yes" if args.hotel_size == 30 else "no" if args.hotel_size == 15 else ""}   # what a driver knows; the hands-clear Enter is the user's go
     runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else input,
                     stop=cell.stop_event)
     todo = Bringup(cell, squid, runner.ask).sections()
@@ -1075,7 +1075,7 @@ def main():
     p.add_argument("--auto", action="store_true", help="a driver is watching: answer 'hands clear' with Enter, stop before each user step (exit 3)")
     p.add_argument("--skip", help="sections to leave out, comma separated, e.g. cameras.toml")
     p.add_argument("--step", type=int, default=0, help="with --from: the first step of that section to run")
-    p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the answer to '15 or 30'")
+    p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the hotel you have, answers 'is there a slot here' for every row")
     p.set_defaults(fn=cmd_setup)
     p = sub.add_parser("cad-poses", help="hotel poses computed from the CAD against the taught ones (nothing moves)")
     p.set_defaults(fn=cmd_cad_poses)

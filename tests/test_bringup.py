@@ -16,7 +16,7 @@ from bringup.sections import Bringup  # noqa: E402
 from devices.fake_squid import FakeSquid  # noqa: E402
 from bringup import sim  # noqa: E402
 from bringup.cell import Cell  # noqa: E402
-from perception.hotel_size import HotelSize  # noqa: E402
+from perception.hotel_rows import HotelRows  # noqa: E402
 
 
 def world_markers(cell, stage_shift=(0.0, 0.0)):
@@ -41,7 +41,7 @@ def make(answers=None):
     cell.connect()
     cell.discover()
     said, asked = [], []
-    answers = dict(answers or {"15 or 30": "30"})
+    answers = dict(answers or {"slot in front of the camera": "yes"})
 
     def ask(prompt):
         asked.append(prompt)
@@ -69,16 +69,14 @@ def test_geometry_carries_the_grip_pose_with_the_marker():
     assert abs(geometry.wrap(flipped[5] - 120)) <= 90
 
 
-def test_hotel_size_learns_what_the_user_says_then_recognises_it(tmp_path):
+def test_a_row_is_learned_from_a_yes_then_recognised(tmp_path):
     from tests import rig
-    det = HotelSize(str(tmp_path))
-    assert det.verdict(rig.jpeg(1)).size is None
-    det.learn(30, rig.jpeg(1))
-    det.learn(15, rig.jpeg(99))
-    assert det.verdict(rig.jpeg(1)).size == 30
-    assert det.verdict(rig.jpeg(99)).size == 15
-    with pytest.raises(ValueError):
-        det.learn(20, rig.jpeg(1))
+    rows = HotelRows(str(tmp_path))
+    assert rows.verdict(2, rig.jpeg(1)) is None
+    rows.learn(2, rig.jpeg(1), True)
+    assert rows.verdict(2, rig.jpeg(1)) is True
+    rows.learn(2, rig.jpeg(99), False)
+    assert rows.verdict(2, rig.jpeg(99)) is False and rows.verdict(2, rig.jpeg(1)) is True
 
 
 def test_the_whole_setup_runs_on_the_simulator():
@@ -87,7 +85,7 @@ def test_the_whole_setup_runs_on_the_simulator():
     text = "\n".join(said)
     assert stopped is None, text
     L = cell.layout()
-    assert L["setup"]["hotel"]["size"] == 30 and L["setup"]["hotel"]["method"] == "declared"
+    assert L["setup"]["hotel"]["size"] == 30 and L["setup"]["hotel"]["rows_seen"] == {"2": True, "4": True}
     assert L["setup"]["grips"]["grip_offset"] == 31.675
     assert L["squid"]["microscope"]["park_xy_mm"] == [0.0, 0.0]
     assert L["setup"]["microscope"]["found_at"]
@@ -100,19 +98,20 @@ def test_the_whole_setup_runs_on_the_simulator():
 def test_a_second_run_recognises_the_hotel_without_asking():
     cell, todo, runner, said, asked = make()
     assert runner.run(todo.sections()[:3]) is None
-    n = len([a for a in asked if "15 or 30" in a])
+    n = len([a for a in asked if "slot in front of the camera" in a])
     cell2, todo2, runner2, said2, asked2 = make()
     cell2.ref_dir = cell.ref_dir
     assert runner2.run(todo2.sections()[:3]) is None
-    assert n == 1
+    assert n == 2                                                      # the first run asked about each even row
+    assert not [q for q in asked2 if "slot in front of the camera" in q]     # the second knew both
     cell.frames.stop()
     cell2.frames.stop()
 
 
 def test_a_bad_hotel_answer_stops_the_run_and_names_the_section():
-    cell, todo, runner, said, asked = make({"15 or 30": "20"})
+    cell, todo, runner, said, asked = make({"slot in front of the camera": "maybe"})
     assert runner.run(todo.sections()) == "hotel.toml"
-    assert any("REFUSED" in line and "neither 15 nor 30" in line for line in said)
+    assert any("REFUSED" in line and "neither yes nor no" in line for line in said)
     cell.frames.stop()
 
 
@@ -133,7 +132,7 @@ def test_a_calibration_above_the_limit_is_refused_and_nothing_is_uploaded():
 
 
 def test_a_hotel_with_no_grip_offset_is_refused_with_what_to_measure():
-    cell, todo, runner, said, asked = make({"15 or 30": "15"})
+    cell, todo, runner, said, asked = make({"slot in front of the camera": "no"})
     assert runner.run(todo.sections()[:5]) == "grips.toml"
     assert any("grip_back_mm" in line for line in said)
     cell.frames.stop()

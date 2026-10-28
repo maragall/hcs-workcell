@@ -20,7 +20,7 @@ import exercise
 from bringup import geometry
 from bringup.runner import Refused, Section, Step
 from bringup import bench, cameras, hand
-from perception.hotel_size import HotelSize
+from perception.hotel_rows import HotelRows
 from procedures import cad_poses
 from procedures.corrector import StopSafe
 from procedures.cycle import Cycle
@@ -34,6 +34,7 @@ SEARCH_HEIGHTS = 4                # heights tried below the microscope hover, hi
 BAND_BELOW, BAND_ABOVE = 0.1, {"short_edges": 0.5, "long_edges": 1.05}     # as gripper.accept_band was set 2026-10-22
 RESEATS = 3                       # carry, seat and re-grip cycles in the grips section
 ACQUISITION_TIMEOUT_S = 600
+SIZE_ROWS = (2, 4)                # rows where a 15-slot hotel has no shelf and a 30-slot one has
 VIEW_SEARCH_MM = ((0, 0), (25, 0), (-25, 0), (0, 25), (0, -25), (25, 25), (-25, -25), (25, -25), (-25, 25), (50, 0), (-50, 0))   # along, across the claw
 VIEW_LIFTS_MM = (0, 60, 120)      # heights above the seat hover the view is tried at (the camera has to focus on the plate)
 
@@ -241,35 +242,54 @@ class Bringup:
             self.ready()
             self.guard(self.cyc().go_nest)
 
-        def image():
+        def look():
             cyc = self.cyc()
             img = cyc._frame(cyc.front_cam)
             if img is None:
                 raise Refused("the front camera gave no picture")
-            self.found["hotel_image"] = img
             cyc.tele.image("hotel_view", img)
-            return {"front camera": "1 picture"}
+            return {"front camera": "1 picture from the nest, for the log"}
 
-        def detect():
-            det = HotelSize(c.ref_dir)
-            v = det.verdict(self.found["hotel_image"])
-            method, size = "image", v.size
-            if size is None:
-                said = self.ask(f"      the camera cannot tell the hotel size ({v.reason}). 15 or 30 slots? ").strip()
-                if said not in ("15", "30"):
-                    raise Refused(f"hotel size {said!r} is neither 15 nor 30")
-                size, method = int(said), "declared"
-                det.learn(size, self.found["hotel_image"])        # the next run recognises this hotel
+        def rows():
+            """15 or 30 slots by looking, one row at a time: the camera is taken to the slot position of an even row (a 15-slot
+            hotel has no shelf there) and the cell is asked 'is there a slot here, yes or no' until it has seen enough to tell
+            by itself. One picture of the whole hotel cannot tell."""
+            cyc = self.cyc()
+            seen = HotelRows(os.path.join(c.ref_dir, "hotel_rows"))
+            present = {}
+            for row in SIZE_ROWS:
+                slot = f"B{row}"
+                self.ready()
+                self.guard(lambda slot=slot: cyc._hotel_go_to_approach(slot, "setup:hotel size"))
+                img = cyc._frame(cyc.front_cam)
+                if img is None:
+                    raise Refused("the front camera gave no picture")
+                cyc.tele.image(f"hotel_row_{row}", img)
+                verdict = seen.verdict(row, img)
+                if verdict is None:
+                    said = self.ask(f"      row {row}: is there a slot in front of the camera? yes or no: ").strip().lower()
+                    if said not in ("yes", "no"):
+                        raise Refused(f"row {row}: {said!r} is neither yes nor no")
+                    seen.learn(row, img, said == "yes")
+                    verdict = said == "yes"
+                present[row] = verdict
+            if all(present.values()):
+                size = 30
+            elif not any(present.values()):
+                size = 15
+            else:
+                raise Refused(f"the rows disagree ({present}): the hotel has slots in some even rows and not in others")
             at = _stamp()
             self.found["hotel_size"] = size
             self.edit(lambda L: (bench.set_hotel_size(L, size),
-                                 self.setup_node(L).update(hotel={"size": size, "method": method, "detected_at": at})))
-            return {"size": size, "method": method, "detected_at": at}
+                                 self.setup_node(L).update(hotel={"size": size, "rows_seen": {str(k): v for k, v in present.items()},
+                                                                  "detected_at": at})))
+            return {"size": size, "rows with a slot": ", ".join(str(r) for r, v in present.items() if v) or "none", "detected_at": at}
 
         return Section("hotel.toml", [
-            Step("polar", "arm to the nest, the hotel view: the front camera looks at the hotel", to_nest, moves=True),
-            Step("nova", "image the hotel with the front camera", image),
-            Step("computer", "detect hotel size, 15 or 30", detect)])
+            Step("polar", "arm to the nest, the hotel view", to_nest, moves=True),
+            Step("nova", "image the hotel with the front camera", look),
+            Step("polar", "camera to the slot position of each even row, one at a time; is there a slot here, yes or no", rows, moves=True)])
 
     # ---- swap the plates
     def swap(self) -> Section:

@@ -34,8 +34,8 @@ Four packages plus the main loop. Each box calls only the boxes below it; `perce
 - `bringup/` (`python cli.py setup [--sim] [--from SECTION]`): the one-click setup as a terminal program. `runner.py` prints the
   steps and waits for Enter on the user's; `sections.py` is the sections in order, each line calling what `cli.py`, `Cycle` and
   `exercise` already call; `geometry.py` the arithmetic (stage seat from the practice plate's marker); `cell.py` the two devices, the positions file
-  and the arm's readout; `cameras.py` the calibration steps; `hand.py` the arm loose or locked. `perception/hotel_size.py`
-  tells 15 from 30 slots by pictures. Tests: `tests/test_bringup.py`.
+  and the arm's readout; `cameras.py` the calibration steps; `hand.py` the arm loose or locked. `perception/hotel_rows.py`
+  tells 15 from 30 slots by looking at one row at a time and asking yes or no until it knows. Tests: `tests/test_bringup.py`.
 - `routes/`: `plan.py` picks a taught trajectory, else lift / travel / lower, every leg checked against the claw (205 mm ahead of the
   reported wrist pose) and the links by `volumes.py` (obstacles and claw from `layout.json volumes`, which come from the CAD, see
   `hardware.json`). With `routes.safe_z_mm` the travel is at that height; with it null the planner searches a path around the volumes;

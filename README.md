@@ -45,7 +45,7 @@ prediction models train on.
 |---|---|---|
 | connect | ports found, Squid homed, module to 0 deg, hand over the module | |
 | cameras.toml | down camera calibrated from the aruco (lens and camera-to-gripper in one solve), refused above 0.5 px / 1 mm, uploaded, checked from two poses | `vision.calibration` |
-| hotel.toml | front camera looks into the hotel; 15 or 30 slots recognised from pictures (it asks once, then remembers) | `setup.hotel`, `fixtures.hotel.rows` |
+| hotel.toml | arm to the nest (folded, the hotel view); then the camera goes to the slot position of rows 2 and 4, one at a time, and the cell is asked "is there a slot here, yes or no" until it knows by itself: shelves there mean 30 slots, none 15 | `setup.hotel`, `fixtures.hotel.rows` |
 | swap | plate offset read on the aruco plate; **you** move the aruco plate to the microscope stage and put a real plate on the module | `setup.plate_offset`, `setup.marker_to_grip` |
 | grips.toml | short and long grip closed on the real plate, accept bands, three carry-seat-regrip cycles | `gripper.closed`, `gripper.accept_band`, `setup.grips` |
 | microscope.toml | stage limits and park position from Squid; aruco on the stage found from above; seat re-seated if it moved less than the zone allows | `squid.<name>`, `fixtures.<name>.pose`, `setup.microscope` |
