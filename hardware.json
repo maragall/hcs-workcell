@@ -1,39 +1,76 @@
 {
   "_note": "What the machine is, measured with calipers by the operator (2026-10-27). Not taught poses (those are layout.json). Robot base frame as in the operator's sketch: x to the right, y up, the arm lies along +x, slots open toward -x. Raw answers are kept as given; 'reading' is how the program reads them. Anything in 'unresolved' is not used until the operator settles it.",
   "platform": {
-    "x_mm": 650, "y_mm": 400,
+    "x_mm": 650,
+    "y_mm": 400,
     "raw": "65 cm along x, 40 cm along y",
-    "holds": ["arm base", "rotation module", "plate hotel"],
-    "outside": ["microscope (Squid)"]
+    "holds": [
+      "arm base",
+      "rotation module",
+      "plate hotel"
+    ],
+    "outside": [
+      "microscope (Squid)"
+    ],
+    "base_at": "left edge",
+    "hotel_at": "right edge"
   },
   "arm_base": {
-    "x_mm": 150, "y_mm": 140,
+    "x_mm": 150,
+    "y_mm": 140,
     "raw": "15 cm on x, 14 cm on y",
-    "links_mm": [200, 200],
-    "links_source": "routes_opt/fk_model.json, fitted from logged poses"
+    "links_mm": [
+      200,
+      200
+    ],
+    "links_source": "routes_opt/fk_model.json, fitted from logged poses",
+    "j1_from_base_mm": 60,
+    "j1_raw": "j1 is some 6 cm from base"
   },
   "hotel": {
-    "x_mm": 139.29, "y_mm": 376,
+    "x_mm": 139.29,
+    "y_mm": 376,
     "raw": "x width is 139.29 mm, y width is 376 mm",
-    "columns": {"A": 137.5, "B": 0.0, "C": -137.5},
-    "columns_note": "y of each column's slot centre in the robot frame (layout.json fixtures.hotel, taught poses)"
+    "columns": {
+      "A": 137.5,
+      "B": 0.0,
+      "C": -137.5
+    },
+    "columns_note": "y of each column's slot centre in the robot frame (layout.json fixtures.hotel, taught poses)",
+    "base_to_hotel_end_mm": 490,
+    "base_to_slot_mm": 250,
+    "raw_distances": "base to hotel end is 49 cm, base to slot is 25 cm"
   },
   "rotation_module": {
-    "to_column_a_mm": {"dy": 169.67, "dx_reading": "aligned with column A, a couple of mm"},
+    "to_column_a_mm": {
+      "dy": 169.67,
+      "dx_reading": "aligned with column A, a couple of mm"
+    },
     "raw": "169.67 mm; aligned with column A, a couple of mm from it",
     "reading": "169.67 is along y (the layout has 167.5); the x offset is a couple of mm, the layout has 24"
   },
   "microscope": {
     "distance_from_platform_mm": 500,
     "raw": "some 50 cm, but that might vary",
-    "footprint_mm": null
+    "footprint_mm": "not needed: the seat and the microscope zone are taught, the footprint is outside the arm's reach volumes"
   },
   "unresolved": [
-    "Where the arm base and the hotel sit inside the 650 x 400 platform: the sketch puts the base at the left edge and the hotel at the right edge, but with the hotel's slot line at x 293 (167 mm from the arm axis, taught) the 650 mm does not fit that.",
-    "Module x offset from column A: 'a couple of mm' (operator) against 24 mm between the taught poses.",
-    "Where the hotel's slot line is inside its 139.29 mm depth.",
-    "Whether the Squid's 500 mm is from the platform edge to its near face; the taught seat is 400 mm in y from the arm axis, 200 mm beyond the platform edge if the platform is centred on the arm axis.",
-    "Squid footprint.",
-    "Height of the hotel, the module and the arm links above the tool point (needed for volumes)."
-  ]
+    "Hotel depth: 139.29 mm (operator) against 240 mm from the slot line to the hotel end (490 - 250).",
+    "Platform y: 400 mm, but the module sits 305 mm from the arm axis in y (the arm reaches it there) and column C at -137.5; where is the arm axis between the platform's two long edges?",
+    "Module x against column A: operator not sure; the slot line at 316 and the module seat at 317 suggest they are aligned.",
+    "Heights above the tool point: hotel top, module top, arm links (needed for volumes)."
+  ],
+  "reading_in_robot_frame": {
+    "_note": "'base' read as the base box's right edge, j1 (robot x 126) 60 mm beyond it. Then: base box x -84..66, slot line x 316, hotel end x 556, platform x -84..566. The slot line at 316 agrees with the module seat (317), the operator's 'aligned with column A'; the taught-pose hotel x (293, plate centre) is 23 mm off it.",
+    "base_box_x": [
+      -84,
+      66
+    ],
+    "platform_x": [
+      -84,
+      566
+    ],
+    "slot_line_x": 316,
+    "hotel_end_x": 556
+  }
 }
