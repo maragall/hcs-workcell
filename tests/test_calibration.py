@@ -204,3 +204,32 @@ def test_verify_reports_the_marker_drift_between_two_poses():
     robot = SimRobot([0, 0, 0, 0, 0, 0])
     assert verify.check(MarkerBox(), "auto_teach_camera", robot, [100, 0, 50, 0, 0, 0], [120, 0, 50, 0, 0, 0]) == 0.0
     assert len(robot.trace) == 2
+
+
+def test_the_plate_tag_is_found_in_any_turn_with_the_same_corner_first():
+    """The tag on the practice plate is a black square with a 4 x 4 code, not a dictionary marker: the corners come out in
+    the code's own order whatever the yaw, so they mean the same thing in every picture."""
+    import cv2
+    import numpy as np
+    from calibration import marker
+    cell = 60
+    tag = np.full((6 * cell, 6 * cell), 0, np.uint8)
+    for i in range(4):
+        for j in range(4):
+            if marker.PLATE_TAG[i, j]:
+                tag[(i + 1) * cell:(i + 2) * cell, (j + 1) * cell:(j + 2) * cell] = 255
+    corners_tag = np.array([[0, 0], [6 * cell, 0], [6 * cell, 6 * cell], [0, 6 * cell]], np.float32)
+    for turn in range(4):
+        canvas = np.full((900, 1200), 235, np.uint8)
+        angle = turn * 90 + 17.0
+        centre = (6 * cell / 2, 6 * cell / 2)
+        R = cv2.getRotationMatrix2D(centre, -angle, 1.0)
+        pasted = np.zeros((6 * cell, 6 * cell), np.uint8)
+        pts = np.hstack([corners_tag, np.ones((4, 1), np.float32)]) @ R.T
+        shift = np.array([380.0, 250.0], np.float32) - pts.mean(0)
+        M = np.vstack([R, [0, 0, 1]]).astype(np.float64)
+        T = np.array([[1, 0, shift[0]], [0, 1, shift[1]], [0, 0, 1]], np.float64)
+        canvas = cv2.warpPerspective(tag, T @ M, (1200, 900), dst=canvas, borderMode=cv2.BORDER_TRANSPARENT)
+        got = marker.detect(canvas, None)
+        want = (np.hstack([corners_tag, np.ones((4, 1), np.float32)]) @ (T @ M)[:2].T)
+        assert np.abs(got - want).max() < 2.0, (turn, got.tolist(), want.tolist())
