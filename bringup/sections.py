@@ -82,7 +82,29 @@ class Bringup:
                               scope=self.scope, layout_path=c.layout_path, stop_event=c.stop_event, frame_source=c.frames,
                               parked=self._parked)
             self._cyc.commission["no_vision_correction"] = True      # the real plate carries no marker: the offset is applied here
+            self._answer_for(self._cyc)
         return self._cyc
+
+    def _answer_for(self, cyc: Cycle) -> None:
+        """The lower-check gate asks the operator when it has no pictures yet for a fixture ('is it safe to lower?'). For the module
+        the setup knows: the tag view has just shown the plate on it, so it answers yes there. For anything else, the stage above
+        all (its seat has never been validated on this elbow branch), the question stays with the operator."""
+        corr, said = cyc.corr, {"reason": ""}
+        alert = corr.alert
+
+        def watch(step, reason):
+            said["reason"] = reason
+            return alert(step, reason)
+
+        def ask(question, timeout=None):
+            if "safe to lower" in question and "polar@0" in said["reason"] and self.found.get("module_tag"):
+                cyc.tele.log("setup", "lower_check", "the plate on the module was seen by the tag view: lowering confirmed by the setup")
+                return "y"
+            return self._ask_user(question)
+        corr.alert, corr.ask = watch, ask
+
+    def _ask_user(self, question: str) -> str:
+        return self.ask(f"  >>> {question} [y/N]: ").strip().lower()
 
     def _parked(self) -> bool:
         try:
