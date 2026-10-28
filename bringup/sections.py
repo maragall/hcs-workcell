@@ -38,6 +38,8 @@ RESEATS = 3                       # carry, seat and re-grip cycles in the grips 
 ACQUISITION_TIMEOUT_S = 600
 TAG_VIEW_MARGIN_MM = 5.0         # headroom under the workspace top for the stage view
 SEAT_MOVED_DROP_ROUTE_MM = 8.0       # a hover this far from the taught seat: the taught route belongs to another place
+STAGE_SEARCH_MM = ((0, 0), (35, 0), (-35, 0), (0, 35), (0, -35), (35, 35), (-35, 35), (35, -35), (-35, -35),
+                   (70, 0), (-70, 0), (0, 70), (0, -70))        # where the arm looks for the tag around the hover, x and y
 TAG_AHEAD_MM = 40.0              # both tag views are taken this far ahead of the grip pose along the claw: the tag is 60 mm in from the plate's near edge
 SIZE_ROWS = (2, 4)                # rows where a 15-slot hotel has no shelf and a 30-slot one has
 VIEW_SEARCH_MM = ((0, 0), (25, 0), (-25, 0), (0, 25), (0, -25), (25, 25), (-25, -25), (25, -25), (-25, 25), (50, 0), (-50, 0))   # along, across the claw
@@ -125,6 +127,35 @@ class Bringup:
         why = self.cell.ready_to_move()
         if why:
             raise Refused(why)
+
+    def stage_hover(self) -> dict:
+        """The customer dragged the hand over the plate holder (the aruco plate sits in it): that pose is the hover, and the seat
+        is calculated from it, hover_mm below, the claw square to the instrument. A hover far from the taught one means the
+        microscope was moved: the taught route to the old place is dropped, the planner takes over."""
+        L = self.cell.layout()
+        f = L["fixtures"][self.scope]
+        here = [float(v) for v in self.cell.robot.pose()]
+        hover_mm = float(f.get("hover_mm", 67.0))
+        yaw = min((90.0 * k for k in (-2, -1, 0, 1, 2)), key=lambda a: abs(geometry.wrap(here[5] - a)))
+        seat = [round(here[0], 3), round(here[1], 3), round(here[2] - hover_mm, 3), 0.0, 0.0, yaw]
+        old = f.get("pose")
+        moved = round(geometry.moved_mm(old, seat), 1) if old else None
+        r = math.hypot(seat[0] - 126.0, seat[1])
+        if L.get("volumes") and not 240.0 <= r <= 395.0:                       # the real cell's frame; the simulator's fakes have their own
+            raise Refused(f"the hand is {r:.0f} mm from the arm's axis: the microscope's plate holder must be between 240 and 395 mm "
+                          "from it. Drag the hand to a spot in that range and put the microscope under it")
+    
+        def write(L):
+            f = L["fixtures"][self.scope]
+            if old and moved and moved > 0.5:
+                f[f"previous_pose_{time.strftime('%Y_%m_%d')}"] = {"pose": old}
+            f["pose"], f["taught_at"] = seat, _stamp()
+            if moved is None or moved > SEAT_MOVED_DROP_ROUTE_MM:
+                for name in [k for k in L.get("trajectories", {}) if k.startswith(f"{self.scope}_to_")]:
+                    L["trajectories"].pop(name)
+            self.setup_node(L).update(microscope_hover={"hand_pose": here, "seat": seat, "from_taught_mm": moved, "at": _stamp()})
+        self.edit(write)
+        return {"seat from the hover": seat, "from the taught seat mm": moved, "reach mm": round(r)}
 
     def tag_height(self) -> float:
         """Where the module's tag reference is taken from: straight above the module's grip pose, as high as the same view over
@@ -237,14 +268,11 @@ class Bringup:
             self.ready()
             self.guard(self.cyc().go_nest)
 
-        def place_text():
-            pl = cad_poses.load_hardware()["microscope"]["placement"]
-            return (f"get a ruler and place the microscope so the centre of its plate holder is about {pl['from_long_edge_mm'] / 10:.0f} cm "
-                    f"beyond the platform's long edge nearest the rotation module and {pl['from_left_end_mm'] / 10:.0f} cm from the "
-                    f"platform's left end (the end with the arm pillar); {pl['tolerance_mm'] / 10:.0f} cm either way is fine")
-
         return Section("connect", [
-            Step("user", place_text()),
+            Step("user", "drag the arm by hand to where the microscope stage will be: hover the hand there, claw square to the instrument, the "
+                         "fingers about 7 cm above where the aruco plate will sit; then put the microscope so its plate holder is "
+                         "right under the hand, and press Enter", before=self.loosen),
+            Step("computer", "take that pose as the microscope's hover and calculate where the stage is from it", self.stage_hover),
             Step("computer", "search ports", search_ports),
             Step("squid", "home stage", home, moves=True),
             Step("polar", "arm to the nest (a pose in the clear in front of the hotel; also where it goes after any fault)", to_nest, moves=True),
@@ -409,7 +437,9 @@ class Bringup:
         return Section("swap", [
             Step("nova", "detect aruco on the plate in the rotation module with the down camera (the module turns the plate half a turn if the tag is at the far end)", read_plate, moves=True),
             Step("user", "take the aruco plate off the rotation module and set it in the microscope's plate holder, the tab with the tag on "
-                         "the side toward the arm's hand (the same way round as it sat on the module)", before=self.loosen),
+                         "the side toward the arm's hand (the same way round as it sat on the module); then drag the arm to hover above "
+                         "the stage, roughly over the plate, and press Enter", before=self.loosen),
+            Step("computer", "take that pose as the hover; the arm will search around it for the aruco", self.stage_hover),
             Step("user", "place a real plate on the rotation module")])
 
     # ---- grips.toml
@@ -516,35 +546,6 @@ class Bringup:
             return {"stage_limits": lim, "park_xy": park, "park_tolerance": tol,
                     "stage_sweep_box": "not set: needs the Squid-to-arm axis mapping"}
 
-        def from_hover():
-            """The customer dragged the hand over the plate holder (the aruco plate sits in it): that pose is the hover, and the seat
-            is calculated from it, hover_mm below, the claw square to the instrument. A hover far from the taught one means the
-            microscope was moved: the taught route to the old place is dropped, the planner takes over."""
-            L = c.layout()
-            f = L["fixtures"][self.scope]
-            here = [float(v) for v in c.robot.pose()]
-            hover_mm = float(f.get("hover_mm", 67.0))
-            yaw = min((90.0 * k for k in (-2, -1, 0, 1, 2)), key=lambda a: abs(geometry.wrap(here[5] - a)))
-            seat = [round(here[0], 3), round(here[1], 3), round(here[2] - hover_mm, 3), 0.0, 0.0, yaw]
-            old = f.get("pose")
-            moved = round(geometry.moved_mm(old, seat), 1) if old else None
-            r = math.hypot(seat[0] - 126.0, seat[1])
-            if L.get("volumes") and not 240.0 <= r <= 395.0 - TAG_AHEAD_MM:        # the real cell's frame; the simulator's fakes have their own
-                raise Refused(f"the hand is {r:.0f} mm from the arm's axis: the holder must be between 240 and {395 - TAG_AHEAD_MM:.0f} mm "
-                              "(the ruler step in the connect section says where to put the microscope)")
-
-            def write(L):
-                f = L["fixtures"][self.scope]
-                if old and moved and moved > 0.5:
-                    f[f"previous_pose_{time.strftime('%Y_%m_%d')}"] = {"pose": old}
-                f["pose"], f["taught_at"] = seat, _stamp()
-                if moved is None or moved > SEAT_MOVED_DROP_ROUTE_MM:
-                    for name in [k for k in L.get("trajectories", {}) if k.startswith(f"{self.scope}_to_")]:
-                        L["trajectories"].pop(name)
-                self.setup_node(L).update(microscope_hover={"hand_pose": here, "seat": seat, "from_taught_mm": moved, "at": _stamp()})
-            self.edit(write)
-            return {"seat from the hover": seat, "from the taught seat mm": moved, "reach mm": round(r)}
-
         def find_marker():
             """The stage tag, by the servo's measure-only mode: from the taught hover the arm goes straight up or down (the only
             moves the microscope zone allows) to the height where the camera sees the tag at the scale it had at the module,
@@ -561,11 +562,6 @@ class Bringup:
             self.guard(lambda: cyc.move_to(self.scope))
             hx, hy, hz, rx, ry, hyaw = cyc._position(self.scope)
             seat = L["fixtures"][self.scope]["pose"]
-            reach = math.hypot(seat[0] - 126.0, seat[1]) + TAG_AHEAD_MM
-            if L.get("volumes") and reach > 395.0:
-                raise Refused(f"the stage is {reach - TAG_AHEAD_MM:.0f} mm from the arm's axis: the camera cannot be taken {TAG_AHEAD_MM:.0f} mm "
-                              "ahead to see the plate's tag within the arm's 400 mm reach. Move the microscope closer to the arm "
-                              f"(the connect section's ruler step says where)")
             z_same = seat[2] + (tag["view_z"] - tag["grip_z"])        # the module view's height above the plate, over the stage plate
             top = L["workspace_box"]["z"][1]
             heights = [z_same] if hz - 1 <= z_same <= top else []     # the same height over the plate as at the module: the same picture scale
@@ -573,31 +569,35 @@ class Bringup:
                 raise Refused(f"the module view's height over the plate would be z {z_same:.0f} over the stage, outside {hz:.0f}..{top:.0f}")
             s = self._servo()
             ref = np.array(tag["corners"], float)
-            vx, vy = self.tag_view_xy([hx, hy, hz, rx, ry, hyaw])
             got, last = None, "the tag is not in the picture"
-            for z in heights:
-                # straight up to the module view's height over the plate, then sideways (allowed above the instrument), then look
-                self.guard(lambda z=z: cyc._move("L", [hx, hy, z, rx, ry, hyaw], f"setup:look z{z:.0f}", cyc.safety.profile.approach))
-                self.guard(lambda z=z: cyc._move("L", [vx, vy, z, rx, ry, hyaw], "setup:look ahead", cyc.safety.profile.approach))
+            self.guard(lambda: cyc._move("L", [hx, hy, heights[0], rx, ry, hyaw], f"setup:up to z{heights[0]:.0f}", cyc.safety.profile.approach))
+            for dx, dy in STAGE_SEARCH_MM:
+                x, y = hx + dx, hy + dy
+                if L.get("volumes") and not 100.0 <= math.hypot(x - 126.0, y) <= 395.0:
+                    continue                                          # out of the arm's reach: not a place to look
+                self.guard(lambda x=x, y=y: cyc._move("L", [x, y, heights[0], rx, ry, hyaw], f"setup:search {x - hx:+.0f} {y - hy:+.0f}", cyc.safety.profile.approach))
                 try:
-                    est = s.estimate(ref)
+                    corners, view = s.observe()
                 except servo.ServoError as e:
                     last = str(e)
                     continue
-                got = (z, est)
+                try:
+                    aligned = s.align(ref, start_pose=view)           # sideways moves are free this high above the instrument
+                except servo.ServoError as e:
+                    last = str(e)
+                    continue
+                got = (heights[0], aligned)
                 break
-            self.guard(lambda: cyc._move("L", [hx, hy, got[0] if got else heights[0], rx, ry, hyaw], "setup:back over the seat", cyc.safety.profile.approach))
-            self.guard(lambda: cyc._move("L", [hx, hy, hz, rx, ry, hyaw], "setup:back to the hover", cyc.safety.profile.approach))
+            self.guard(lambda: cyc._move("L", [hx, hy, heights[0], rx, ry, hyaw], "setup:back over the hover", cyc.safety.profile.approach))
+            self.guard(lambda: cyc._move("L", [hx, hy, hz, rx, ry, hyaw], "setup:back down to the hover", cyc.safety.profile.approach))
             if got is None:
                 raise Refused(f"no aruco tag seen over the stage ({last}): check the aruco plate is in the holder and the "
                               "microscope stands on the marked area (a microscope far from the taught place needs a new route)")
-            z, est = got
-            self.found["stage_view"] = (vx + est.offset[0], vy + est.offset[1], hyaw + est.offset[2])
-            self.found["stage_estimate"] = {"offset": [round(v, 3) for v in est.offset], "residual_px": round(est.residual_px, 2),
-                                            "warning": est.warning, "seen_from_z": round(z), "same_height_z": round(z_same)}
-            if est.warning:
-                self.cell.note(f"the stage tag estimate: {est.warning}")
-            return {"tag offset": [round(v, 2) for v in est.offset], "residual px": round(est.residual_px, 2), "seen from z": round(z)}
+            z, res = got
+            self.found["stage_view"] = tuple(res.pose)
+            self.found["stage_estimate"] = {"view": [round(v, 3) for v in res.pose], "residual_px": round(res.residual_px, 2),
+                                            "moves": res.moves, "seen_from_z": round(z)}
+            return {"tag found, wrist over it at": [round(v, 2) for v in res.pose], "residual px": round(res.residual_px, 2), "moves": res.moves}
 
         def seat():
             tag = self.found.get("module_tag") or c.layout().get("setup", {}).get("module_tag")
@@ -641,9 +641,6 @@ class Bringup:
 
         return Section("microscope.toml", [
             Step("computer", "read the stage travel limits from squid", limits),
-            Step("user", "drag the arm by hand until the hand hangs over the microscope's plate holder, claw square to the instrument, "
-                         "the fingers about 7 cm above the aruco plate, then press Enter", before=self.loosen),
-            Step("computer", "take that pose as the hover and calculate where the stage should be from it", from_hover),
             Step("polar", "over the scope, straight down to the height the module view had over the plate, and measure the aruco tag", find_marker, moves=True),
             Step("computer", "seat_pose from the tag on the stage, carried from the module's tag and grip pose", seat),
             Step("polar", "leave the scope zone for the module", route, moves=True),
