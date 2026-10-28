@@ -90,8 +90,8 @@
     "_marker_note": "the marker tab (aruco标定板 drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
     "calibration": {
       "auto_teach_camera": {
-        "marker": "ok",
-        "marker_at": "2026-10-28 16:54:15",
+        "marker": "not read",
+        "marker_at": "2026-10-28 16:56:20",
         "pictures": 6,
         "px": 3.163,
         "mm": 0.539,
