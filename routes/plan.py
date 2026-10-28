@@ -60,7 +60,7 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
     if safe_z is None and not vol.active:
         raise SafetyViolation("no taught route between these positions and routes.safe_z_mm is not set")
     if vol.active:
-        vol.check_pose(here, "the arm now")
+        vol.settle(here)
         vol.check_pose(target, "the target")
     if safe_z is None:
         z = max(here[2], target[2])

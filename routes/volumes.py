@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import heapq
 import math
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from procedures.safety import Safety, SafetyViolation
 from routes_opt import fk
@@ -18,6 +18,8 @@ from routes_opt import fk
 SAMPLE_MM = 8.0          # footprint grid and leg sampling
 GRID_MM = 20.0           # search grid
 LINK_STEP_MM = 12.0
+RELAX_MM = 40.0          # around a start pose that already stands inside the margin
+RELAX_SHRINK_MM = 5.0
 
 
 class Volumes:
@@ -30,6 +32,7 @@ class Volumes:
         self.footprint = [(r["x"], r["y"]) for r in (claw.get("body"), claw.get("fingers")) if r]
         self.safety = safety
         self.box = safety.box
+        self.relax: Optional[List[float]] = None       # where the arm is now, if it already stands within the margin
         self._ok: Dict[tuple, bool] = {}
 
     @property
@@ -37,8 +40,9 @@ class Volumes:
         return bool(self.obstacles and self.footprint)
 
     # ---- one pose
-    def _inside(self, name: str, x: float, y: float, z_lo: float, z_hi: float) -> bool:
-        b, m = self.obstacles[name], self.margin
+    def _inside(self, name: str, x: float, y: float, z_lo: float, z_hi: float, m: Optional[float] = None) -> bool:
+        b = self.obstacles[name]
+        m = self.margin if m is None else m
         return (b["x"][0] - m <= x <= b["x"][1] + m and b["y"][0] - m <= y <= b["y"][1] + m
                 and z_hi >= b["z"][0] - m and z_lo <= b["z"][1] + m)
 
@@ -51,11 +55,22 @@ class Volumes:
                     u, w = x0 + (x1 - x0) * i / nx, y0 + (y1 - y0) * j / ny
                     yield x + u * c - w * s, y + u * s + w * c
 
+    def settle(self, here: List[float]) -> None:
+        """The arm may already stand where the model overlaps an obstacle by a hair (folded at home beside the pillar:
+        the claw's bounding box overlaps the pillar's corner by a millimetre; the arm is physically there). It must be
+        able to leave: within RELAX_MM of this pose obstacles shrink by RELAX_SHRINK_MM. A deeper overlap still raises."""
+        try:
+            self.check_pose(here, "the arm now")
+        except SafetyViolation:
+            self.relax = list(here[:3])
+            self.check_pose(here, "the arm now")           # raises when the overlap is deeper than the shrink
+
     def check_pose(self, p: List[float], label: str = "pose") -> None:
+        m = -RELAX_SHRINK_MM if self.relax is not None and math.dist(p[:3], self.relax) <= RELAX_MM else None
         x, y, z, yaw = p[0], p[1], p[2], p[5]
         for px, py in self._claw_samples(x, y, yaw):
             for name in self.obstacles:
-                if self._inside(name, px, py, z + self.z[0], z + self.z[1]):
+                if self._inside(name, px, py, z + self.z[0], z + self.z[1], m):
                     raise SafetyViolation(f"{label}: the claw at x={px:.0f} y={py:.0f} would be inside the {name} "
                                           f"(wrist x={x:.0f} y={y:.0f} z={z:.0f}, yaw {yaw:.0f})")
         for branch in self.safety._branches():
@@ -69,7 +84,7 @@ class Volumes:
                 for k in range(n + 1):
                     qx, qy = a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n
                     for name, o in self.obstacles.items():
-                        if o.get("links", True) and self._inside(name, qx, qy, z + self.links_z[0], z + self.links_z[1]):
+                        if o.get("links", True) and self._inside(name, qx, qy, z + self.links_z[0], z + self.links_z[1], m):
                             raise SafetyViolation(f"{label}: the {part} at x={qx:.0f} y={qy:.0f} would be inside the {name}")
 
     def check_leg(self, a: List[float], b: List[float], label: str = "leg") -> None:
@@ -91,87 +106,71 @@ class Volumes:
         return self._ok[key]
 
     def search(self, here: List[float], target: List[float]) -> List[List[float]]:
-        """Waypoints from `here` to `target`: turn the claw in place to a yaw that clears, travel at the higher of the
-        two heights around the obstacles, turn to the target's yaw over it. Tries the current yaw, the target's and the
-        four quarter turns; the shortest path wins. Raises SafetyViolation when none exists."""
-        best, why = None, None
-        for yaw in dict.fromkeys([here[5], target[5], 0.0, 90.0, -90.0, 180.0]):
-            try:
-                path = self._search_at(here, target, yaw)
-            except SafetyViolation as e:
-                why = e
-                continue
-            if path[0] != list(here):
-                path = [list(here)] + path                # the first leg turns the claw in place
-            length = sum(math.dist(a[:2], b[:2]) + abs(b[5] - a[5]) for a, b in zip(path, path[1:]))
-            if best is None or length < best[0]:
-                best = (length, path)
-        if best is None:
-            raise why or SafetyViolation("no route")
-        return best[1]
-
-    def _search_at(self, here: List[float], target: List[float], yaw: float) -> List[List[float]]:
+        """Waypoints from `here` to `target`: travel at the higher of the two heights around the obstacles, turning the
+        claw wherever a turn in place is clear (the yaws tried: the current one, the target's and the quarter turns).
+        Dijkstra over (grid point, yaw) with an x, y guide; then the last leg, over the target to the target. Raises
+        SafetyViolation when no path exists."""
         z = max(here[2], target[2])
-        rot = [here[3], here[4], yaw]
-        start, goal = [here[0], here[1], z] + rot, [target[0], target[1], z] + rot
-        if start != list(here):
-            try:
-                self.safety.check_segment(here, start, "turn")
-                self.check_leg(here, start, "turn")
-            except SafetyViolation as e:
-                raise SafetyViolation(f"cannot turn the claw to yaw {yaw:.0f} here: {e}")
+        yaws = list(dict.fromkeys([here[5], target[5], 0.0, 90.0, -90.0, 180.0]))
         gx = [self.box["x"][0] + i * GRID_MM for i in range(int((self.box["x"][1] - self.box["x"][0]) / GRID_MM) + 1)]
         gy = [self.box["y"][0] + j * GRID_MM for j in range(int((self.box["y"][1] - self.box["y"][0]) / GRID_MM) + 1)]
-        nodes = {("s",): start, ("g",): goal}
+        xy = {("s",): (here[0], here[1]), ("g",): (target[0], target[1])}
         for i, x in enumerate(gx):
             for j, y in enumerate(gy):
-                nodes[(i, j)] = [x, y, z] + rot
+                xy[(i, j)] = (x, y)
 
-        def neighbours(k):
-            if k == ("s",) or k == ("g",):
-                p = nodes[k]
-                return [m for m, q in nodes.items() if m[0] not in ("s", "g") and math.dist(p[:2], q[:2]) <= 2.2 * GRID_MM] + \
-                       ([("g",)] if k == ("s",) and math.dist(start[:2], goal[:2]) <= 3 * GRID_MM else [])
+        def pose(k, yi):
+            return [xy[k][0], xy[k][1], z, here[3], here[4], yaws[yi]]
+
+        def moves(k):
+            if k in (("s",), ("g",)):
+                near = [m for m in xy if m[0] not in ("s", "g") and math.dist(xy[k], xy[m]) <= 2.2 * GRID_MM]
+                return near + ([("g",)] if k == ("s",) and math.dist(xy[k], xy[("g",)]) <= 3 * GRID_MM else [])
             i, j = k
-            out = [(i + di, j + dj) for di in (-1, 0, 1) for dj in (-1, 0, 1) if (di or dj) and (i + di, j + dj) in nodes]
-            if math.dist(nodes[k][:2], goal[:2]) <= 2.2 * GRID_MM:
+            out = [(i + di, j + dj) for di in (-1, 0, 1) for dj in (-1, 0, 1) if (di or dj) and (i + di, j + dj) in xy]
+            if math.dist(xy[k], xy[("g",)]) <= 2.2 * GRID_MM:
                 out.append(("g",))
             return out
 
-        dist, prev, heap = {("s",): 0.0}, {}, [(0.0, 0, ("s",), 0.0)]
-        count = 0
+        start, goal = (("s",), 0), (("g",), 1)
+        dist, prev, heap, count = {start: 0.0}, {}, [(0.0, 0, start, 0.0)], 0
         while heap:
-            _, _, k, d = heapq.heappop(heap)
-            if k == ("g",):
+            _, _, st, d = heapq.heappop(heap)
+            if st == goal:
                 break
-            if d > dist.get(k, 1e18):
+            if d > dist.get(st, 1e18):
                 continue
-            for m in neighbours(k):
-                nd = d + math.dist(nodes[k][:2], nodes[m][:2])
-                if nd < dist.get(m, 1e18) and self._leg_ok(nodes[k], nodes[m]):
-                    dist[m], prev[m] = nd, k
+            k, yi = st
+            options = [((m, yi), math.dist(xy[k], xy[m])) for m in moves(k)]
+            options += [((k, yj), abs(yaws[yj] - yaws[yi]) * 0.5) for yj in range(len(yaws)) if yj != yi]
+            for nxt, cost in options:
+                nd = d + cost
+                if nd < dist.get(nxt, 1e18) and self._leg_ok(pose(*st), pose(*nxt)):
+                    dist[nxt], prev[nxt] = nd, st
                     count += 1
-                    heapq.heappush(heap, (nd + math.dist(nodes[m][:2], goal[:2]) * 0.5, count, m, nd))
-        if ("g",) not in prev and start[:2] != goal[:2]:
+                    guess = math.dist(xy[nxt[0]], xy[("g",)]) * 0.5 + (0.0 if nxt[1] == 1 else 5.0)
+                    heapq.heappush(heap, (nd + guess, count, nxt, nd))
+        if goal not in prev and start != goal:
             raise SafetyViolation("no route around the hotel and the pillar from here: the claw (205 mm ahead of the wrist) "
                                   "cannot pass; move the arm by hand to a taught position first")
-        try:                                              # the last leg: over the target to the target (lower, turn)
-            self.safety.check_segment(goal, target, "last leg")
-            self.check_leg(goal, target, "last leg")
-        except SafetyViolation as e:
-            raise SafetyViolation(f"yaw {yaw:.0f}: {e}")
-        path, k = [], ("g",)
-        while k != ("s",):
-            path.append(nodes[k])
-            k = prev[k]
-        path.append(start)
-        path.reverse()
-        out = [path[0]]                                   # straighten: skip nodes that a straight leg clears
+        chain, st = [], goal
+        while st != start:
+            chain.append(st)
+            st = prev[st]
+        chain.append(start)
+        chain.reverse()
+        path = [pose(*c) for c in chain]
+        out = [path[0]]                                   # straighten runs at one yaw: skip nodes a straight leg clears
         i = 0
         while i < len(path) - 1:
-            j = len(path) - 1
-            while j > i + 1 and not self._leg_ok(path[i], path[j]):
-                j -= 1
+            j = i + 1
+            while j + 1 < len(path) and path[j + 1][5] == path[i][5] and self._leg_ok(path[i], path[j + 1]):
+                j += 1
             out.append(path[j])
             i = j
+        try:                                              # the last leg: over the target to the target (lower, turn)
+            self.safety.check_segment(out[-1], target, "last leg")
+            self.check_leg(out[-1], target, "last leg")
+        except SafetyViolation as e:
+            raise SafetyViolation(f"last leg: {e}")
         return out
