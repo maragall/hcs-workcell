@@ -21,6 +21,7 @@ from routes.volumes import Volumes
 from routes_opt import fk
 
 SINGULAR_MM = 60.0     # a wrist this close to the arm's own axis cannot make a straight move
+FREE_AIR_LIFT_MM = 20.0   # over a zone's free_above_z by this much when the arm goes in or out sideways
 FOLD_MM = 60.0          # a target this close to the axis (the folded nest, the B column's approach) is reached by a joint move, not a straight one
 UNFOLD_MM = 100.0      # where the joint move unfolds the arm to, along the line to the target
 
@@ -59,6 +60,37 @@ def taught_route(layout: dict, from_name: Optional[str], to_name: Optional[str])
     return None
 
 
+def _zone(safety: Safety, p: List[float]) -> Optional[dict]:
+    """The no-swing region with a free air above it that p is in the restricted air of (below that height), or None."""
+    r = safety.regions.get(safety.region_of(p), {})
+    return r if r.get("no_swing") and r.get("free_above_z") is not None and p[2] < r["free_above_z"] else None
+
+
+def _through_the_free_air(layout: dict, safety: Safety, here: List[float], target: List[float],
+                          holding: Optional[str]) -> Optional[Route]:
+    """No taught route into or out of a no-swing zone (a microscope), but the instrument has a highest part: above it the arm
+    may move sideways (regions.<zone>.free_above_z). In: travel to a point over the target at the free height plus
+    FREE_AIR_LIFT_MM, then straight down. Out: straight up to that height, then the usual travel. Every leg is checked with the
+    claw volumes by the planner it calls. None when neither end is in such a zone."""
+    into, out_of = _zone(safety, target), _zone(safety, here)
+    if into is not None and out_of is None:
+        zfree = into["free_above_z"] + FREE_AIR_LIFT_MM
+        over = [target[0], target[1], max(zfree, here[2], target[2])] + list(target[3:])
+        route = lift_travel_lower(layout, safety, here, over, holding)
+        down = list(target)
+        safety.check_segment(over, down, "straight down into the zone")
+        Volumes(layout, safety, holding).check_leg(over, down, "straight down into the zone")
+        route.poses.append(down)
+        return route
+    if out_of is not None and into is None:
+        up = [here[0], here[1], out_of["free_above_z"] + FREE_AIR_LIFT_MM] + list(here[3:])
+        safety.check_segment(here, up, "straight up out of the zone")
+        route = lift_travel_lower(layout, safety, up, target, holding)
+        route.poses.insert(0, up)
+        return route
+    return None
+
+
 def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: List[float],
                       holding: Optional[str] = None) -> Route:
     """Without a taught route: lift, travel, lower. With `routes.safe_z_mm` the travel is at that height; without it the
@@ -68,6 +100,10 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
     safe_z = layout.get("routes", {}).get("safe_z_mm")
     if safe_z is None and not vol.active:
         raise SafetyViolation("no taught route between these positions and routes.safe_z_mm is not set")
+    if safe_z is None and vol.active:
+        zone_route = _through_the_free_air(layout, safety, here, target, holding)
+        if zone_route is not None:
+            return zone_route
     x0, y0 = fk.MODEL["x0"], fk.MODEL["y0"]
     if safe_z is None and vol.active and math.dist(target[:2], (x0, y0)) < FOLD_MM:
         # the target is beside the arm's own axis (the folded nest): a straight move cannot end there. Plan to a point
@@ -111,7 +147,7 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
             for yaw in dict.fromkeys([here[5], target[5], 0.0, 90.0, -90.0, 180.0]):
                 cand = [x0 + UNFOLD_MM * math.cos(math.radians(ang)), y0 + UNFOLD_MM * math.sin(math.radians(ang)), here[2]]                     + list(here[3:5]) + [yaw]
                 try:
-                    vol.check_joint_leg(here, cand, "unfold")
+                    vol.check_joint_leg(here, cand, "unfold", start_actual=True)
                     safety.check_target(cand, "unfold")
                     z = max(cand[2], target[2])
                     vol.search(list(cand[:2]) + [z] + list(cand[3:]), target)

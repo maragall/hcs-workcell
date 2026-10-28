@@ -9,6 +9,7 @@ from devices.arm import MotionRefused
 from procedures.corrector import StopSafe
 from procedures.safety import SafetyViolation
 from routes.plan import plan
+from routes_opt import fk
 
 
 def offset(p: List[float], d: List[float]) -> List[float]:
@@ -194,6 +195,33 @@ class Motion:
         Never to the seat itself; the seat is the job of pick and place, behind their gates."""
         self.go_to(self._position(name), name)
 
+    def _move_joints_to(self, target: List[float], label: str, speed: float) -> None:
+        """A joint move to a pose, by joint values on the elbow branch the arm is on now (the branch the planner checked). A joint
+        move to a Cartesian pose lets the controller pick its own branch: on 2026-10-28 it chose the mirror one and swung the
+        arm's body into the pillar."""
+        ja = list(self.robot.joints())
+        branch = fk.elbow_sign(ja)
+        jt = fk.ik(target, elbow=branch, j2_ref=ja[1], j3_ref=ja[2], j4_ref=ja[3])
+        if fk.elbow_sign(jt) != branch:
+            raise SafetyViolation(f"{label}: the target needs the other elbow branch")
+        self.safety.check_target(target, label)
+        self.safety.check_joint_path(ja[:4], list(jt[:4]), label)
+        self._check_parked(target, label)
+        self.robot.set_speed(speed)
+        t0 = time.time()
+        try:
+            self.robot.move_abs_joints_stepped(list(jt[:4]) + list(ja[4:]))
+        except MotionRefused as e:
+            self._refused(label, e)
+        self._wait_still(label)
+        after = self.robot.pose()
+        dev = max(abs(after[k] - target[k]) for k in range(3))
+        self.tele.log("move", label, "AJ", target=[round(v, 2) for v in target], actual=[round(v, 2) for v in after],
+                      dt=round(time.time() - t0, 2), dev=round(dev, 2))
+        if dev > 3.0:
+            raise StopSafe(f"{label}: arm {dev:.1f} mm from the target after a joint move")
+        self.store.s.last_safe_pose = after
+
     def go_nest(self) -> None:
         """The nest: routes.nest.pose, a pose in the clear in front of the hotel (the front camera sees it) that the planner can
         reach from anywhere, including from a pose where the arm stopped against something (it backs out along the claw first).
@@ -220,5 +248,8 @@ class Motion:
             self._arrive(target, f"move_to {name} arrive", self.safety.profile.approach)
             return
         for i, p in enumerate(route.poses, 1):
-            kind = "J" if (i == 1 and route.first_joint) or (i == len(route.poses) and route.last_joint) else "L"
-            self._move(kind, p, f"move_to {name} [{i}/{len(route.poses)}]", self.safety.profile.travel)
+            label = f"move_to {name} [{i}/{len(route.poses)}]"
+            if (i == 1 and route.first_joint) or (i == len(route.poses) and route.last_joint):
+                self._move_joints_to(p, label, self.safety.profile.travel)
+            else:
+                self._move("L", p, label, self.safety.profile.travel)
