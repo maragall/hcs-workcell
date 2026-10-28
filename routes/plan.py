@@ -34,6 +34,7 @@ class Route:
     reverse: bool = False                       # the taught route is stored the other way round
     first_joint: bool = False                   # the first leg is a joint move (unfolding from beside the arm's own axis)
     last_joint: bool = False                    # the last leg is a joint move (folding in to a pose beside the arm's own axis)
+    last_joints: Optional[List[float]] = None   # ... to these joints (the taught nest's own: both elbow branches meet there)
 
     @property
     def taught(self) -> bool:
@@ -109,19 +110,22 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
         # the target is beside the arm's own axis (the folded nest): a straight move cannot end there. Plan to a point
         # UNFOLD_MM out, where the arm is unfolded, and fold in with one joint move that keeps the claw and links clear.
         toward = math.degrees(math.atan2(here[1] - y0, here[0] - x0))
+        nest = layout.get("routes", {}).get("nest") or {}
+        tj = nest.get("joints_at_teach") if nest.get("pose") and math.dist(nest["pose"][:3], target[:3]) < 1.0 else None
         why = None
         for ang in dict.fromkeys([toward, 90.0, 135.0, 45.0, 180.0, 0.0, -45.0]):
             cand = [x0 + UNFOLD_MM * math.cos(math.radians(ang)), y0 + UNFOLD_MM * math.sin(math.radians(ang)), target[2]]                 + list(target[3:])
             try:
                 safety.check_target(cand, "fold")
                 vol.check_pose(cand, "fold")
-                vol.check_joint_leg(cand, target, "fold")
+                vol.check_joint_leg(cand, target, "fold", joints_b=tj)
                 route = lift_travel_lower(layout, safety, here, cand, holding)
             except SafetyViolation as e:
                 why = e
                 continue
             route.poses.append(list(target))
             route.last_joint = True
+            route.last_joints = list(tj) if tj else None
             return route
         raise SafetyViolation(f"no way to fold the arm in to the pose beside its own axis: {why}")
     withdrawn = None

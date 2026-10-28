@@ -117,13 +117,14 @@ class Volumes:
                         if o.get("links", True) and self._inside(name, qx, qy, z + self.links_z[0], z + self.links_z[1], m):
                             raise SafetyViolation(f"{label}: the {part} at x={qx:.0f} y={qy:.0f} would be inside the {name}")
 
-    def check_joint_leg(self, a: List[float], b: List[float], label: str = "joint leg", start_actual: bool = False) -> None:
+    def check_joint_leg(self, a: List[float], b: List[float], label: str = "joint leg", start_actual: bool = False,
+                        joints_b: Optional[List[float]] = None) -> None:
         """A joint move (the arm unfolding from beside its own axis): the joints are interpolated, every sample's claw
         and links are checked. Both elbow branches when the branch is unknown."""
         actual = list(self.safety.joints()[:4]) if (start_actual and self.safety.joints) else None
         for branch in ((fk.elbow_sign(actual),) if actual else self.safety._branches()):
             ja = actual or self.safety._ik(a, branch, label)
-            jb = self.safety._ik(b, branch, label, ref=ja)
+            jb = list(joints_b[:4]) if joints_b else self.safety._ik(b, branch, label, ref=ja)
             n = max(1, int(max(abs(jb[i] - ja[i]) for i in (1, 2, 3)) / 2.0))
             for k in range(n + 1):
                 p = fk.fk([ja[i] + k / n * (jb[i] - ja[i]) for i in range(4)])
@@ -174,7 +175,8 @@ class Volumes:
                 out.append(("g",))
             return out
 
-        start, goal = (("s",), 0), (("g",), 1)
+        goal_yaw = yaws.index(target[5])                 # the target's own yaw (index 1 only when it differs from the arm's)
+        start, goal = (("s",), 0), (("g",), goal_yaw)
         dist, prev, heap, count = {start: 0.0}, {}, [(0.0, 0, start, 0.0)], 0
         while heap:
             _, _, st, d = heapq.heappop(heap)
@@ -190,7 +192,7 @@ class Volumes:
                 if nd < dist.get(nxt, 1e18) and self._leg_ok(pose(*st), pose(*nxt)):
                     dist[nxt], prev[nxt] = nd, st
                     count += 1
-                    guess = math.dist(xy[nxt[0]], xy[("g",)]) * 0.5 + (0.0 if nxt[1] == 1 else 5.0)
+                    guess = math.dist(xy[nxt[0]], xy[("g",)]) * 0.5 + (0.0 if nxt[1] == goal_yaw else 5.0)
                     heapq.heappush(heap, (nd + guess, count, nxt, nd))
         if goal not in prev and start != goal:
             raise SafetyViolation("no route around the hotel and the pillar from here: the claw (205 mm ahead of the wrist) "

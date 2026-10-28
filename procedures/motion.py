@@ -195,15 +195,18 @@ class Motion:
         Never to the seat itself; the seat is the job of pick and place, behind their gates."""
         self.go_to(self._position(name), name)
 
-    def _move_joints_to(self, target: List[float], label: str, speed: float) -> None:
+    def _move_joints_to(self, target: List[float], label: str, speed: float, joints: Optional[List[float]] = None) -> None:
         """A joint move to a pose, by joint values on the elbow branch the arm is on now (the branch the planner checked). A joint
         move to a Cartesian pose lets the controller pick its own branch: on 2026-10-28 it chose the mirror one and swung the
         arm's body into the pillar."""
         ja = list(self.robot.joints())
         branch = fk.elbow_sign(ja)
-        jt = fk.ik(target, elbow=branch, j2_ref=ja[1], j3_ref=ja[2], j4_ref=ja[3])
-        if fk.elbow_sign(jt) != branch:
-            raise SafetyViolation(f"{label}: the target needs the other elbow branch")
+        if joints:                                    # the pose's own joints (the nest): both elbow branches meet there
+            jt = list(joints[:4])
+        else:
+            jt = fk.ik(target, elbow=branch, j2_ref=ja[1], j3_ref=ja[2], j4_ref=ja[3])
+            if fk.elbow_sign(jt) != branch:
+                raise SafetyViolation(f"{label}: the target needs the other elbow branch")
         self.safety.check_target(target, label)
         self.safety.check_joint_path(ja[:4], list(jt[:4]), label)
         self._check_parked(target, label)
@@ -221,6 +224,14 @@ class Motion:
         if dev > 3.0:
             raise StopSafe(f"{label}: arm {dev:.1f} mm from the target after a joint move")
         self.store.s.last_safe_pose = after
+
+    def _enter(self, trajectory: Optional[str], reverse: bool, hover: List[float], fixture_name: str) -> None:
+        """The taught route to a fixture's hover when the layout has one; otherwise the planner's way to the hover (a layout built
+        from the CAD alone has no taught route: bringup/scratch.py)."""
+        if trajectory and trajectory in self.L["trajectories"]:
+            self._waypoints(trajectory, reverse)
+        else:
+            self.go_to(hover, f"{fixture_name} hover")
 
     def go_nest(self) -> None:
         """The nest: routes.nest.pose, a pose in the clear in front of the hotel (the front camera sees it) that the planner can
@@ -250,6 +261,7 @@ class Motion:
         for i, p in enumerate(route.poses, 1):
             label = f"move_to {name} [{i}/{len(route.poses)}]"
             if (i == 1 and route.first_joint) or (i == len(route.poses) and route.last_joint):
-                self._move_joints_to(p, label, self.safety.profile.travel)
+                self._move_joints_to(p, label, self.safety.profile.travel,
+                                     joints=route.last_joints if i == len(route.poses) and route.last_joint else None)
             else:
                 self._move("L", p, label, self.safety.profile.travel)
