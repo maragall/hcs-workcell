@@ -190,6 +190,12 @@ def capture(cell, by_hand: bool, camera=None) -> None:
         solve(cell, camera)
 
 
+def calib_upload_errors():
+    """The exception that means "no login for the box" (calibration/upload.py)."""
+    from calibration import upload as _up
+    return _up.NoCredentials
+
+
 def upload(cell, camera=None) -> None:
     """The cameras' files (one camera, or both) to the box, then the box restarts (about a minute)."""
     calib, L = package(cell), cell.layout()

@@ -26,8 +26,12 @@ def credentials(layout: dict) -> Dict[str, Optional[str]]:
     """The ssh block of layout.json, checked: user plus a password or a key path."""
     ssh = (layout.get("vision") or {}).get("ssh") or {}
     user, password, key = ssh.get("user"), ssh.get("password"), ssh.get("key_path")
+    user = user or os.environ.get("NOVA_SSH_USER")                 # the login can live in the environment, out of every file
+    password = password or os.environ.get("NOVA_SSH_PASSWORD")
+    key = key or os.environ.get("NOVA_SSH_KEY")
     if not user or not (password or key):
-        raise NoCredentials("layout.json vision.ssh needs user and password or key_path (null refuses)")
+        raise NoCredentials("the box login is missing: layout.json vision.ssh, or the environment NOVA_SSH_USER with "
+                            "NOVA_SSH_PASSWORD or NOVA_SSH_KEY (null refuses)")
     return {"user": user, "password": password, "key_path": key}
 
 

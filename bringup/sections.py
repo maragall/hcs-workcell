@@ -366,7 +366,11 @@ class Bringup:
                               f"{cameras.LIMIT_PX} px / {cameras.LIMIT_MM} mm: nothing uploaded, run again")
 
         def upload():
-            cameras.upload(c, "down")
+            try:
+                cameras.upload(c, "down")
+            except cameras.calib_upload_errors() as e:        # no box login: the box keeps the calibration it has (the aruco servo needs none)
+                c.note(f"not uploaded: {e}")
+                return {"uploaded_at": "skipped, no box login"}
             at = node().get("uploaded_at")
             if not at:
                 raise Refused("the box did not take the files")
