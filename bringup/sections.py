@@ -35,6 +35,7 @@ BAND_BELOW, BAND_ABOVE = 0.1, {"short_edges": 0.5, "long_edges": 1.05}     # as 
 RESEATS = 3                       # carry, seat and re-grip cycles in the grips section
 ACQUISITION_TIMEOUT_S = 600
 VIEW_SEARCH_MM = ((0, 0), (25, 0), (-25, 0), (0, 25), (0, -25), (25, 25), (-25, -25), (25, -25), (-25, 25), (50, 0), (-50, 0))   # along, across the claw
+VIEW_LIFTS_MM = (0, 60, 120)      # heights above the seat hover the view is tried at (the camera has to focus on the plate)
 
 
 def reachable(cyc: Cycle, slot: str) -> bool:
@@ -91,7 +92,7 @@ class Bringup:
         if why:
             raise Refused(why)
 
-    def module_view_pose(self, along: float = 0.0, across: float = 0.0) -> List[float]:
+    def module_view_pose(self, along: float = 0.0, across: float = 0.0, lift: float = 0.0) -> List[float]:
         """The wrist pose that puts the down camera over the module's plate: the taught seat's wrist pose moved along
         the claw. The camera looks `camera_ahead_of_wrist_mm` ahead of the wrist, the plate centre is
         `module_wrist_to_plate_mm` ahead of it at the seat (both in hardware.json, from the CAD)."""
@@ -100,7 +101,7 @@ class Bringup:
         yaw = math.radians(taught[5])
         d, n = (math.cos(yaw), math.sin(yaw)), (-math.sin(yaw), math.cos(yaw))
         shift = claw["module_wrist_to_plate_mm"] - claw["camera_ahead_of_wrist_mm"] + along
-        return [taught[0] + shift * d[0] + across * n[0], taught[1] + shift * d[1] + across * n[1], taught[2], 0.0, 0.0, taught[5]]
+        return [taught[0] + shift * d[0] + across * n[0], taught[1] + shift * d[1] + across * n[1], taught[2] + lift, 0.0, 0.0, taught[5]]
 
     def view_module(self) -> List[float]:
         """Take the camera over the module's plate and read the marker: the CAD pose first, then a small cross of
@@ -108,9 +109,14 @@ class Bringup:
         c, v = self.cell, self.cell.layout()["vision"]
         cyc = self.cyc()
         tries = [self.found["module_view"]] if self.found.get("module_view") else []
-        tries += [self.module_view_pose(a, b) for a, b in VIEW_SEARCH_MM]
+        tries += [self.module_view_pose(a, b, z) for z in VIEW_LIFTS_MM for a, b in VIEW_SEARCH_MM]
+        last = "no pose tried"
         for pose in tries:
-            self.guard(lambda pose=pose: cyc.go_to(pose, "module view"))
+            try:
+                self.guard(lambda pose=pose: cyc.go_to(pose, "module view"))
+            except Refused as e:                  # a candidate the safety check refuses is skipped, not fatal
+                last = str(e)
+                continue
             try:
                 if any(c.vision.aruco_pose(v["down_camera"], 1, None, v["led"]).pixel):
                     self.found["module_view"] = pose
@@ -118,7 +124,7 @@ class Bringup:
             except Exception:
                 pass
         raise Refused("the down camera cannot read the aruco plate over the module: is the practice plate on the module, "
-                      "marker up, and the lens clean?")
+                      f"marker up, and the lens clean? (last refusal: {last})")
 
     @staticmethod
     def guard(fn):

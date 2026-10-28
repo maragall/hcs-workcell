@@ -15,6 +15,7 @@ import time
 from typing import List
 
 from procedures.safety import Safety
+from routes.volumes import Volumes
 
 from bringup import calibration_fake
 
@@ -60,9 +61,26 @@ def _stamp() -> str:
 
 
 def plan_around(cell, L: dict, here: List[float]) -> List[List[float]]:
-    """The package's plan around where the arm is, each pose checked against the safe box; ends where it started."""
-    s = Safety(L, "supervised")
-    return package(cell).plan.around(here, lambda p: s.check_target(p, "capture plan"))
+    """The package's plan around where the arm is. Every pose is checked against the safe box and against the claw
+    and links (routes/volumes.py: the fingers are 205 mm ahead of the wrist), and so is every leg between them, which
+    the arm makes as straight moves; ends where it started."""
+    s = Safety(L, "supervised", cell.robot.joints)
+    vol = Volumes(L, s)
+
+    def ok(p):
+        s.check_target(p, "capture plan")
+        if vol.active:
+            vol.check_pose(p, "capture plan")
+
+    if vol.active:
+        vol.settle(here)
+    poses = package(cell).plan.around(here, ok)
+    if vol.active:
+        prev = here
+        for i, p in enumerate(list(poses) + [here], 1):
+            vol.check_leg(prev, list(p), f"capture plan leg {i}/{len(poses) + 1}")
+            prev = list(p)
+    return poses
 
 
 # ------------------------------------------------------------------------------------------------- steps
