@@ -125,3 +125,26 @@ def test_an_arm_that_stopped_against_the_hotel_backs_out_along_its_claw_before_a
     assert 5.0 <= back <= 100.0 and abs(first[5] - stuck[5]) < 1e-9          # straight back, claw not turned
     Volumes(L, safety).check_pose(first)                                     # the spot it backs out to is clear with the full margin
     assert route.poses[-1] == target
+
+
+def test_the_nest_is_clear_and_reachable_from_where_the_arm_stops():
+    """routes.nest: a pose in front of the hotel that the planner reaches from the module, the approach point of a slot and the
+    pose where the claw stopped against the hotel."""
+    L, safety = make()
+    nest = L["routes"]["nest"]["pose"]
+    Volumes(L, safety).check_pose(nest)
+    for here in ([312.5, 304.5, 101.2, 0, 0, -91.26], [161.7, 137.2, 99.6, 0, 0, 0.2], [257.8, 262.6, 102.7, 0, 0, -48.3]):
+        route = planner.plan(L, safety, here, nest)
+        assert route.poses[-1] == list(nest)
+
+
+def test_the_nest_is_refused_with_a_plate_in_the_claw(tmp_path):
+    from procedures.motion import Motion
+
+    class Stub(Motion):
+        def __init__(self, L):
+            self.L = L
+            self.store = type("S", (), {"s": type("T", (), {"grip": "long_edges"})()})()
+    L, _ = make()
+    with pytest.raises(SafetyViolation, match="holds a plate"):
+        Stub(L).go_nest()

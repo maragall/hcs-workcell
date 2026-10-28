@@ -134,7 +134,8 @@ def layout() -> dict:
         L["fixtures"][fx].pop("grasp_width", None)           # learned on the real cell; the simulator uses the nominal widths
     L["gripper"]["open"] = {"short_edges": 10.0, "long_edges": 10.0}
     L["polar"]["ext_axis"]["direction"] = -1
-    L["routes"] = {"safe_z_mm": 160.0, "positions": ["microscope", "polar.pose_at_0", "polar.pose_at_90"]}
+    L["routes"] = {"safe_z_mm": 160.0, "positions": ["microscope", "polar.pose_at_0", "polar.pose_at_90"],
+                   "nest": {"pose": [150.0, 80.0, 150.0, 0, 0, 0]}}
     L["volumes"] = None                                         # the CAD volumes and poses are in the real cell's frame; the fakes' world is their own
     L["fixtures"]["hotel"]["pose_source"] = "taught"
     L["fixtures"]["hotel"]["rows"] = list(range(1, 11))         # the rig's bench is its own, not whatever the live file says

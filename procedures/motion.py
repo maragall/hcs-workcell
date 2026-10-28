@@ -194,6 +194,21 @@ class Motion:
         Never to the seat itself; the seat is the job of pick and place, behind their gates."""
         self.go_to(self._position(name), name)
 
+    def go_nest(self) -> None:
+        """The nest: routes.nest.pose, a pose in the clear in front of the hotel (the front camera sees it) that the planner can
+        reach from anywhere, including from a pose where the arm stopped against something (it backs out along the claw first).
+        For an empty claw: a plate in it would reach into the hotel from there."""
+        nest = self.L.get("routes", {}).get("nest")
+        if not nest:
+            raise SafetyViolation("routes.nest is not set")
+        grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
+        if grip and grip != "none":
+            raise SafetyViolation("the claw holds a plate; the nest is for an empty claw. Put the plate down by hand, then go to the nest")
+        here = self._position_here()
+        if here and not here.startswith("polar"):          # at a microscope hover: the taught route out of its zone first
+            self.move_to("polar.pose_at_0")
+        self.go_to(list(nest["pose"]), "nest")
+
     def go_to(self, target: List[float], name: str) -> None:
         """move_to for a pose that is not a taught position (the setup script's computed views)."""
         grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
@@ -205,5 +220,5 @@ class Motion:
             self._arrive(target, f"move_to {name} arrive", self.safety.profile.approach)
             return
         for i, p in enumerate(route.poses, 1):
-            kind = "J" if i == 1 and route.first_joint else "L"
+            kind = "J" if (i == 1 and route.first_joint) or (i == len(route.poses) and route.last_joint) else "L"
             self._move(kind, p, f"move_to {name} [{i}/{len(route.poses)}]", self.safety.profile.travel)

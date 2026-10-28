@@ -954,8 +954,9 @@ def cmd_cad_poses(args):
 
 
 def cmd_recover(args):
-    """After a hard stop or a controller fault: clear the errors, auto, enabled, then the arm loose so you can move it.
-    Nothing moves. Close RobStudio first (one client at a time)."""
+    """After a hard stop or a controller fault: clear the errors, auto, enabled, then the arm loose so you can move it, or with
+    --nest the arm locked and taken to the nest (routes.nest: a pose in the clear in front of the hotel; it backs out along the
+    claw first if it stopped against something). Close RobStudio first (one client at a time)."""
     layout = load_layout()
     robot = make_robot(layout, args, lambda *a: None)
     robot.connect()
@@ -964,11 +965,35 @@ def cmd_recover(args):
         left = [e for e in (robot.errors() or []) if e.get("errCode")]
         if left:
             sys.exit("the controller still reports: " + "; ".join(f"{e.get('errCode')} {e.get('errMsg', '')}" for e in left))
-        robot.drag(True)
-        print("errors cleared, arm enabled and loose: move it by hand; python cli.py setup locks it again")
+        if args.nest:
+            robot.enable()
+            print("errors cleared, arm enabled and locked; going to the nest")
+        else:
+            robot.drag(True)
+            print("errors cleared, arm enabled and loose: move it by hand; python cli.py setup locks it again")
     finally:
         robot.disconnect()
-    return 0
+    if not args.nest:
+        return 0
+    from bringup import sim
+    from bringup.cell import Cell
+    from bringup.runner import Refused
+    from bringup.sections import Bringup
+    from devices.fake_squid import FakeSquid
+    cell = Cell(*sim.build(), sim=True) if args.sim else Cell(LAYOUT, REFS, HERE, RUNS, make_robot(layout, args, lambda *a: None),
+                                                             nova.vision_box(layout), sim=False)
+    cell.connect()
+    try:
+        todo = Bringup(cell, FakeSquid("microscope", 0.0), lambda prompt: "")
+        todo.ready()
+        todo.guard(todo.cyc().go_nest)
+        print("at the nest")
+        return 0
+    except Refused as e:
+        print(f"could not reach the nest: {e}")
+        return 2
+    finally:
+        cell.frames.stop()
 
 
 def main():
@@ -1055,7 +1080,9 @@ def main():
     p = sub.add_parser("cad-poses", help="hotel poses computed from the CAD against the taught ones (nothing moves)")
     p.set_defaults(fn=cmd_cad_poses)
     p = sub.add_parser("recover", help="after a hard stop or controller fault: clear errors, enable, leave the arm loose")
-    p.add_argument("--sim", action="store_true"); p.set_defaults(fn=cmd_recover)
+    p.add_argument("--sim", action="store_true")
+    p.add_argument("--nest", action="store_true", help="lock the arm and take it to the nest")
+    p.set_defaults(fn=cmd_recover)
     p = sub.add_parser("to-mp4", help="assemble a run's video folders into mp4 files (needs ffmpeg)")
     p.add_argument("run_dir"); p.add_argument("--fps", type=float, default=2.0)
     p.set_defaults(fn=cmd_to_mp4)

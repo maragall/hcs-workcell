@@ -171,9 +171,14 @@ class Bringup:
             self.ready()
             self.view_module()
 
+        def to_nest():
+            self.ready()
+            self.guard(self.cyc().go_nest)
+
         return Section("connect", [
             Step("computer", "search ports", search_ports),
             Step("squid", "home stage", home, moves=True),
+            Step("polar", "arm to the nest (a pose in the clear in front of the hotel; also where it goes after any fault)", to_nest, moves=True),
             Step("polar", "rotation module to 0 deg", module_to_0, moves=True),
             Step("polar", "hover hand onto rotation module centroid", hover, moves=True)])
 
@@ -232,12 +237,9 @@ class Bringup:
     def hotel(self) -> Section:
         c = self.cell
 
-        def to_hotel():
+        def to_nest():
             self.ready()
-            cyc = self.cyc()
-            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-            self.guard(cyc._to_hotel)
-            self.guard(lambda: cyc._hotel_go_to_approach("A1", "setup:hotel"))
+            self.guard(self.cyc().go_nest)
 
         def image():
             cyc = self.cyc()
@@ -264,16 +266,10 @@ class Bringup:
                                  self.setup_node(L).update(hotel={"size": size, "method": method, "detected_at": at})))
             return {"size": size, "method": method, "detected_at": at}
 
-        def leave():
-            cyc = self.cyc()
-            self.guard(lambda: cyc._hotel_leave_approach("A1", "setup:hotel"))
-            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-
         return Section("hotel.toml", [
-            Step("polar", "arm to the hotel's first slot, the front camera looking in", to_hotel, moves=True),
+            Step("polar", "arm to the nest, the hotel view: the front camera looks at the hotel", to_nest, moves=True),
             Step("nova", "image the hotel with the front camera", image),
-            Step("computer", "detect hotel size, 15 or 30", detect),
-            Step("polar", "back to the rotation module", leave, moves=True)])
+            Step("computer", "detect hotel size, 15 or 30", detect)])
 
     # ---- swap the plates
     def swap(self) -> Section:

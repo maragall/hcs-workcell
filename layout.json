@@ -836,7 +836,25 @@
       "polar.pose_at_0",
       "polar.pose_at_90"
     ],
-    "_note": "routes.plan: a taught trajectory <a>_to_<b> wins; otherwise lift to safe_z_mm, travel, lower. null = refuse. positions: the named places move_to knows, used to pick the taught route from wherever the arm is"
+    "_note": "routes.plan: a taught trajectory <a>_to_<b> wins; otherwise lift to safe_z_mm, travel, lower. null = refuse. positions: the named places move_to knows, used to pick the taught route from wherever the arm is",
+    "nest": {
+      "pose": [
+        126.03,
+        4.27,
+        232.712,
+        0.0,
+        -0.0,
+        0.332
+      ],
+      "joints_at_teach": [
+        194.11,
+        0.21,
+        -1.22,
+        1.35
+      ],
+      "taught_at": "2026-10-27 23:21:21",
+      "_note": "The nest, taught by the operator by hand: a safe pose the planner reaches from anywhere and where the arm goes after any fault (python cli.py recover --nest). The hotel view: the front camera looks along the claw. For an empty claw. clear of the hotel and pillar with the full margin"
+    }
   },
   "trajectories": {
     "microscope_to_polar": {
@@ -2124,5 +2142,32 @@
       "_note": "stage position (Squid stage frame, mm) where Microscope.home_xyz leaves it, and how far from it still counts as parked. Measure on the cell: home, read stage.get_pos(), repeat a few times. null = parked() refuses. base_path and experiment_id go here too (devices/squid.py)"
     }
   },
-  "_stress_profile_note": "stress = 50/25/10 %, grasp tolerance 0.08 (10x the measured sd), slow zone 6 mm; validate supervised before unattended"
+  "_stress_profile_note": "stress = 50/25/10 %, grasp tolerance 0.08 (10x the measured sd), slow zone 6 mm; validate supervised before unattended",
+  "setup": {
+    "hotel": {
+      "size": 30,
+      "method": "declared",
+      "detected_at": "2026-10-27 23:11:00"
+    },
+    "plate_offset": [
+      -7.204,
+      -114.665,
+      4.448
+    ],
+    "marker_to_grip": {
+      "dx": 225.966,
+      "dy": 275.648,
+      "dz": 204.565,
+      "dyaw": -95.73
+    },
+    "plate_offset_at": "2026-10-27 23:12:46",
+    "module_marker": [
+      108.701,
+      12.123,
+      -137.758,
+      1.2,
+      -2.456,
+      4.467
+    ]
+  }
 }

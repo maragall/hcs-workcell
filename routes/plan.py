@@ -31,6 +31,7 @@ class Route:
     joints: Optional[List[List[float]]] = None  # a taught route: replay these; poses are its checkpoints
     reverse: bool = False                       # the taught route is stored the other way round
     first_joint: bool = False                   # the first leg is a joint move (unfolding from beside the arm's own axis)
+    last_joint: bool = False                    # the last leg is a joint move (folding in to a pose beside the arm's own axis)
 
     @property
     def taught(self) -> bool:
@@ -66,6 +67,26 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
     safe_z = layout.get("routes", {}).get("safe_z_mm")
     if safe_z is None and not vol.active:
         raise SafetyViolation("no taught route between these positions and routes.safe_z_mm is not set")
+    x0, y0 = fk.MODEL["x0"], fk.MODEL["y0"]
+    if safe_z is None and vol.active and math.dist(target[:2], (x0, y0)) < SINGULAR_MM:
+        # the target is beside the arm's own axis (the folded nest): a straight move cannot end there. Plan to a point
+        # UNFOLD_MM out, where the arm is unfolded, and fold in with one joint move that keeps the claw and links clear.
+        toward = math.degrees(math.atan2(here[1] - y0, here[0] - x0))
+        why = None
+        for ang in dict.fromkeys([toward, 90.0, 135.0, 45.0, 180.0, 0.0, -45.0]):
+            cand = [x0 + UNFOLD_MM * math.cos(math.radians(ang)), y0 + UNFOLD_MM * math.sin(math.radians(ang)), target[2]]                 + list(target[3:])
+            try:
+                safety.check_target(cand, "fold")
+                vol.check_pose(cand, "fold")
+                vol.check_joint_leg(cand, target, "fold")
+                route = lift_travel_lower(layout, safety, here, cand, holding)
+            except SafetyViolation as e:
+                why = e
+                continue
+            route.poses.append(list(target))
+            route.last_joint = True
+            return route
+        raise SafetyViolation(f"no way to fold the arm in to the pose beside its own axis: {why}")
     withdrawn = None
     if vol.active:
         try:
@@ -83,7 +104,6 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
         # the wrist is beside the arm's own axis: a straight move from there is a singularity, the controller refuses
         # it. A joint move unfolds the arm first, to a point UNFOLD_MM from the axis at a direction and claw yaw whose
         # joint-interpolated path keeps the claw and links clear, and from which a route to the target exists.
-        x0, y0 = fk.MODEL["x0"], fk.MODEL["y0"]
         toward = math.degrees(math.atan2(target[1] - y0, target[0] - x0))
         why = None
         for ang in dict.fromkeys([toward, 90.0, 135.0, 45.0, 180.0, 0.0, -45.0]):
