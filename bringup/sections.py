@@ -334,7 +334,10 @@ class Bringup:
             try:
                 corners, view = s.observe()
             except servo.ServoError as e:
-                raise Refused(f"the tag is not in the picture from straight above the module's grip pose: {e}")
+                raise Refused(f"the tag is not whole in the picture from straight above the module's grip pose ({e}). The plate's "
+                              "tab with the tag must be at the end nearest the arm's wrist (the +y end when the claw points at -y): "
+                              'turn the plate 180 deg on the module by hand once, then run again from "swap". The arm carries it '
+                              "to the stage the same way up")
             prev = self.setup_node(L).get("module_tag")
             try:
                 if prev:
@@ -356,9 +359,24 @@ class Bringup:
             self.edit(write)
             return {"plate_offset": offset_, "tag": "reference taken" if not prev else "found again"}
 
+        def to_stage():
+            """The arm carries the aruco plate from the module to the stage, the way the cycle carries any plate, so the plate keeps
+            the orientation it had in the claw: the tag looks the same from the stage as it did from the module."""
+            self.ready()
+            cyc = self.cyc()
+            F = c.layout()["fixtures"]
+            if not self._parked():
+                raise Refused("the stage is not parked: home Squid first")
+            route = F[self.scope].get("trajectory", "microscope_to_polar")
+            self.guard(lambda: cyc._pick("polar", F["polar"]["pose_at_0"]["pose"], F["polar"], "short_edges", None, gate="polar@0"))
+            self.guard(lambda: cyc._place(self.scope, F[self.scope]["pose"], F[self.scope], self.scope, route, reverse=True))
+            cyc.store.s.contents = dict(cyc.store.s.contents, **{"module": "empty", self.scope: "full"})
+            cyc.store.save()
+            return {"aruco plate": f"module -> {self.scope} stage"}
+
         return Section("swap", [
-            Step("nova", "detect aruco on the plate in the rotation module with the down camera", read_plate, moves=True),
-            Step("user", "move the aruco plate to the microscope stage", before=self.loosen),
+            Step("nova", "detect aruco on the plate in the rotation module with the down camera (tab with the tag toward the wrist)", read_plate, moves=True),
+            Step("polar", "carry the aruco plate from the module to the microscope stage", to_stage, moves=True),
             Step("user", "place a real plate on the rotation module")])
 
     # ---- grips.toml

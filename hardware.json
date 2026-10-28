@@ -78,7 +78,9 @@
       "x_r": "z_c + 228.1",
       "y_r": "x_c",
       "z_r": "y_c + k",
-      "k": null
+      "k": null,
+      "z_to_x_mm": 228.1,
+      "note": "CAD (x_c, z_c) -> robot plane: robot = R(theta) m(c) + t with m(c) = (z_c, x_c). With theta = 0 and t = j1_robot - m(j1_cad) this is x_r = z_c + 228.1, y_r = x_c. python bringup/register.py's register() finds theta and t from the arm's own observations; z_r = y_c + k."
     },
     "checks": {
       "link1_mm": 200.0,
@@ -167,7 +169,12 @@
         165.0
       ],
       "top_y_c": 117.0,
-      "note": "axis x equals the taught seat x (312.5); the seat is a 94 x 136 pad centred on the axis"
+      "note": "axis x equals the taught seat x (312.5); the seat is a 94 x 136 pad centred on the axis",
+      "axis_c": {
+        "x": 118.0,
+        "z": 84.5
+      },
+      "pad_top_y_c": 117.0
     },
     "claw": {
       "fingers_ahead_of_wrist_mm": 205.0,
@@ -181,6 +188,22 @@
       "body_half_width_mm": 72.0,
       "body_behind_wrist_mm": 41.0,
       "note": "the wrist axis (the pose the controller reports) is 205 mm BEHIND the fingertips at yaw 0"
+    },
+    "camera": {
+      "ahead_of_wrist_mm": 115.0,
+      "lateral_mm": 34.0,
+      "above_tcp_mm": 35.0,
+      "sources": "ahead: docs/PLACEMENT.md (the down camera is 90 mm behind the fingertips, which are 205 ahead of the wrist) and the closed-form hand-eye from the real captures of 2026-10-27 (118.8 ahead, 34.1 to the side); above the fingers' mid height: the PnP depths of those captures (74 mm at wrist z 113, 164 mm at z 211 with the plate tag at z 74) are consistent with 35 mm. The STEP has no wrist-camera part; its only 'IDS1 6mm-lens USB' is the platform's barcode camera at CAD (-214, 192, -188)."
+    },
+    "grip": {
+      "head_centre_ahead_mm": 185.0,
+      "long_edges_back_mm": 31.675,
+      "short_edges_back_mm": -1.5,
+      "note": "wrist to plate centre along the claw: the jaw heads (CAD, 38 mm long) are centred 185.0 mm ahead of the wrist axis; a long-edge grip holds the plate long_edges_back_mm in front of its centre (fixtures.hotel.grip_back_mm, 31.675 in a 30-slot hotel), a short-edge grip at its centre within 1.5 mm. Gives 216.7 (hotel) and 186.5 (module) against 219.9 and 186.5 in the taught poses."
+    },
+    "plate": {
+      "height_mm": 14.5,
+      "note": "the practice plate that carries the tag (14.42 for the real plate); the tag plane is its top"
     }
   },
   "claw": {

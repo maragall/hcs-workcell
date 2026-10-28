@@ -1,0 +1,7 @@
+# Development: tests and lint. python -m pytest tests -q    ruff check .
+-r requirements.txt
+pytest==9.1.1
+ruff==0.17.3
+vulture==2.16
+# docs/manual/*.py (the printed manual's figures) also use matplotlib and reportlab; install them only to rebuild the manual.
+# cadquery-ocp reads the manufacturer CAD (STEP) for hardware.json; it is a one-off tool, not a runtime or test need.

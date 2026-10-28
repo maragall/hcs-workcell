@@ -2,9 +2,11 @@
 Wrist poses computed from the manufacturer CAD (hardware.json `cad`) instead of taught by hand.
 
 The CAD gives where every plate sits on the platform. The pose the controller takes is the wrist axis, so a pose is
-the plate's position turned into the robot frame and moved back along the claw. Two things are not in the CAD and
-are fitted once from the poses already taught: the small rotation and shift between the CAD's axes and the robot's
-(`fit`), and, per grip, how far the wrist stands behind the plate centre. Nothing here moves the arm.
+the plate's position turned into the robot frame and moved back along the claw. Two things are not in the CAD: the small
+rotation and shift between the CAD's axes and the robot's, and the height offset k. They come from a `Registration`
+(bringup/register.py: the arm's own observations of the module, no taught pose) or, on a cell that has taught poses, are
+fitted from the taught hotel poses (`fit_from_taught`). How far the wrist stands behind a plate's centre is the claw's own
+geometry (hardware.json cad.grip). Nothing here moves the arm.
 
     python cli.py cad-poses             how far each CAD pose is from the taught one
     fixtures.hotel.pose_source = "cad"  Hotel.hotel_slot_pose answers with the CAD pose (default "taught")
@@ -31,14 +33,16 @@ def _rot(theta_deg: float, x: float, y: float):
 
 
 class CadPoses:
-    def __init__(self, layout: dict, hardware: Optional[dict] = None):
+    def __init__(self, layout: dict, hardware: Optional[dict] = None, registration=None, reach_trim_mm: float = 0.0):
         self.cad = (hardware or load_hardware())["cad"]
         h = self.cad["hotel"]
         self.cx = (h["x_r"][0] + h["x_r"][1]) / 2          # the plate centre across the hotel's depth
         self.cols = dict(h["columns_y_r"])
         self.pitch = float(h["row_pitch_mm"])
         self.taught = layout["fixtures"]["hotel"]["taught"]
-        self.fit = self.fit_from_taught()
+        self.registration = registration
+        self.reach_trim_mm = reach_trim_mm      # along the claw, learned from the first grasp (jaw contact), added to the grip geometry
+        self.fit = self.fit_from_registration(layout, registration) if registration is not None else self.fit_from_taught()
 
     def _taught_rows(self):
         for slot, pose in self.taught.items():
@@ -59,6 +63,26 @@ class CadPoses:
         theta = math.degrees(math.atan2(b, a)) if abs(a) + abs(b) > 1e-9 else 0.0
         rx, ry = _rot(theta, mx, my)
         return {"theta_deg": theta, "x": wx - rx, "y": wy - ry, "z_row1": sum(p[4] for p in pts) / n}
+
+    def fit_from_registration(self, layout: dict, reg) -> Dict[str, float]:
+        """The same numbers as fit_from_taught, from a Registration and the claw's geometry, with no taught pose: the wrist stands
+        `head_centre_ahead + grip_back` behind the plate's centre along the claw for a long-edge grip, and its height is the row's
+        shelf top plus half the plate's height plus k (the wrist reading is at the fingers' mid height, which is the plate's mid
+        height when it is gripped)."""
+        grip = self.cad.get("grip", {})
+        hotel = layout["fixtures"]["hotel"]
+        size = str(layout.get("setup", {}).get("hotel", {}).get("size", 30))
+        back = (hotel.get("grip_back_mm") or {}).get(size)
+        if back is None:
+            back = grip.get("long_edges_back_mm")
+        if back is None:
+            raise ValueError(f"the grip offset of a {size}-slot hotel is not known (fixtures.hotel.grip_back_mm)")
+        reach = float(grip.get("head_centre_ahead_mm", 185.0)) + float(back) + self.reach_trim_mm
+        off = float(self.cad.get("mapping", {}).get("z_to_x_mm", 228.1))
+        fx, fy = _rot(reg.theta_deg, off + reach, 0.0)
+        plate_h = float(layout.get("plate", {}).get("height", self.cad.get("plate", {}).get("height_mm", 14.42)))
+        shelf = float(self.cad["hotel"]["shelf_top_y_c_row1"])
+        return {"theta_deg": reg.theta_deg, "x": reg.tx - fx, "y": reg.ty - fy, "z_row1": reg.z(shelf + plate_h / 2.0)}
 
     def hotel_pose(self, slot: str, yaw: Optional[float] = None) -> List[float]:
         """[x, y, z, rx, ry, rz] of the wrist for a hotel slot, claw square to the hotel (yaw = the frame's rotation)."""

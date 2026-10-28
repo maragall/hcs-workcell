@@ -954,6 +954,12 @@ def cmd_cad_poses(args):
     return 0
 
 
+def cmd_doctor(args):
+    """Is this PC and this cell ready? Read-only; prints PASS/FAIL lines with the fix for each."""
+    from tools import doctor
+    return doctor.main(["--sim"] if args.sim else [])
+
+
 def cmd_recover(args):
     """After a hard stop or a controller fault: clear the errors, auto, enabled, then the arm loose so you can move it, or with
     --nest the arm locked and taken to the nest (routes.nest: a pose in the clear in front of the hotel; it backs out along the
@@ -1081,6 +1087,8 @@ def main():
     p.set_defaults(fn=cmd_setup)
     p = sub.add_parser("cad-poses", help="hotel poses computed from the CAD against the taught ones (nothing moves)")
     p.set_defaults(fn=cmd_cad_poses)
+    p = sub.add_parser("doctor", help="check this PC and the cell are ready (read-only)")
+    p.add_argument("--sim", action="store_true"); p.set_defaults(fn=cmd_doctor)
     p = sub.add_parser("recover", help="after a hard stop or controller fault: clear errors, enable, leave the arm loose")
     p.add_argument("--sim", action="store_true")
     p.add_argument("--nest", action="store_true", help="lock the arm and take it to the nest")

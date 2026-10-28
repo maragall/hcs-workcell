@@ -1,7 +1,10 @@
-numpy>=1.26
-pillow>=10
-pythonnet>=3.0        # robot only: loads the vendor BR.PC.BYSDK (.NET 8 runtime required)
-# the vendor wheel bioyondsdk-0.1.1 must be installed for the real robot; the simulator needs nothing else
-paramiko>=3.4          # calibration.upload: SFTP of CamParam.dat / CamInTool.dat to the vision box
-opencv-contrib-python-headless>=4.8   # ArUco reading and calibration
-scipy>=1.11           # calibration.handeye
+# Runtime: what the setup program and the loop import. Pinned to the versions that run on the cell (October 2026).
+# Install: .\install.ps1   (a venv, these pins, the doctor). Tests and lint tools are in requirements-dev.txt.
+numpy==2.5.4
+scipy==1.18.1                              # calibration solve, servo
+pillow==12.3.0
+opencv-contrib-python-headless==5.0.0.93   # reading the plate tag; calibration
+paramiko==5.0.0                            # uploading the camera files to the vision box (optional: only calibration uses it)
+pythonnet==3.2.1                           # real arm only: loads the vendor .NET SDK (needs the .NET 8 runtime)
+# The vendor wheel (BioyondSDK 0.1.1) is not on PyPI: install.ps1 -SdkWheel <path to the .whl> installs it. The simulator
+# (python cli.py setup --sim) needs neither pythonnet nor the wheel.

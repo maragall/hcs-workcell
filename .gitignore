@@ -8,3 +8,4 @@ state_sim/
 hub_outbox/
 hub_models/
 reference_images_synthetic*/
+.venv/

@@ -37,26 +37,46 @@ prediction models train on.
 
    Slot x is 293 for the plate's centre; the slots open toward -x, so the arm approaches from the base side.
 
-2. **Connect** Squid, the arm and the vision box, and put the aruco practice plate on the rotation module.
-3. **Run** `python cli.py setup` (add `--sim` to try it on the simulator). It prints every step, waits for Enter after
-   the ones that are yours, and runs the rest.
+2. **Install** on a fresh Windows PC, from the program folder: `.\install.ps1` (add `-SdkWheel <the vendor .whl>` for the real
+   arm, or `-Sim` on a PC with no cell). It makes a `.venv`, installs the pinned packages (`requirements.txt`) and runs the
+   doctor. Activate with `.\.venv\Scripts\Activate.ps1`.
+3. **Check** the PC and the cell any time with `python tools/doctor.py` (also `python cli.py doctor`; `--sim` for the PC and
+   the files only). It reads only: it moves nothing, connects no second arm client and never prints the passwords. Every
+   FAIL comes with the line that fixes it. Run the setup when it says READY.
+4. **Connect** Squid, the arm and the vision box, and put the aruco practice plate on the rotation module, marker up.
+5. **Run** `python cli.py setup` (add `--sim` to try it on the simulator). It prints every step with who does it: `computer`,
+   `polar` (the arm), `nova` (the vision box), `squid`, and `user`. You do only the `user` steps, and press Enter when a
+   step of yours is done. Before a section that moves the arm it asks "Hands clear?"; Enter to go, `q` to quit.
 
 | section | what happens | where the result goes |
 |---|---|---|
-| connect | ports found, Squid homed, module to 0 deg, hand over the module | |
-| cameras.toml | down camera calibrated from the aruco (lens and camera-to-gripper in one solve), refused above 0.5 px / 1 mm, uploaded, checked from two poses | `vision.calibration` |
-| hotel.toml | arm to the nest (folded, the hotel view); then the camera goes to the slot position of rows 2 and 4, one at a time, and the cell is asked "is there a slot here, yes or no" until it knows by itself: shelves there mean 30 slots, none 15 | `setup.hotel`, `fixtures.hotel.rows` |
-| swap | plate offset read on the aruco plate; **you** move the aruco plate to the microscope stage and put a real plate on the module | `setup.plate_offset`, `setup.marker_to_grip` |
+| connect | ports found, Squid homed (a Squid with no motors stays where it is), arm to the nest, module to 0 deg, camera over the module plate | the nest is `routes.nest` |
+| cameras.toml | down camera: aruco read, lens and camera-to-gripper solved together, refused above 0.5 px / 1 mm, uploaded, checked from two poses | `vision.calibration` |
+| hotel.toml | arm to the nest (the hotel view), front camera picture; then the camera goes to the slot position of rows 2 and 4, one at a time, and the cell is asked "is there a slot here, yes or no" until it knows by itself: slots there mean 30, none 15 | `setup.hotel`, `fixtures.hotel.rows` |
+| swap | the aruco plate's tag, as seen from straight above the module, is the reference; **you** move the aruco plate to the microscope stage and put a real plate on the rotation module | `setup.module_tag`, `setup.plate_offset` |
 | grips.toml | short and long grip closed on the real plate, accept bands, three carry-seat-regrip cycles | `gripper.closed`, `gripper.accept_band`, `setup.grips` |
-| microscope.toml | stage limits and park position from Squid; aruco on the stage found from above; seat re-seated if it moved less than the zone allows | `squid.<name>`, `fixtures.<name>.pose`, `setup.microscope` |
-| clear the stage | **you** take the aruco plate off the stage | |
+| microscope.toml | stage limits and park position from Squid (skipped for a Squid with no motors); the arm goes straight above the stage and measures the tag against the module's; seat re-seated if it moved less than the zone allows | `squid.<name>`, `fixtures.<name>.pose`, `setup.microscope` |
+| clear the stage | **you** take the aruco plate off the stage; the arm looks down and checks it is gone | |
 | system_state.json | every hotel slot, module, microscope and gripper looked at | `contents` in `state_microscope.json` |
 | test | module to stage, acquire, back, long-edge grip, to a free hotel slot | |
 
 A refused check stops the run, prints what to fix and leaves that section's values as they were. Continue with
-`python cli.py setup --from "grips.toml"`. The Squid it drives is the practice one until `devices/squid.py` is wired in.
-Not yet automatic: the keep-out box around the stage (needs the Squid-to-arm axis mapping), a route to a microscope that
-stands more than the zone's 2 mm from the taught seat, and the 15-slot grip offset (`fixtures.hotel.grip_back_mm`).
+`python cli.py setup --from "grips.toml"` (`--skip cameras.toml` leaves a section out). The Squid it drives is the practice
+one (no motors, nothing imaged) until `devices/squid.py` is wired in.
+Not yet automatic: a route to a microscope that stands more than the zone's 2 mm from the taught seat, and the 15-slot
+grip offset (`fixtures.hotel.grip_back_mm`).
+
+**If something goes wrong.** To stop at the next step, create the file `runs/STOP` (delete it before running again). After
+a collision or a controller fault run `python cli.py recover --nest`: it clears the controller's errors, enables the arm
+locked, and takes it to the nest, a safe pose in front of the hotel (it backs out along the claw first if it touched
+something; with a plate in the claw it stays where it is and says so). `python cli.py recover` alone leaves the arm loose,
+to move by hand. The unattended loop writes `runs/COLLISION` after a collision and will not start again until you have
+looked at the cell and deleted it.
+
+**Where things are written.** Every run's log is `runs/<name>/events.jsonl`, with its pictures in `runs/<name>/images/`
+(the setup's folder is `runs/setup_<date>_<time>`). The setup writes what it learned into `layout.json` (the `setup`,
+`vision.calibration`, `gripper` and `fixtures` keys); `hardware.json` describes the machine (from the manufacturer's CAD) and
+is not changed by the setup. `layout.json` holds the box's upload login under `vision.ssh`: keep it out of git.
 Plate heights, measured with the caliper 2026-10-26: practice 14.50 mm, real 14.42 mm, real with lid 16.85 mm.
 
 ## Architecture
