@@ -34,6 +34,7 @@ class Volumes:
         held = (v.get("held") or {}).get(holding or "")
         if held:                                    # the plate in the claw is part of what moves
             self.footprint.append((held["x"], held["y"], True))
+        self.reach = max([math.hypot(max(abs(x0), abs(x1)), max(abs(y0), abs(y1))) for (x0, x1), (y0, y1), _ in self.footprint] or [0.0])
         self.front_allow = float((v.get("held") or {}).get("hotel_front_allowance_mm", 0.0))
         self.axis_keepout = float(v.get("axis_keepout_mm", 0.0))
         self.safety = safety
@@ -103,8 +104,15 @@ class Volumes:
                                       f"are a singularity the controller refuses (under {self.axis_keepout:.0f} mm)")
         m = -RELAX_SHRINK_MM if self.relax is not None and math.dist(p[:3], self.relax) <= RELAX_MM else None
         x, y, z, yaw = p[0], p[1], p[2], p[5]
-        for px, py, held in self._claw_samples(x, y, yaw):
-            for name in self.obstacles:
+        mm = self.margin if m is None else m
+        near = []                                    # the obstacles the claw can reach from here (its farthest corner is `reach` away)
+        for name, o in self.obstacles.items():
+            dx = max(o["x"][0] - mm - x, 0.0, x - o["x"][1] - mm)
+            dy = max(o["y"][0] - mm - y, 0.0, y - o["y"][1] - mm)
+            if math.hypot(dx, dy) <= self.reach + self.front_allow and z + self.z[1] >= o["z"][0] - mm and z + self.z[0] <= o["z"][1] + mm:
+                near.append(name)
+        for px, py, held in (self._claw_samples(x, y, yaw) if near else ()):
+            for name in near:
                 front = self.front_allow if held and name == "hotel" else 0.0
                 if self._inside(name, px, py, z + self.z[0], z + self.z[1], m, front):
                     raise SafetyViolation(f"{label}: the claw at x={px:.0f} y={py:.0f} would be inside the {name} "

@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from procedures.safety import Safety, SafetyViolation  # noqa: E402
 from routes import plan as planner  # noqa: E402
 from routes.volumes import Volumes  # noqa: E402
+from routes_opt import fk  # noqa: E402
 
 LAYOUT = json.load(open(os.path.join(os.path.dirname(HERE), "layout.json"), encoding="utf-8"))
 
@@ -78,6 +79,7 @@ def test_the_way_from_the_module_to_a_hotel_slot_is_planned_with_and_without_a_p
                 if i in route.joint_targets:                                 # a joint move is the planner's own way past the axis
                     vol.check_joint_leg(prev, p, start_actual=i == 0, joints_a=pj, joints_b=route.joint_targets[i])
                     pj = route.joint_targets[i]
+                    vol.branch = fk.elbow_sign(pj)          # after a joint leg the straight legs are on the branch it ended on
                 else:
                     vol.check_leg(prev, p)
                     pj = None          # (the straight legs' joints are the planner's own continuity)

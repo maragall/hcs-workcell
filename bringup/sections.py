@@ -233,13 +233,18 @@ class Bringup:
             if np.linalg.norm(at - mid) <= tol_px:
                 return
             cols = []
-            for dx, dy in ((8.0, 0.0), (0.0, 8.0)):
-                nudge(dx, dy)
-                moved = tag()
-                nudge(-dx, -dy)
-                if moved is None:
-                    raise Refused("the tag left the picture on a small test move: centre the hand over the plate by hand and run again")
-                cols.append((moved[0] - at) / 8.0)
+            for ux, uy in ((1.0, 0.0), (0.0, 1.0)):
+                for sign in (1.0, -1.0):                  # the other way when the tag is near the picture's edge and leaves it
+                    dx, dy = 5.0 * sign * ux, 5.0 * sign * uy
+                    nudge(dx, dy)
+                    moved = tag()
+                    nudge(-dx, -dy)
+                    if moved is not None:
+                        cols.append((moved[0] - at) / (5.0 * sign))
+                        break
+                else:
+                    raise Refused("the tag left the picture on a small test move both ways: centre the hand over the plate by hand "
+                                  "and run again")
             J = np.array(cols).T                       # pixels per mm: columns are x and y of the wrist
             if abs(np.linalg.det(J)) < 1e-6:
                 raise Refused("the tag did not move in the picture on test moves: is the camera reading a live picture?")
