@@ -36,7 +36,9 @@ Four packages plus the main loop. Each box calls only the boxes below it; `perce
   `exercise` already call; `geometry.py` the arithmetic (stage seat from the practice plate's marker); `cell.py` the two devices, the positions file
   and the arm's readout; `cameras.py` the calibration steps; `hand.py` the arm loose or locked. `perception/hotel_size.py`
   tells 15 from 30 slots by pictures. Tests: `tests/test_bringup.py`.
-- `routes/`: `plan.py` picks a taught trajectory or lift / travel at `routes.safe_z_mm` / lower, every leg checked;
+- `routes/`: `plan.py` picks a taught trajectory, else lift / travel / lower, every leg checked against the claw (205 mm ahead of the
+  reported wrist pose) and the links by `volumes.py` (obstacles and claw from `layout.json volumes`, which come from the CAD, see
+  `hardware.json`). With `routes.safe_z_mm` the travel is at that height; with it null the planner searches a path around the volumes;
   `Motion.move_to(position)` executes it, to the hover only. `cli.py goto NAME` drives it by hand.
 - `tools/`: standalone scripts that are not part of the loop: `analyze_runs.py`, `build_refs_from_runs.py`, `record_slot.py`,
   `teach_daemon.py`, `torque_probe.py`, `run_matrix.py`, `review_queue.py`, `placement_diagram.py` (redraws `docs/placement.png`).

@@ -738,7 +738,7 @@
     "margin_mm": 10.0,
     "obstacles": {
       "hotel": {"x": [412.6, 550.6], "y": [-188.0, 188.0], "z": [40.0, 460.0]},
-      "pillar": {"x": [-79.9, 60.1], "y": [-74.0, 74.0], "z": [33.0, 703.0]}
+      "pillar": {"x": [-79.9, 60.1], "y": [-74.0, 74.0], "z": [33.0, 703.0], "links": false}
     },
     "claw": {
       "_note": "Body and fingers as rectangles in the tool frame (x along the fingers, y across), relative to the wrist axis the controller reports; z relative to the reported z. Links and the carriage ride above the claw.",

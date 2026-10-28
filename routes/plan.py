@@ -7,8 +7,8 @@ A taught route wins: if the positions file has a trajectory named <from>_to_<to>
 the route replays its joint waypoints. Otherwise the route is lift, travel at the safe height,
 lower: three straight lines, each checked against the workspace box, the region floors and the
 no-swing rule before anything moves. The safe height is `routes.safe_z_mm` in the positions file;
-without it, and without a taught route, planning refuses. That is on purpose: a number nobody
-measured must not move the arm.
+without it the route goes around the volumes in layout.json; with neither, and without a taught route, planning
+refuses. That is on purpose: a number nobody measured must not move the arm.
 """
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from procedures.safety import Safety, SafetyViolation
+from routes.volumes import Volumes
 
 
 @dataclass
@@ -51,19 +52,34 @@ def taught_route(layout: dict, from_name: Optional[str], to_name: Optional[str])
 
 
 def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: List[float]) -> Route:
+    """Without a taught route: lift, travel, lower. With `routes.safe_z_mm` the travel is at that height; without it the
+    travel is at the higher of the two ends and goes around the solid volumes (routes/volumes.py). Either way every
+    leg is checked against the claw and the links, not just the wrist."""
+    vol = Volumes(layout, safety)
     safe_z = layout.get("routes", {}).get("safe_z_mm")
-    if safe_z is None:
+    if safe_z is None and not vol.active:
         raise SafetyViolation("no taught route between these positions and routes.safe_z_mm is not set")
-    up = list(here[:2]) + [safe_z] + list(here[3:])
-    across = list(target[:2]) + [safe_z] + list(target[3:])
+    if vol.active:
+        vol.check_pose(here, "the arm now")
+        vol.check_pose(target, "the target")
+    if safe_z is None:
+        z = max(here[2], target[2])
+        up = list(here[:2]) + [z] + list(here[3:])
+        way = vol.search(up, target)
+        candidates = [up] + way[1:] + [target]
+    else:
+        up = list(here[:2]) + [safe_z] + list(here[3:])
+        candidates = [up, list(target[:2]) + [safe_z] + list(target[3:]), target]
     poses, prev = [], here
-    for p in (up, across, target):            # a zero-length leg is skipped; the route always ends at the target
+    for p in candidates:                       # a zero-length leg is skipped; the route always ends at the target
         if p != prev:
             poses.append(p)
             prev = p
     prev = here
     for i, p in enumerate(poses, 1):
         safety.check_segment(prev, p, f"route {i}/{len(poses)}")
+        if vol.active:
+            vol.check_leg(prev, p, f"route {i}/{len(poses)}")
         prev = p
     return Route("lift-travel-lower", poses)
 

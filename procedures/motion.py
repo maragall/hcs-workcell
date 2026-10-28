@@ -194,15 +194,6 @@ class Motion:
         Never to the seat itself; the seat is the job of pick and place, behind their gates."""
         self.go_to(self._position(name), name)
 
-    def dock(self, name: str, max_mm: float = 30.0) -> None:
-        """From a hand-placed pose near a position's hover to the hover: one short, slow, checked straight line. For the
-        first move after the arm was left somewhere no route knows; refused when the hand is farther than max_mm."""
-        target, here = self._position(name), self.robot.pose()
-        d = math.dist(here[:3], target[:3])
-        if d > max_mm:
-            raise SafetyViolation(f"dock {name}: the hand is {d:.0f} mm from its hover; place it within {max_mm:.0f} mm and run again")
-        self._move("L", target, f"dock {name}", self.safety.profile.contact)
-
     def go_to(self, target: List[float], name: str) -> None:
         """move_to for a pose that is not a taught position (the setup script's computed views)."""
         route = plan(self.L, self.safety, self.robot.pose(), target, self._position_here(), name)

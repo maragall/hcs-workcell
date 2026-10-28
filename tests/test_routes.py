@@ -22,8 +22,8 @@ from procedures.state import StateStore  # noqa: E402
 from procedures.telemetry import Telemetry  # noqa: E402
 from routes.plan import plan  # noqa: E402
 
-FREE_A = [200.0, 100.0, 120.0, 0, 0, 0]          # outside every region
-FREE_B = [300.0, 180.0, 100.0, 0, 0, 0]
+FREE_A = [200.0, 100.0, 120.0, 0, 0, 90]         # outside every region, claw pointing along +y (clear of the hotel)
+FREE_B = [300.0, 180.0, 100.0, 0, 0, 90]
 
 
 def test_lift_travel_lower_gives_three_checked_legs():
@@ -34,9 +34,10 @@ def test_lift_travel_lower_gives_three_checked_legs():
     assert r.poses[1][:2] == FREE_B[:2] and r.poses[-1] == FREE_B
 
 
-def test_refuses_without_a_safe_height_or_a_taught_route():
+def test_refuses_without_a_safe_height_or_volumes_or_a_taught_route():
     L = layout()
     L["routes"]["safe_z_mm"] = None
+    L["volumes"] = None
     with pytest.raises(SafetyViolation, match="safe_z_mm"):
         plan(L, Safety(L, "supervised"), FREE_A, FREE_B)
 
