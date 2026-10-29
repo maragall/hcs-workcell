@@ -140,7 +140,7 @@ class Bringup:
         f = L["fixtures"][self.scope]
         here = [float(v) for v in self.cell.robot.pose()]
         hover_mm = 0.0 if hand_is_seat else float(f.get("hover_mm", 67.0))      # taught by hand at the grip: the pose is the seat itself
-        yaw = min((90.0 * k for k in (-2, -1, 0, 1, 2)), key=lambda a: abs(geometry.wrap(here[5] - a)))
+        yaw = round(here[5], 3) if hand_is_seat else min((90.0 * k for k in (-2, -1, 0, 1, 2)), key=lambda a: abs(geometry.wrap(here[5] - a)))      # a plate in the fingers sets the yaw: it is the holder's, not a square number
         z = float(f["holder_z"]) if hand_is_seat and f.get("holder_z") else here[2] - hover_mm      # a hand cannot find the height: the fingers are tall; the holder's is fixed
         seat = [round(here[0], 3), round(here[1], 3), round(z, 3), 0.0, 0.0, yaw]
         old = f.get("pose")
