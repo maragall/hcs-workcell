@@ -1,8 +1,8 @@
 {
-  "plate_at": "microscope",
+  "plate_at": "gripper",
   "polar_angle": 0,
-  "grip": "none",
-  "step": "pick:microscope",
+  "grip": "short_edges",
+  "step": "place:polar",
   "step_done": false,
   "cycle": 0,
   "hotel": {
@@ -564,5 +564,5 @@
     -0.0,
     96.698
   ],
-  "updated": 1793258804.8390913
+  "updated": 1793258906.6963685
 }
