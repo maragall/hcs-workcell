@@ -1,9 +1,9 @@
 {
-  "plate_at": "gripper",
-  "polar_angle": 90,
-  "grip": "long_edges",
-  "step": "place:polar",
-  "step_done": false,
+  "plate_at": "polar",
+  "polar_angle": 0,
+  "grip": "none",
+  "step": "polar:0",
+  "step_done": true,
   "cycle": 0,
   "hotel": {
     "A1": "",
@@ -393,15 +393,22 @@
       "step": "place:polar",
       "kind": "not_seated_front",
       "detail": "best correlation -0.000 below 0.550"
+    },
+    {
+      "t": 1793255739.118604,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.451 below 0.781"
     }
   ],
   "last_safe_pose": [
     306.338,
     323.474,
-    67.684,
+    162.093,
     0.0,
     -0.0,
     -89.4695
   ],
-  "updated": 1793255705.555668
+  "updated": 1793255748.3494523
 }

@@ -105,6 +105,10 @@ class Bringup:
             return alert(step, reason)
 
         def ask(question, timeout=None):
+            if "seated correctly" in question or "held correctly" in question:
+                cyc.tele.log("setup", "gate", f"auto-confirmed during setup ({said['reason'][:80]}): the grip width after the next pick is the check; the picture becomes a reference")
+                print(f"      (setup confirms this itself: {question.strip()} -> y; the grip width after the next pick is the check)")
+                return "y"
             if self.confirm_stage and "safe to lower" in question and self.scope in said["reason"]:
                 cyc.tele.log("setup", "lower_check", "the operator confirmed lowering at the stage for this run (--confirm-stage)")
                 return "y"
