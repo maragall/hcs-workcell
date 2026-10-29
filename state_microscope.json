@@ -1,9 +1,9 @@
 {
-  "plate_at": "gripper",
+  "plate_at": "hotel:A1",
   "polar_angle": 90,
-  "grip": "long_edges",
+  "grip": "none",
   "step": "place:hotel:A1",
-  "step_done": false,
+  "step_done": true,
   "cycle": 0,
   "hotel": {
     "A3": "",
@@ -12,7 +12,8 @@
     "A9": "",
     "B9": "",
     "C9": "",
-    "C7": ""
+    "C7": "",
+    "A1": ""
   },
   "plate_id": "",
   "contents": {
@@ -575,15 +576,36 @@
       "step": "place:hotel:A1 slide in (fast part)",
       "kind": "controller_error",
       "detail": "[{'errCode': 3873, 'errMsg': '2026-10-29 00:31:42.990 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-29 00:31:42.998 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-29 00:31:43.006 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-29 00:31:43.006 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-29 00:31:43.006 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-29 00:31:43.006 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-29 00:31:43.006 Motion error: external axis 2 servo enable failed'}] after: linear move did not reach [286.4, 137.4, 98.8]; at [285.2, 137.2, 98.7]"
+    },
+    {
+      "t": 1793259529.6120312,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "lower_front",
+      "detail": "best correlation 0.125 below 0.658"
+    },
+    {
+      "t": 1793259590.7105553,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "lower_front",
+      "detail": "best correlation 0.127 below 0.658"
+    },
+    {
+      "t": 1793259664.1223876,
+      "cycle": 0,
+      "step": "place:hotel:A1",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.028 below 0.550"
     }
   ],
   "last_safe_pose": [
-    192.45,
+    192.449,
     137.364,
     98.752,
     0.0,
     -0.0,
-    0.2243
+    0.2241
   ],
-  "updated": 1793259371.9538329
+  "updated": 1793259671.6026125
 }
