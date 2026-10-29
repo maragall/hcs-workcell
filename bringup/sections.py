@@ -200,7 +200,7 @@ class Bringup:
         shift = claw["module_wrist_to_plate_mm"] - claw["camera_ahead_of_wrist_mm"] + along
         return [taught[0] + shift * d[0] + across * n[0], taught[1] + shift * d[1] + across * n[1], taught[2] + lift, 0.0, 0.0, taught[5]]
 
-    def centre_on_tag(self, tries: int = 4, tol_px: int = 60) -> None:
+    def centre_on_tag(self, tries: int = 4, tol_px: int = 150, max_move_mm: float = 12.0):
         """Put the down camera right over the plate tag before a capture plan, which is a grid around where the arm is: two small
         probe moves give how the tag moves in the picture per mm, then the wrist goes where the tag is in the middle. No camera
         calibration is needed (it is what is being solved for)."""
@@ -222,9 +222,15 @@ class Bringup:
             h, w = gray.shape
             return corners.mean(axis=0), np.array([w / 2.0, h / 2.0]), corners
 
+        start = list(c.robot.pose())
+
         def nudge(dx, dy):
             h = c.robot.pose()
             self.guard(lambda: cyc.go_to([h[0] + dx, h[1] + dy, h[2], h[3], h[4], h[5]], "centre on tag"))
+
+        def drift():
+            h = c.robot.pose()
+            return math.hypot(h[0] - start[0], h[1] - start[1])
 
         for _ in range(tries):
             got = tag()
@@ -250,7 +256,12 @@ class Bringup:
             if abs(np.linalg.det(J)) < 1e-6:
                 raise Refused("the tag did not move in the picture on test moves: is the camera reading a live picture?")
             step = np.linalg.solve(J, mid - at)
-            nudge(float(np.clip(step[0], -40, 40)), float(np.clip(step[1], -40, 40)))
+            if drift() + float(np.hypot(*step)) > max_move_mm:           # the tag is whole in the picture: good enough, and the claw
+                return got[2]                                              # is near the hotel on this side
+            try:
+                nudge(float(np.clip(step[0], -40, 40)), float(np.clip(step[1], -40, 40)))
+            except Refused:
+                return got[2]
         got = tag()
         if got is None or np.linalg.norm(got[0] - got[1]) > 3 * tol_px:
             raise Refused("could not centre the camera over the tag in 4 tries")
@@ -370,6 +381,7 @@ class Bringup:
             cameras.read_marker(c, "down")
             if node().get("marker") != "ok":
                 raise Refused("the down camera cannot read the aruco plate: clean the lens, check the plate is flat under the hand")
+            self.view_module()                                # start from the module view, not wherever the last run left the wrist
             view = self.view_for_capture()
             got = self.guard(lambda: cameras.pictures(c, False, "down", view))
             return {"pictures": sum(got.values()), "captured_at": _stamp()}
