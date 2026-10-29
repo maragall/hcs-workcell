@@ -905,6 +905,9 @@ def cmd_calibrate(args):
         return 0 if delta <= args.tolerance_mm else 2
 
 
+from bringup.colour import plain as _plain
+
+
 def _tee_console(name: str) -> str:
     """Everything printed from here on also goes to runs/<name>_console_<time>.log, so a run that fails can be read afterwards."""
     os.makedirs(RUNS, exist_ok=True)
