@@ -36,6 +36,9 @@ class Volumes:
             self.footprint.append((held["x"], held["y"], True))
         self.reach = max([math.hypot(max(abs(x0), abs(x1)), max(abs(y0), abs(y1))) for (x0, x1), (y0, y1), _ in self.footprint] or [0.0])
         self.front_allow = float((v.get("held") or {}).get("hotel_front_allowance_mm", 0.0))
+        # the allowance is for sliding straight into a slot: only while the plate is square to the rack (2026-10-28: turned 11 deg at the
+        # approach height the plate's corner went into A2's tray)
+        self.front_yaw_tol = float((v.get("held") or {}).get("hotel_front_allowance_yaw_tol_deg", 3.0))
         self.axis_keepout = float(v.get("axis_keepout_mm", 0.0))
         self.safety = safety
         self.box = safety.box
@@ -113,7 +116,8 @@ class Volumes:
                 near.append(name)
         for px, py, held in (self._claw_samples(x, y, yaw) if near else ()):
             for name in near:
-                front = self.front_allow if held and name == "hotel" else 0.0
+                square = abs(((yaw + 180.0) % 360.0) - 180.0) <= self.front_yaw_tol
+                front = self.front_allow if held and name == "hotel" and square else 0.0
                 if self._inside(name, px, py, z + self.z[0], z + self.z[1], m, front):
                     raise SafetyViolation(f"{label}: the claw at x={px:.0f} y={py:.0f} would be inside the {name} "
                                           f"(wrist x={x:.0f} y={y:.0f} z={z:.0f}, yaw {yaw:.0f})")
