@@ -20,6 +20,11 @@ from routes.volumes import Volumes
 from bringup import calibration_fake
 
 LIMIT_PX, LIMIT_MM = 0.5, 1.0            # the vendor's: redo above these
+def limit_mm(L: dict) -> float:
+    """The error the setup accepts, in mm: the same limit for the solve and for the check after the upload."""
+    return float((L["vision"].get("calibration_limits") or {}).get("mm", LIMIT_MM))
+
+
 CHECK_MOVE_MM = 20.0                     # the check reads the marker from here and from this far along x
 VENDOR_START = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vendor_data",
                             "CalibrationData", "IniIntrinsic", "CamParam.dat")   # the solve's start when a camera has no file yet
@@ -258,5 +263,5 @@ def check(cell, camera=None) -> None:
             return
         mm = round(float(calib.verify.check(cell.vision, cam, cell.robot, here, there, 1, L["vision"]["led"])), 3)
         cell.edit(lambda L, cam=cam: _node(L, cam).update(checked_mm=mm, checked_at=_stamp()))
-        cell.note(f"{label} camera: {mm} mm: {'ok' if mm <= LIMIT_MM else f'too far, above {LIMIT_MM:.0f} mm'}")
+        cell.note(f"{label} camera: {mm} mm: {'ok' if mm <= limit_mm(L) else f'too far, above {limit_mm(L):g} mm'}")
     cell.robot.move_linear(here)

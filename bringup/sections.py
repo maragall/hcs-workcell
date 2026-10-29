@@ -484,8 +484,8 @@ class Bringup:
             mm = node().get("checked_mm")
             if mm is None:
                 raise Refused("the check could not read the aruco from two poses")
-            if mm > cameras.LIMIT_MM:
-                raise Refused(f"the aruco moved {mm} mm between two poses 20 mm apart (limit {cameras.LIMIT_MM}): calibrate again")
+            if mm > cameras.limit_mm(c.layout()):
+                raise Refused(f"the aruco moved {mm} mm between two poses 20 mm apart (limit {cameras.limit_mm(c.layout())}): calibrate again")
             return {"check_mm": mm, "checked_at": node().get("checked_at")}
 
         return Section("cameras.toml", [
