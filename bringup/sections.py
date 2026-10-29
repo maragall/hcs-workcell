@@ -971,9 +971,10 @@ class Bringup:
             if lo <= c.robot.jaw() <= hi:                                                  # a plate in the hand at the long-edge width: the ledger can be stale
                 st.plate_at, st.grip, st.step_done = "gripper", "long_edges", True
                 cyc.store.save()
-            if not holes and st.plate_at != "gripper":
-                raise Refused("the test needs an empty taught slot for the module's plate, and another for the rotation to start: free two taught slots "
-                              "(put their plates in untaught ones) and tell the occupancy")
+            intake = st.plate_at == "gripper" or st.contents.get("module") == "full" or st.plate_at in ("polar", self.scope)
+            if len(holes) < (2 if intake else 1):
+                raise Refused(f"the test needs {2 if intake else 1} empty taught slot(s){' (one for the module plate, one for the rotation to start from)' if intake else ''} and has {holes}: "
+                              "put plates from taught slots into untaught ones by hand and set the occupancy, then run: python cli.py setup --from \"test\"")
             if st.plate_at == "gripper" and st.grip == "long_edges":
                 slot = holes.pop(0)
                 print(f"   a plate is in the hand by the long edges: scan, into {slot}")
