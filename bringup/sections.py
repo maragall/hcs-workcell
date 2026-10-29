@@ -977,12 +977,12 @@ class Bringup:
                 raise Refused(f"the test needs {2 if intake else 1} empty taught slot(s){' (one for the module plate, one for the rotation to start from)' if intake else ''} and has {holes}: "
                               "put plates from taught slots into untaught ones by hand and set the occupancy, then run: python cli.py setup --from \"test\"")
             if st.plate_at == "gripper" and st.grip == "long_edges":
-                slot = holes.pop(0)
+                slot = holes.pop(random.randrange(len(holes)))
                 print(f"   a plate is in the hand by the long edges: scan, into {slot}")
                 self.guard(lambda: cyc._run_steps(cyc._steps(slot)[0][4:]))
                 self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))
             elif st.contents.get("module") == "full" or st.plate_at in ("polar", self.scope):
-                slot = holes.pop(0)
+                slot = holes.pop(random.randrange(len(holes)))
                 out = cyc._steps(slot)[0]
                 if st.plate_at == self.scope and st.step_done:
                     print(f"   the plate is already on the {self.scope} stage: carrying on from it")
@@ -1015,7 +1015,7 @@ class Bringup:
                 for slot in full:
                     if stopped():
                         break
-                    dest = holes.pop(0)
+                    dest = holes.pop(random.randrange(len(holes)))
                     print(f"   rotate: {slot} to the microscope, then into {dest}")
                     self.edit(lambda L, slot=slot: bench.set_loaded(L, [x for x in bench.loaded_slots(L) if x != slot]))       # in transit: the slot is empty
                     self.guard(lambda: cyc._run_steps(cyc._steps(slot)[1]))
