@@ -395,8 +395,9 @@ class Bringup:
         def limits():
             r = self.found.get("camera")
             if not r or not r["ok"]:
+                lim = c.layout()["vision"].get("calibration_limits") or {}
                 raise Refused(f"calibration error {r and r['px']} px / {r and r['mm']} mm is above "
-                              f"{cameras.LIMIT_PX} px / {cameras.LIMIT_MM} mm: nothing uploaded, run again")
+                              f"{lim.get('px', cameras.LIMIT_PX)} px / {lim.get('mm', cameras.LIMIT_MM)} mm: nothing uploaded, run again")
 
         def upload():
             try:

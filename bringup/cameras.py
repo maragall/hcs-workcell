@@ -76,7 +76,18 @@ def plan_around(cell, L: dict, here: List[float], view: Optional[dict] = None) -
 
     if vol.active:
         vol.settle(here)
-    poses = package(cell).plan.around(here, ok)
+    plan_mod = package(cell).plan
+    if view and hasattr(plan_mod, "around_tag"):
+        raw = plan_mod.around_tag(here, view["tag_xy"], view["dist_mm"])
+        poses = []
+        for p in raw:
+            try:
+                ok(p)
+                poses.append(p)
+            except Exception:
+                continue
+    else:
+        poses = plan_mod.around(here, ok)
     if vol.active:
         prev = here
         for i, p in enumerate(list(poses) + [here], 1):

@@ -87,20 +87,20 @@
       "enforce": "auto",
       "_note": "down camera at the clear pose above the stage, before it rotates: the plate must look seated and nothing else in view. References collected by the cell per direction (to_0, to_90); auto: blocks once auto_refs are collected"
     },
-    "_marker_note": "the marker tab (aruco标定板 drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
+    "_marker_note": "the marker tab (aruco\u6807\u5b9a\u677f drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
     "calibration": {
       "auto_teach_camera": {
         "marker": "ok",
-        "marker_at": "2026-10-28 17:02:38",
+        "marker_at": "2026-10-28 18:21:51",
         "pictures": 6,
         "px": 3.163,
         "mm": 0.539,
         "captured_at": "2026-10-28 16:16:14",
         "last_failed": {
-          "pictures": 14,
-          "px": 2.178,
-          "mm": 0.558,
-          "at": "2026-10-28 17:07:45"
+          "pictures": 13,
+          "px": 1.643,
+          "mm": 0.803,
+          "at": "2026-10-28 18:27:08"
         }
       }
     },
