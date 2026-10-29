@@ -38,15 +38,15 @@
 ParGroup: Camera: Parameter;
 	"Internal camera parameters";
 
-Focus:foc:	0.00293141248111438;
+Focus:foc:	0.0029320044648559;
 	DOUBLE:0.0:;
 	"Focal length of the lens";
 
-Poly1:poly1:	-25828.3771946685;
+Poly1:poly1:	-27573.1812255502;
 	DOUBLE::;
 	"1st polynomial distortion coefficient";
 
-Poly2:poly2:	9972940693.44187;
+Poly2:poly2:	10874714751.2072;
 	DOUBLE::;
 	"2nd polynomial distortion coefficient";
 
@@ -62,7 +62,7 @@ Poly5:poly5:	117.719308295616;
 	DOUBLE::;
 	"5th polynomial distortion coefficient * 1000";
 
-Sx:sx:	1.11767867509146e-006;
+Sx:sx:	1.1168054453584e-006;
 	DOUBLE:0.0:;
 	"Width of a cell on the sensor";
 
@@ -70,11 +70,11 @@ Sy:sy:	1.12000000476837e-006;
 	DOUBLE:0.0:;
 	"Height of a cell on the sensor";
 
-Cx:cx:	1573.44044566661;
+Cx:cx:	1576.90222450889;
 	DOUBLE::;
 	"X-coordinate of the image center";
 
-Cy:cy:	1238.71174976542;
+Cy:cy:	1234.23505436607;
 	DOUBLE::;
 	"Y-coordinate of the image center";
 
@@ -88,5 +88,5 @@ ImageHeight:imgh:	2464;
 
 
 #
-# HALCON Version 12.0 --  Thu Oct 29 01:14:33 2026
+# HALCON Version 12.0 --  Thu Oct 29 01:40:52 2026
 #

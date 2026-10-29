@@ -1,4 +1,5 @@
-# The setup workflow as `python cli.py setup` runs it (2026-10-29).
+# The setup workflow as `python cli.py setup` runs it (2026-10-29). Arm sections start without a prompt (Ctrl+C stops);
+# camera-gate doubts are answered yes and logged to runs/mismatches.log.
 
 # Prereqs
 user : place squid on the indicated region (base 25 cm or more from the polar base)
@@ -22,8 +23,8 @@ cameras.toml:
     - polar : drive the capture plan   # -> pictures, captured_at
     - computer : solve intrinsic and extrinsic calibration together   # -> error_px, error_mm
     - computer : refuse if px > 5.0 or mm > 2.0
-    - computer : re-upload to nova, which restarts   # -> uploaded_at
-    - nova : validate. detect aruco from two poses   # -> check_mm, checked_at
+    - computer : re-upload to nova, which restarts   # -> uploaded_at; login from nova_ssh.local.json (git-ignored); old files kept as .bak
+    - nova : validate. detect aruco from two poses   # -> check_mm, checked_at; refuse if mm > 2.0
 
 hotel.toml:
     - polar : arm to nest, hotel view
