@@ -240,6 +240,13 @@ def upload(cell, camera=None) -> None:
         cell.edit(lambda L, cam=cam: _node(L, cam).update(uploaded_at=_stamp(), checked_mm=None))
     calib.upload.reboot(L["vision"]["host"], creds)
     cell.note("uploaded; the box is restarting")
+    gone = time.time() + 45                         # the box answers for a few seconds after the reboot command: wait for it to go down first
+    while time.time() < gone and not cell.stop_event.is_set():
+        try:
+            cell.vision.status()
+            time.sleep(2)
+        except Exception:
+            break
     deadline = time.time() + 180
     while time.time() < deadline and not cell.stop_event.is_set():
         try:
