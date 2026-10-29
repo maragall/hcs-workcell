@@ -238,7 +238,7 @@ def plate_offset(view_before: Pose, view_now: Pose, grip: Pose) -> Pose:
 
 
 # --------------------------------------------------------------------------------------- the camera side
-def corner_reader(get_frame: Callable[[], Optional[bytes]], edge_px: int = 20) -> Callable[[], Optional[np.ndarray]]:
+def corner_reader(get_frame: Callable[[], Optional[bytes]], edge_px: int = 20, keep: Optional[Callable[[bytes, Optional[np.ndarray]], None]] = None) -> Callable[[], Optional[np.ndarray]]:
     """read_corners for the down camera: a full-resolution frame, the plate tag found with calibration.marker.detect,
     None when there is no whole tag (not found, or a corner within edge_px of the picture's border)."""
     import cv2
@@ -254,7 +254,11 @@ def corner_reader(get_frame: Callable[[], Optional[bytes]], edge_px: int = 20) -
         try:
             c = marker.detect(gray, None)
         except marker.MarkerNotFound:
+            if keep:
+                keep(frame, None)
             return None
+        if keep:
+            keep(frame, c)
         h, w = gray.shape
         if (c[:, 0] < edge_px).any() or (c[:, 1] < edge_px).any() or (c[:, 0] > w - 1 - edge_px).any() or (c[:, 1] > h - 1 - edge_px).any():
             return None

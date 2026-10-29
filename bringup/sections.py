@@ -10,6 +10,7 @@ Not run on the real arm yet: the sections are exercised on the simulator (tests/
 """
 from __future__ import annotations
 
+import json
 import math
 import os
 import random
@@ -180,7 +181,13 @@ class Bringup:
         needs no camera calibration: the tag's place is the arm's pose when the tag looks as it did at the reference."""
         c, v = self.cell, self.cell.layout()["vision"]
         cyc = self.cyc()
-        read = servo.corner_reader(lambda: c.vision.frame_full(v["down_camera"], v["led"]))
+        def keep(frame, corners):                              # every picture the servo looks at, for the page that shows them
+            d = os.path.join(c.runs_dir, "servo_last")
+            os.makedirs(d, exist_ok=True)
+            n = len(os.listdir(d)) // 2
+            open(os.path.join(d, f"{n:03d}.jpg"), "wb").write(frame)
+            json.dump(None if corners is None else [[float(a), float(b)] for a, b in corners], open(os.path.join(d, f"{n:03d}.json"), "w"))
+        read = servo.corner_reader(lambda: c.vision.frame_full(v["down_camera"], v["led"]), keep=keep)
 
         def move(dx, dy, dyaw):
             h = c.robot.pose()
