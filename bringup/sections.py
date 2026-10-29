@@ -158,6 +158,24 @@ class Bringup:
         self.edit(write)
         return {"seat from the hover": seat, "from the taught seat mm": moved, "reach mm": round(r)}
 
+    def leave_holder(self, release: bool = False) -> dict:
+        """Straight up out of the microscope's zone (no sideways move there, the body is not in the planner): the arm is locked, the
+        jaw opens first when `release` is set (the plate was held at the seat), then the wrist rises to the zone's free height."""
+        c = self.cell
+        z_reg = c.layout()["regions"]["microscope"]
+        box, top = z_reg["box"], float(z_reg.get("free_above_z", 350.0))
+        here = [float(v) for v in c.robot.pose()]
+        inside = box["x"][0] <= here[0] <= box["x"][1] and box["y"][0] <= here[1] <= box["y"][1]
+        if not inside or here[2] >= top - 1.0:
+            return {"left the holder": "not needed"}
+        if c.arm.get("drag"):
+            hand.drag(c, False)
+        cyc = self.cyc()
+        if release:
+            self.guard(lambda: cyc._jaw_open("short_edges", c.layout()["fixtures"][self.scope]))
+        self.guard(lambda: cyc._move("L", [here[0], here[1], top] + here[3:], "setup:straight up out of the holder", cyc.safety.profile.approach))
+        return {"left the holder": f"straight up to z {top:.0f}", "plate released": release}
+
     def tag_height(self) -> float:
         """Where the module's tag reference is taken from: straight above the module's grip pose, as high as the same view over
         the stage still fits under the workspace top (the stage seat is higher than the module's by SEAT_RISE). Both pictures
@@ -563,6 +581,7 @@ class Bringup:
             Step("user", "take the aruco plate off the rotation module and set it flat in the microscope's plate holder; then drag the arm "
                          "so the open fingers straddle the plate as they would to grip it, the claw square to the instrument, and press Enter", before=self.loosen),
             Step("computer", "take that pose as the microscope seat", lambda: self.stage_hover(hand_is_seat=True)),
+            Step("polar", "let go of the plate and rise straight out of the holder", lambda: self.leave_holder(release=True), moves=True),
             Step("user", "place a real plate on the rotation module")])
 
     # ---- grips.toml
@@ -584,6 +603,7 @@ class Bringup:
             self.ready()
             F, p0, _ = poses()
             cyc = self.cyc()
+            self.leave_holder(release=True)                      # a plate may still be in the fingers at the microscope seat
             self.guard(lambda: cyc.move_to("polar.pose_at_0"))
             if cyc.polar.driver == "ext_axis" and abs(((cyc.polar.read_angle() + 180.0) % 360.0) - 180.0) > 3.0:
                 print(f"   the module reads {cyc.polar.read_angle():.1f} deg: turning it to the short-edge grip (0) first")
