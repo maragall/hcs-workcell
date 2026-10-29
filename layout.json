@@ -87,7 +87,7 @@
       "enforce": "auto",
       "_note": "down camera at the clear pose above the stage, before it rotates: the plate must look seated and nothing else in view. References collected by the cell per direction (to_0, to_90); auto: blocks once auto_refs are collected"
     },
-    "_marker_note": "the marker tab (aruco标定板 drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
+    "_marker_note": "the marker tab (aruco\u6807\u5b9a\u677f drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
     "calibration": {
       "auto_teach_camera": {
         "marker": "ok",
@@ -149,8 +149,8 @@
     "_tolerances": "grasp 0.08 (fresh grasp, measured sd 0.007); release 0.3 (0.6 mm, a carried plate may settle)",
     "accept_band": {
       "short_edges": [
-        24.77,
-        25.37
+        24.71,
+        25.31
       ],
       "long_edges": [
         3.58,
@@ -1311,8 +1311,11 @@
   },
   "squid": {
     "microscope": {
-      "park_xy_mm": null,
-      "park_tolerance_mm": null,
+      "park_xy_mm": [
+        0.0,
+        0.0
+      ],
+      "park_tolerance_mm": 0.5,
       "stage_limits_mm": null,
       "_note": "stage position (Squid stage frame, mm) where Microscope.home_xyz leaves it, and how far from it still counts as parked. Measure on the cell: home, read stage.get_pos(), repeat a few times. null = parked() refuses. base_path and experiment_id go here too (devices/squid.py)"
     }
@@ -1440,6 +1443,12 @@
         "grip_z": 66.807,
         "taken_at": "2026-10-28 19:57:26"
       }
+    },
+    "grips": {
+      "short_closed": 24.81,
+      "long_closed": 3.68,
+      "grip_offset": 31.675,
+      "measured_at": "2026-10-28 21:57:30"
     }
   }
 }

@@ -1,9 +1,9 @@
 {
-  "plate_at": "hotel:A1",
-  "polar_angle": 90,
+  "plate_at": "polar",
+  "polar_angle": 0,
   "grip": "none",
-  "step": "pick:polar",
-  "step_done": false,
+  "step": "polar:0",
+  "step_done": true,
   "cycle": 0,
   "hotel": {
     "A1": ""
@@ -214,15 +214,85 @@
       "step": "pick:polar",
       "kind": "not_held",
       "detail": "best correlation 0.449 below 0.550"
+    },
+    {
+      "t": 1793249782.504601,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.319 below 0.583"
+    },
+    {
+      "t": 1793249865.8282785,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.003 below 0.550"
+    },
+    {
+      "t": 1793249900.8996294,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.439 below 0.781"
+    },
+    {
+      "t": 1793249913.7572696,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "not_held",
+      "detail": "best correlation 0.511 below 0.550"
+    },
+    {
+      "t": 1793249923.264781,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.002 below 0.550"
+    },
+    {
+      "t": 1793249928.6341443,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.202 below 0.781"
+    },
+    {
+      "t": 1793249945.5500636,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.003 below 0.550"
+    },
+    {
+      "t": 1793249950.5534437,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.630 below 0.781"
+    },
+    {
+      "t": 1793249969.2808564,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.003 below 0.550"
+    },
+    {
+      "t": 1793249973.7669282,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.186 below 0.781"
     }
   ],
   "last_safe_pose": [
-    312.024,
-    305.696,
-    103.283,
+    306.337,
+    323.474,
+    162.094,
     0.0,
     -0.0,
-    -91.3401
+    -89.4693
   ],
-  "updated": 1793249624.4124508
+  "updated": 1793249983.5790045
 }

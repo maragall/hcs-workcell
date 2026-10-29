@@ -705,6 +705,9 @@ class Bringup:
                 x, y = hx + dx, hy + dy
                 if L.get("volumes") and not 100.0 <= math.hypot(x - 126.0, y) <= 395.0:
                     continue                                          # out of the arm's reach: not a place to look
+                wb = L["workspace_box"]
+                if not (wb["x"][0] <= x <= wb["x"][1] and wb["y"][0] <= y <= wb["y"][1]):
+                    continue                                          # outside the workspace box: the arm refuses it
                 self.guard(lambda x=x, y=y: cyc._move("L", [x, y, heights[0], rx, ry, hyaw], f"setup:search {x - hx:+.0f} {y - hy:+.0f}", cyc.safety.profile.approach))
                 try:
                     corners, view = s.observe()
