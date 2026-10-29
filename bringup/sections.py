@@ -68,6 +68,7 @@ class Bringup:
         self.cell, self.squid, self.ask, self.scope = cell, squid, ask, scope
         self.confirm_stage = confirm_stage     # the operator has said, for this run, that lowering at the stage is safe
         self._cyc: Optional[Cycle] = None
+        self.unattended = False               # set while the rotation runs for ever: a question that would wait for a person is answered no
         self.found: dict = {}                 # what this run learned: size, plate_offset, marker poses ...
 
     # ------------------------------------------------------------------ plumbing
@@ -116,6 +117,10 @@ class Bringup:
             if self.confirm_stage and "safe to lower" in question and self.scope in said["reason"]:
                 cyc.tele.log("setup", "lower_check", "the operator confirmed lowering at the stage for this run (--confirm-stage)")
                 return "y"
+            if self.unattended:
+                cyc.tele.log("setup", "question", f"not asked (unattended run): {question.strip()} -> n")
+                print(f"      (unattended: no one is waited for; '{question.strip()}' -> n, so the run stops here with the reason above)")
+                return "n"
             return self._ask_user(question)
         corr.alert, corr.ask = watch, ask
 
@@ -986,6 +991,15 @@ class Bringup:
             self.found.pop("test_slot", None)
             return {"plate": f"held by the long edges -> hotel {slot}"}
 
+        def unattended(fn):
+            def run():
+                self.unattended = True                  # no question may wait for a person while this runs
+                try:
+                    return fn()
+                finally:
+                    self.unattended = False
+            return run
+
         def rotate():
             """The hotel's plates go round: each plate in a taught slot visits the microscope and ends in the slot that has been empty the
             longest, so the hole walks down the column and every plate moves. It needs one empty taught slot besides the one the test
@@ -1020,4 +1034,4 @@ class Bringup:
 
         return Section("test", [Step("polar", "module to microscope stage, acquire, back to the module, grip the long edges", to_long, moves=True),
                                 Step("polar", "scan the plate and put it in the free hotel slot", to_hotel, moves=True),
-                                Step("polar", "the hotel's plates go round for ever: each plate in a taught slot to the microscope, then into the slot empty the longest", rotate, moves=True)])
+                                Step("polar", "the hotel's plates go round for ever: each plate in a taught slot to the microscope, then into the slot empty the longest", unattended(rotate), moves=True)])
