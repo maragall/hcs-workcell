@@ -1,8 +1,8 @@
 {
-  "plate_at": "polar",
+  "plate_at": "gripper",
   "polar_angle": 90,
-  "grip": "none",
-  "step": "pick:polar",
+  "grip": "long_edges",
+  "step": "place:hotel:A1",
   "step_done": false,
   "cycle": 0,
   "hotel": {
@@ -487,12 +487,12 @@
     }
   ],
   "last_safe_pose": [
-    312.024,
-    305.696,
-    163.284,
+    306.339,
+    323.474,
+    102.093,
     0.0,
     -0.0,
-    -91.3398
+    -89.4697
   ],
-  "updated": 1793257842.6563075
+  "updated": 1793257868.8473458
 }
