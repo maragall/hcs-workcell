@@ -386,15 +386,22 @@
       "step": "place:polar",
       "kind": "not_seated",
       "detail": "best correlation 0.749 below 0.781"
+    },
+    {
+      "t": 1793255705.555668,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation -0.000 below 0.550"
     }
   ],
   "last_safe_pose": [
     306.338,
     323.474,
-    102.094,
+    67.684,
     0.0,
     -0.0,
-    -89.4694
+    -89.4695
   ],
-  "updated": 1793255699.966294
+  "updated": 1793255705.555668
 }
