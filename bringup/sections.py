@@ -978,43 +978,33 @@ class Bringup:
             return {"plate": f"held by the long edges -> hotel {slot}"}
 
         def rotate():
-            """One turn of the hotel: every plate in a taught slot visits the microscope and moves one slot down the column, the first one
-            waiting on the rotation module for the last slot. The module is the spare place; no free slot is needed."""
+            """The hotel's plates go round: each plate in a taught slot visits the microscope and ends in the slot that has been empty the
+            longest, so the hole walks down the column and every plate moves. It needs one empty taught slot besides the one the test
+            plate took: the rotation module is the way in and out of the microscope, so it cannot be a spare place."""
             cyc = self.cyc()
             F = c.layout()["fixtures"]
             have = set(bench.loaded_slots(c.layout()))
-            taught = [x for x in F["hotel"].get("active_slots", []) if x in have and reachable(cyc, x)]
+            taught = [x for x in F["hotel"].get("active_slots", []) if reachable(cyc, x)]
+            full = [x for x in taught if x in have]
+            holes = [x for x in taught if x not in have and cyc.store.s.contents.get(x) != "full"]
             skipped = [x for x in bench.loaded_slots(c.layout()) if x not in taught]
-            if len(taught) < 2:
-                raise Refused(f"the rotation needs two plates in taught slots, there are {taught}")
-            if cyc.store.s.contents.get("module") == "full" and cyc.store.s.plate_at == "polar":
-                raise Refused("the rotation module is the spare place and holds a plate: take it off first")
-
-            def leave(slot):
-                self.edit(lambda L: bench.set_loaded(L, [x for x in bench.loaded_slots(L) if x != slot]))       # in transit: the slot is empty
-
-            def arrive(slot):
-                self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))
-
-            first = taught[0]
-            print(f"   rotate: {first} to the microscope, then to the module to wait")
-            leave(first)
-            self.guard(lambda: cyc._run_steps(cyc._steps(first)[1]))
-            self._acquire()
-            self.guard(lambda: cyc._run_steps(cyc._steps(first)[0][:2]))                 # microscope -> module (waits there)
-            for prev, slot in zip(taught, taught[1:]):
-                print(f"   rotate: {slot} to the microscope, then into {prev}")
-                leave(slot)
+            if not holes:
+                raise Refused("the rotation needs one empty taught slot to start (every taught slot is full once the test plate is in). "
+                              "Take a plate out of a taught slot by hand (put it in an untaught one if you like), then run: "
+                              "python cli.py setup --from \"test\" --step 2")
+            moved = []
+            for slot in full:
+                dest = holes.pop(0)
+                print(f"   rotate: {slot} to the microscope, then into {dest}")
+                self.edit(lambda L, slot=slot: bench.set_loaded(L, [x for x in bench.loaded_slots(L) if x != slot]))       # in transit: the slot is empty
                 self.guard(lambda: cyc._run_steps(cyc._steps(slot)[1]))
                 self._acquire()
-                self.guard(lambda: cyc._run_steps(cyc._steps(prev)[0]))                  # microscope -> module -> long edges -> {prev}
-                arrive(prev)
-            last = taught[-1]
-            print(f"   rotate: the plate waiting on the module into {last}")
-            self.guard(lambda: cyc._run_steps(cyc._steps(last)[0][2:]))                  # module: turn, long edges, scan, into the last slot
-            arrive(last)
-            return {"moved": f"each plate one slot down {taught[0]}..{taught[-1]}, {first}'s plate to {last}", "not taught, left alone": skipped}
+                self.guard(lambda: cyc._run_steps(cyc._steps(dest)[0]))
+                self.edit(lambda L, dest=dest: bench.set_loaded(L, list(bench.loaded_slots(L)) + [dest]))
+                holes.append(slot)
+                moved.append(f"{slot}->{dest}")
+            return {"moved": ", ".join(moved), "empty now": ", ".join(holes), "not taught, left alone": skipped}
 
         return Section("test", [Step("polar", "module to microscope stage, acquire, back to the module, grip the long edges", to_long, moves=True),
                                 Step("polar", "scan the plate and put it in the free hotel slot", to_hotel, moves=True),
-                                Step("polar", "one turn of the hotel: each plate in a taught slot to the microscope and one slot down, the first via the module to the last slot", rotate, moves=True)])
+                                Step("polar", "the hotel's plates go round: each plate in a taught slot to the microscope, then into the slot empty the longest", rotate, moves=True)])
