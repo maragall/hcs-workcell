@@ -117,6 +117,13 @@ class Bringup:
             if self.confirm_stage and "safe to lower" in question and self.scope in said["reason"]:
                 cyc.tele.log("setup", "lower_check", "the operator confirmed lowering at the stage for this run (--confirm-stage)")
                 return "y"
+            if self.unattended and "safe to lower" in question:
+                line = f"{time.strftime('%Y-%m-%d %H:%M:%S')}  lowering carried on over a mismatch: {said['reason'][:200]}"
+                cyc.tele.log("setup", "mismatch", line)
+                with open(os.path.join(self.cell.runs_dir, "mismatches.log"), "a", encoding="utf-8") as f:
+                    f.write(line + chr(10))
+                print("      (mismatch logged to runs/mismatches.log; carrying on)")
+                return "y"
             if self.unattended:
                 cyc.tele.log("setup", "question", f"not asked (unattended run): {question.strip()} -> n")
                 print(f"      (unattended: no one is waited for; '{question.strip()}' -> n, so the run stops here with the reason above)")
