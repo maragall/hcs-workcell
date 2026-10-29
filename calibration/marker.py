@@ -49,6 +49,16 @@ def _order(quad: np.ndarray) -> np.ndarray:
     return np.array([quad[np.argmin(s)], quad[np.argmin(d)], quad[np.argmax(s)], quad[np.argmax(d)]], np.float32)
 
 
+def _destripe(gray: np.ndarray) -> np.ndarray:
+    """The picture with row-to-row brightness ripple taken out (a flickering light against a rolling shutter lays bright and dark
+    bands across it, and a band over a corner of the tag eats the corner): each row is divided by its own gain, the ratio of its
+    bright pixels' level to the smoothed level over neighbouring rows."""
+    rows = np.percentile(gray, 75, axis=1).astype(np.float32)
+    gain = rows / (cv2.GaussianBlur(rows.reshape(-1, 1), (0, 0), 25).ravel() + 1.0)
+    out = gray.astype(np.float32) / np.clip(gain, 0.5, 2.0)[:, None]
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
 def _cells(warped: np.ndarray) -> np.ndarray:
     """(6, 6) mean level of each code cell (the middle half of the cell), from the warped 8 x 8 square."""
     c = TAG_PX
@@ -117,6 +127,7 @@ def detect_plate_tag(gray: np.ndarray) -> np.ndarray:
     picture, whatever the yaw): find dark convex quadrilaterals, warp each, accept the one whose border is dark and whose
     6 x 6 interior matches PLATE_TAG (a few cells off allowed, or correlating with it) in one of the four turns, and turn
     the corners by that."""
+    gray = _destripe(gray)
     small = cv2.GaussianBlur(gray, (5, 5), 0)
     _, dark = cv2.threshold(small, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     contours, _ = cv2.findContours(dark, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
