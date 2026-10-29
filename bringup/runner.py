@@ -5,6 +5,8 @@ import threading
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
+from bringup.colour import BAD, paint
+
 ACTORS = ("user", "computer", "polar", "nova", "squid")
 
 
@@ -65,29 +67,29 @@ class Runner:
                 self.say(f"\n== {sec.name}")
                 first = start_step if n == 0 else 0
                 if any(s.moves for s in sec.steps[first:]):
-                    self._wait("   The arm moves in this section. Hands clear? Enter to go, q to quit: ")
+                    self._wait(paint("   The arm moves in this section. Hands clear? Enter to go, q to quit: "))
                 for i, step in enumerate(sec.steps):
                     if i < first:
                         continue
                     if self.stop.is_set():
                         self.say("   STOP")
                         return sec.name
-                    self.say(f"   {step.actor} : {step.text}")
+                    self.say(paint(f"   {step.actor} : {step.text}") if step.run is None else f"   {step.actor} : {step.text}")
                     if step.run is None:
                         if step.before:
                             step.before()
                         if pause_at_user:
                             self.waiting = (sec.name, i + 1)
                             return sec.name
-                        self._wait("      done? Enter: ")
+                        self._wait(paint("      done? Enter: "))
                         continue
                     try:
                         got = step.run()
                     except Refused as e:
-                        self.say(f"      REFUSED: {e}")
+                        self.say(paint(f"      REFUSED: {e}", BAD))
                         return sec.name
                     except Exception as e:
-                        self.say(f"      FAILED: {type(e).__name__}: {e}")
+                        self.say(paint(f"      FAILED: {type(e).__name__}: {e}", BAD))
                         return sec.name
                     if got:
                         self.say("      -> " + ", ".join(f"{k} = {v}" for k, v in got.items()))

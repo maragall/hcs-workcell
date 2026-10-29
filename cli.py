@@ -18,6 +18,7 @@ import argparse
 import copy
 import glob
 import os
+import re
 import sys
 import time
 
@@ -916,7 +917,7 @@ def _tee_console(name: str) -> str:
 
         def write(self, text):
             self.stream.write(text)
-            log.write(text)
+            log.write(re.sub(r"\[[0-9;]*m", "", text))
 
         def flush(self):
             self.stream.flush()

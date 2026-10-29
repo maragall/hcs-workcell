@@ -22,7 +22,7 @@ import numpy as np
 import exercise
 from bringup import geometry
 from bringup.runner import Refused, Section, Step
-from bringup import bench, cameras, hand, servo
+from bringup import bench, cameras, colour, hand, servo
 from perception.hotel_rows import HotelRows
 from procedures import cad_poses
 from procedures.corrector import StopSafe
@@ -112,7 +112,7 @@ class Bringup:
         corr.alert, corr.ask = watch, ask
 
     def _ask_user(self, question: str) -> str:
-        return self.ask(f"  >>> {question} [y/N]: ").strip().lower()
+        return self.ask(colour.paint(f"  >>> {question} [y/N]: ")).strip().lower()
 
     def _parked(self) -> bool:
         try:

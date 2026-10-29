@@ -1,9 +1,9 @@
 {
-  "plate_at": "microscope",
-  "polar_angle": 0,
+  "plate_at": "polar",
+  "polar_angle": 90,
   "grip": "none",
-  "step": "place:microscope",
-  "step_done": true,
+  "step": "pick:polar",
+  "step_done": false,
   "cycle": 0,
   "hotel": {
     "A1": "",
@@ -330,15 +330,71 @@
       "step": "move_to polar.pose_at_0 [1/5]",
       "kind": "controller_error",
       "detail": "[{'errCode': 3873, 'errMsg': '2026-10-28 23:21:39.131 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 23:21:39.138 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 23:21:39.146 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 23:21:39.146 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 23:21:39.146 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 23:21:39.146 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 23:21:39.146 Motion error: external axis 2 servo enable failed'}] after: abs joint move did not reach [214.64, 48.1, -93.3, 134.19]; at [215.5, 50.49, -97.8, 141.17]"
+    },
+    {
+      "t": 1793255180.7593775,
+      "cycle": 0,
+      "step": "jaw open",
+      "kind": "jaw_refused",
+      "detail": "external axis 1 stopped at 27.93, target 28.5 (sdk=False)"
+    },
+    {
+      "t": 1793255546.19893,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.327 below 0.583"
+    },
+    {
+      "t": 1793255551.1788447,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.163 below 0.550"
+    },
+    {
+      "t": 1793255591.5793817,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.002 below 0.550"
+    },
+    {
+      "t": 1793255634.6945946,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.000 below 0.550"
+    },
+    {
+      "t": 1793255662.029626,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.111 below 0.781"
+    },
+    {
+      "t": 1793255678.998494,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation -0.001 below 0.550"
+    },
+    {
+      "t": 1793255688.8830552,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.749 below 0.781"
     }
   ],
   "last_safe_pose": [
-    117.564,
-    303.271,
-    258.167,
+    306.338,
+    323.474,
+    102.094,
     0.0,
     -0.0,
-    93.84
+    -89.4695
   ],
-  "updated": 1793254902.598496
+  "updated": 1793255690.811297
 }

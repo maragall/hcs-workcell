@@ -6,6 +6,7 @@ in a safe state and raises an operator alert.
 """
 from __future__ import annotations
 
+from bringup.colour import paint
 import time
 from dataclasses import dataclass
 
@@ -33,7 +34,7 @@ def ask_with_timeout(question: str, timeout_s: float) -> str:
 
     def _read():
         try:
-            answer.append(input(f"  >>> {question} [y/N]: ").strip().lower())
+            answer.append(input(paint(f"  >>> {question} [y/N]: ")).strip().lower())
         except EOFError:
             answer.append("n")
 

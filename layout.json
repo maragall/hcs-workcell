@@ -118,7 +118,7 @@
     },
     "closed": {
       "short_edges": 24.81,
-      "long_edges": 3.68
+      "long_edges": 3.69
     },
     "tolerance": 0.1,
     "stall_lag": 0.3,
@@ -153,8 +153,8 @@
         25.31
       ],
       "long_edges": [
-        3.58,
-        4.73
+        3.59,
+        4.74
       ],
       "_note": "2026-10-22 new plate, grips read by hand in drag mode (operator): short 24.87, long 3.68; band = closed -0.1/+0.5 (short) and -0.1/+1.05 (long) as for the production plate. Opens widened by the same 2.5 / 2.2 so the clearance per side stays the same. Fixture signatures (microscope grasp_width) cleared: learned again by the first picks."
     }
@@ -265,9 +265,9 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        117.707,
-        303.397,
-        254.447,
+        116.28,
+        300.045,
+        261.34,
         0.0,
         0.0,
         90.0
@@ -288,7 +288,7 @@
       },
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
-      "taught_at": "2026-10-28 23:21:26",
+      "taught_at": "2026-10-28 23:30:12",
       "jaw_at_teach": 24.807,
       "vendor_teach": {
         "name": "microscope-short",
@@ -412,12 +412,12 @@
       },
       "previous_pose_2026_10_28": {
         "pose": [
-          117.564,
-          303.271,
-          258.172,
+          117.637,
+          301.31,
+          254.145,
           0.0,
           0.0,
-          93.84
+          90.0
         ]
       }
     },
@@ -1384,23 +1384,23 @@
     },
     "microscope_hover": {
       "hand_pose": [
-        117.707,
-        303.397,
-        254.447,
+        116.28,
+        300.045,
+        261.34,
         0.0,
         -0.0,
-        94.2157
+        95.0431
       ],
       "seat": [
-        117.707,
-        303.397,
-        254.447,
+        116.28,
+        300.045,
+        261.34,
         0.0,
         0.0,
         90.0
       ],
-      "from_taught_mm": 3.7,
-      "at": "2026-10-28 23:21:26"
+      "from_taught_mm": 7.4,
+      "at": "2026-10-28 23:30:12"
     },
     "module_view": [
       310.937,
@@ -1447,9 +1447,9 @@
     },
     "grips": {
       "short_closed": 24.81,
-      "long_closed": 3.68,
+      "long_closed": 3.69,
       "grip_offset": 31.675,
-      "measured_at": "2026-10-28 21:57:30"
+      "measured_at": "2026-10-28 23:33:06"
     },
     "microscope": {
       "seat_pose": [
