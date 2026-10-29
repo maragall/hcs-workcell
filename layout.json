@@ -717,8 +717,7 @@
           2,
           4,
           6,
-          8,
-          10
+          8
         ]
       },
       "_loaded_note": "ground truth (operator, 2026-10-28): column A holds plates on the odd rows, column C on the even rows, B none",
