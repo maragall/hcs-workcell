@@ -195,6 +195,14 @@ def solve(cell, camera=None) -> dict:
             cell.edit(lambda L, cam=cam: _node(L, cam).update(pictures=res.images, px=px, mm=mm, captured_at=_stamp()))
         else:
             cell.edit(lambda L, cam=cam: _node(L, cam).update(last_failed={"pictures": res.images, "px": px, "mm": mm, "at": _stamp()}))
+        import hashlib
+        src = [getattr(calib, m).__file__ for m in ("solve", "marker") if hasattr(getattr(calib, m, None), "__file__")]
+        tag = ", ".join(f"{os.path.basename(f)} {hashlib.md5(open(f, 'rb').read()).hexdigest()[:8]}" for f in src)
+        total = len([n for n in os.listdir(_dir(cell, cam, "capture")) if n.endswith(".png")])
+        cell.note(f"{label} camera: solver {os.path.dirname(src[0]) if src else '?'} ({tag}); {total} captures, "
+                  f"{len(res.skipped)} left out ({', '.join(res.skipped) or 'none'}): not read, a tag corner within "
+                  f"{getattr(calib.solve, 'EDGE_MARGIN_PX', '?')} px of the edge, repeated pose, tag too large, or fitted worse than 3x the median; "
+                  f"tag shape corners {[round(v, 2) for v in getattr(res, 'marker_shape_mm', ())]} mm")
         cell.note(f"{label} camera: {res.images} pictures, error {px} px, {mm} mm: "
                   f"{'ok' if ok else f'redo, above {lim_px:g} px or {lim_mm:g} mm; nothing was written'}")
         out[cam] = {"px": px, "mm": mm, "pictures": res.images, "ok": ok}
