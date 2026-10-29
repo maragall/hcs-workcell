@@ -316,15 +316,22 @@
       "step": "pick:polar",
       "kind": "not_held",
       "detail": "best correlation 0.521 below 0.550"
+    },
+    {
+      "t": 1793253511.4069626,
+      "cycle": 0,
+      "step": "place:microscope",
+      "kind": "not_seated_front",
+      "detail": "best correlation -0.008 below 0.645"
     }
   ],
   "last_safe_pose": [
-    312.024,
-    305.696,
-    103.282,
+    117.564,
+    303.271,
+    258.167,
     0.0,
     -0.0,
-    -91.34
+    93.84
   ],
-  "updated": 1793253416.9215949
+  "updated": 1793253511.4069626
 }
