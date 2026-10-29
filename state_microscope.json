@@ -6,10 +6,35 @@
   "step_done": true,
   "cycle": 0,
   "hotel": {
-    "A1": ""
+    "A1": "",
+    "A3": "",
+    "A5": "",
+    "A7": "",
+    "A9": "",
+    "B9": "",
+    "C9": ""
   },
   "plate_id": "",
-  "contents": {},
+  "contents": {
+    "A1": "full",
+    "B1": "empty",
+    "C1": "empty",
+    "A3": "full",
+    "B3": "empty",
+    "C3": "empty",
+    "A5": "full",
+    "B5": "empty",
+    "C5": "empty",
+    "A7": "full",
+    "B7": "empty",
+    "C7": "empty",
+    "A9": "full",
+    "B9": "full",
+    "C9": "full",
+    "module": "unknown",
+    "microscope": "unknown",
+    "gripper": "empty"
+  },
   "home_slot": "A1",
   "faults": [
     {
@@ -287,12 +312,12 @@
     }
   ],
   "last_safe_pose": [
-    306.337,
-    323.474,
-    162.094,
+    117.565,
+    303.272,
+    324.863,
     0.0,
     -0.0,
-    -89.4693
+    93.8397
   ],
-  "updated": 1793249983.5790045
+  "updated": 1793252395.4770312
 }

@@ -264,12 +264,12 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        120.968,
-        305.881,
+        117.564,
+        303.271,
         258.172,
         0.0,
         0.0,
-        90.0
+        93.84
       ],
       "hover_mm": 66.7,
       "approach": {
@@ -287,7 +287,7 @@
       },
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
-      "taught_at": "2026-10-28 19:58:44",
+      "taught_at": "2026-10-28 22:30:15",
       "jaw_at_teach": 24.807,
       "vendor_teach": {
         "name": "microscope-short",
@@ -411,9 +411,9 @@
       },
       "previous_pose_2026_10_28": {
         "pose": [
-          124.44,
-          304.578,
-          276.133,
+          120.968,
+          305.881,
+          258.172,
           0.0,
           0.0,
           90.0
@@ -1449,6 +1449,28 @@
       "long_closed": 3.68,
       "grip_offset": 31.675,
       "measured_at": "2026-10-28 21:57:30"
+    },
+    "microscope": {
+      "seat_pose": [
+        117.564,
+        303.271,
+        258.172,
+        0.0,
+        0.0,
+        93.84
+      ],
+      "moved_mm": 4.29,
+      "found_at": "2026-10-28 22:30:15",
+      "estimate": {
+        "view": [
+          112.776,
+          374.611,
+          93.84
+        ],
+        "residual_px": 13.56,
+        "moves": 10,
+        "seen_from_z": 412
+      }
     }
   }
 }
