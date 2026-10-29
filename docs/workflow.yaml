@@ -25,12 +25,6 @@ cameras.toml:
     - computer : refuse if px > 5.0 or mm > 2.0
     - computer : re-upload to nova, which restarts   # -> uploaded_at; login from nova_ssh.local.json (git-ignored); old files kept as .bak
 
-hotel.toml:
-    - polar : arm to nest, hotel view
-    - nova : image hotel with the front camera
-    - polar : camera to each slot, is there a slot here
-    - computer : detect hotel size, 15 or 30   # -> size, detected_at
-
 # Teach the microscope seat
 swap:
     - user : set a plate flat in the microscope holder; drag the hand so the open fingers straddle it, claw square

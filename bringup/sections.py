@@ -392,7 +392,7 @@ class Bringup:
 
     # ------------------------------------------------------------------ the sections
     def sections(self) -> List[Section]:
-        return [self.connect(), self.cameras(), self.hotel(), self.swap(), self.grips(), self.microscope(),
+        return [self.connect(), self.cameras(), self.swap(), self.grips(), self.microscope(),
                 self.clear_stage(), self.system_state(), self.test()]
 
     # ---- Connect system modules
