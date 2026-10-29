@@ -540,7 +540,7 @@
       "headroom_mm": 17,
       "grip_back_mm": {
         "30": 31.675,
-        "15": null
+        "15": 31.675
       },
       "_headroom_note": "30-plate hotel, 2026-10-22: 17 mm above a seated plate. preflight refuses a run while lift_mm is not below it; lift_mm 25 predates this hotel and must be re-taught from the plate height and the finger stand-off",
       "columns": [
@@ -682,42 +682,20 @@
       "climb_x": 127.0,
       "active_slots": [
         "A1",
-        "C2",
         "A3",
-        "C4",
         "A5",
-        "C6",
         "A7",
-        "C8",
-        "A9",
-        "C10"
+        "A9"
       ],
       "_climb_note": "rows above 1: retreat from the junction (row-1 approach point) to x=climb_x in free air in front of the rack, climb with the column only, slide in at carry height. climb_x = the operator via point x (2026-10-19). B and C columns wait for the FK-based planner: their approach points lie close to the shoulder axis at (126,0)",
       "rows": [
         1,
-        2,
         3,
-        4,
         5,
-        6,
         7,
-        8,
-        9,
-        10
+        9
       ],
-      "loaded": {
-        "A": [
-          3,
-          5,
-          7
-        ],
-        "C": [
-          2,
-          4,
-          6,
-          8
-        ]
-      },
+      "loaded": {},
       "_loaded_note": "ground truth (operator, 2026-10-28): column A holds plates on the odd rows, column C on the even rows, B none",
       "_x_offset_2026_10_22": {
         "dx_mm": -31.675,
@@ -735,7 +713,8 @@
       "tray_pitch_mm": 38.0,
       "tray_thickness_mm": 8.0,
       "tray_clearance_mm": 1.5,
-      "_tray_note": "From the CAD: shelves 8 mm thick every 38 mm of row pitch. The carry lift is cut to what the gap between two trays allows (procedures/hotel.py _lift_for)."
+      "_tray_note": "From the CAD: shelves 8 mm thick every 38 mm of row pitch. The carry lift is cut to what the gap between two trays allows (procedures/hotel.py _lift_for).",
+      "_grip_back_15_note": "2026-10-28 placeholder: the 30-slot value, until the 15-slot hotel's own is measured; the grips step refuses a null"
     },
     "microscope_2": {
       "pose": null,
@@ -1327,9 +1306,9 @@
   "_stress_profile_note": "stress = 50/25/10 %, grasp tolerance 0.08 (10x the measured sd), slow zone 6 mm; validate supervised before unattended",
   "setup": {
     "hotel": {
-      "size": 30,
+      "size": 15,
       "rows_seen": {},
-      "detected_at": "set by hand 2026-10-28 (30-slot hotel; hotel.toml skipped)",
+      "detected_at": "set by hand 2026-10-28 (15-slot hotel for the demo)",
       "occupancy": "by hand"
     },
     "plate_offset": [
