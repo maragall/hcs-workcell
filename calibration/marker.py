@@ -59,6 +59,55 @@ def _destripe(gray: np.ndarray) -> np.ndarray:
     return np.clip(out, 0, 255).astype(np.uint8)
 
 
+def _by_edge_lines(gray: np.ndarray, corners: np.ndarray, per_side: int = 60, reach_px: float = 0.03) -> np.ndarray:
+    """The tag's corners from its four straight edges instead of one corner pixel each: on each side the edge is located to a
+    fraction of a pixel along `per_side` lines across it (the black-to-white step), a robust line is fitted to those points,
+    and neighbouring lines are intersected. Hundreds of edge pixels set each corner, where a corner detector uses a few and is
+    pulled by blur and glare. Falls back to the given corners when a fit looks wrong (a corner moved more than 6 px, or fewer
+    than half the lines found an edge)."""
+    c = np.asarray(corners, float)
+    side_len = float(np.mean([np.linalg.norm(c[i] - c[(i + 1) % 4]) for i in range(4)]))
+    reach = max(6.0, reach_px * side_len)
+    centre = c.mean(axis=0)
+    img = gray.astype(np.float32)
+    lines = []
+    for i in range(4):
+        a, b = c[i], c[(i + 1) % 4]
+        d = (b - a) / (np.linalg.norm(b - a) + 1e-9)
+        n = np.array([-d[1], d[0]])
+        if np.dot(n, (a + b) / 2 - centre) < 0:
+            n = -n                                              # outward
+        pts = []
+        for t in np.linspace(0.18, 0.82, per_side):
+            p0 = a + t * (b - a)
+            offs = np.arange(-reach, reach + 0.01, 0.5)
+            xy = p0[None, :] + offs[:, None] * n[None, :]
+            prof = cv2.remap(img, xy[:, 0:1].astype(np.float32), xy[:, 1:2].astype(np.float32), cv2.INTER_LINEAR,
+                             borderMode=cv2.BORDER_REPLICATE).ravel()
+            prof = np.convolve(prof, np.ones(3) / 3, mode="same")
+            g = np.gradient(prof)
+            j = int(np.argmax(g[2:-2])) + 2                     # black inside to white outside: the steepest rise going outward
+            if g[j] < 8.0 or j in (2, len(g) - 3):
+                continue
+            den = g[j - 1] - 2 * g[j] + g[j + 1]
+            sub = 0.5 * (g[j - 1] - g[j + 1]) / den if abs(den) > 1e-6 else 0.0
+            pts.append(p0 + (offs[j] + float(np.clip(sub, -1, 1)) * 0.5) * n)
+        if len(pts) < per_side // 2:
+            return c
+        vx, vy, x0, y0 = cv2.fitLine(np.array(pts, np.float32), cv2.DIST_HUBER, 0, 0.01, 0.01).ravel()
+        lines.append((np.array([x0, y0], float), np.array([vx, vy], float)))
+    out = []
+    for i in range(4):
+        (p, u), (q, v) = lines[i - 1], lines[i]                 # corner i is where side i-1 meets side i
+        m = np.array([[u[0], -v[0]], [u[1], -v[1]]])
+        if abs(np.linalg.det(m)) < 1e-6:
+            return c
+        s = np.linalg.solve(m, q - p)
+        out.append(p + s[0] * u)
+    out = np.array(out)
+    return out if np.abs(out - c).max() < 6.0 else c
+
+
 def _cells(warped: np.ndarray) -> np.ndarray:
     """(6, 6) mean level of each code cell (the middle half of the cell), from the warped 8 x 8 square."""
     c = TAG_PX
@@ -169,7 +218,7 @@ def detect_plate_tag(gray: np.ndarray) -> np.ndarray:
         q = np.roll(q, -k, axis=0)                # k quarter turns of the code: the first corner moves with it
         ref = q.reshape(4, 1, 2).copy()
         cv2.cornerSubPix(gray, ref, (7, 7), (-1, -1), (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.01))
-        return ref.reshape(4, 2).astype(float)
+        return _by_edge_lines(gray, ref.reshape(4, 2).astype(float))
     raise MarkerNotFound("no plate tag in the image")
 
 

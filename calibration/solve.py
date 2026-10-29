@@ -232,8 +232,8 @@ def fit(caps: Captures, start: halcon.CamParam, marker_size_m: float, sy: float 
 
 
 # ------------------------------------------------------------------ the staged solve for a flat marker at a known height
-STAGES = (("focus", "cx", "cy"), ("focus", "cx", "cy", "k1"), ("focus", "cx", "cy", "k1", "k2"),
-          ("focus", "cx", "cy", "k1", "k2", "k3", "p1", "p2"))
+STAGES = (("focus", "cx", "cy"), ("focus", "cx", "cy", "k1"), ("focus", "cx", "cy", "k1", "k2"))
+# no K3 / P1 / P2 stage: with a dozen pictures they ran to their bounds (2026-10-28) and only soaked up the corner bias
 FLAT_SCALE = {"r1": 1, "r2": 1, "r3": 1, "tx": .1, "ty": .1, "tz": .1, "mx": .1, "my": .1, "myaw": 1, "focus": .1, "cx": 100,
               "cy": 100, "k1": 1e4, "k2": 1e9, "k3": 1e14, "p1": 10.0, "p2": 10.0}
 FLAT_NAMES = ("r1", "r2", "r3", "tx", "ty", "tz", "mx", "my", "myaw", "focus", "cx", "cy", "k1", "k2", "k3", "p1", "p2")
