@@ -92,7 +92,7 @@ class Gates:
             self._hub(hub.record, check, frame_path, verdict, step)
 
     def _learned_gate(self, step: str, name: str, state: str, cam: str, cfg: dict, fault: str, question: str,
-                      roi=None) -> Optional[bool]:
+                      roi=None, ask: Optional[str] = None) -> Optional[bool]:
         """A gate that trains itself: the first cfg.auto_refs frames at (name, state) become its references, then
         every frame is judged against them. Returns None while training or without a frame, else whether the
         view looks right. Blocks (through the corrector) only when enforced: cfg.enforce "auto" = once trained."""
@@ -116,7 +116,7 @@ class Gates:
         self._record(name, path, "ok" if v.safe else "not_ok", step)
         if enforce and not v.safe:
             self._fault(step, fault, v.reason)
-            if not self.corr.operator_or_stop(step, question, question.split(":")[-1].strip() + "?"):
+            if not self.corr.operator_or_stop(step, question, ask or ("Is it fine to continue? (" + question.split(":")[-1].strip() + ")")):
                 raise StopSafe(f"{step}: {question}")
         return v.safe
 
@@ -143,7 +143,7 @@ class Gates:
                 front = self.L["vision"]["lower_check"].get("front")
                 if front:
                     self._learned_gate(label, f"{gate}_front", state, self.front_cam, front, "lower_front",
-                                       "front camera: not clear to lower")
+                                       "front camera: not clear to lower", ask="Is it clear to lower?")
                 return
             try:
                 self.corr.on_lower_blocked(gate, attempt, attempts, v)
@@ -161,14 +161,15 @@ class Gates:
         self.tele.image(f"{step}_released_down", self._frame(self.down_cam))
         cfg = self.L["vision"].get("seated_front", {})
         self._learned_gate(step, "seated_front", gate, self.front_cam, cfg, "not_seated_front",
-                           "front camera: plate does not look seated", roi=tuple(cfg.get("roi", [0.0, 0.55, 1.0, 1.0])))
+                           "front camera: plate does not look seated", roi=tuple(cfg.get("roi", [0.0, 0.55, 1.0, 1.0])),
+                           ask="Is the plate seated correctly?")
 
     def _stage_clear(self, step: str, deg: int):
         """Down camera at the clear pose above the stage, before it rotates: the plate seated, nothing else in view.
         The first `stage_check.auto_refs` rotations in each direction become its references; blocks once trained
         (stage_check.enforce "auto"), or as the config says."""
         self._learned_gate(step, "stage", f"to_{deg}", self.down_cam, self.L["vision"].get("stage_check", {}),
-                           "stage_not_clear", "camera: stage does not look clear to rotate")
+                           "stage_not_clear", "camera: stage does not look clear to rotate", ask="Is the stage clear to rotate?")
 
     def _slot_view(self, step: str, slot: str, expect: str):
         """Front-camera view of the slot from the approach point, with the verdict of the two-class check.
