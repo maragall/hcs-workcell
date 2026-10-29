@@ -1,8 +1,8 @@
 {
   "plate_at": "gripper",
-  "polar_angle": 0,
-  "grip": "short_edges",
-  "step": "place:polar",
+  "polar_angle": 90,
+  "grip": "long_edges",
+  "step": "place:hotel:A1",
   "step_done": false,
   "cycle": 0,
   "hotel": {
@@ -554,15 +554,36 @@
       "step": "place:microscope",
       "kind": "not_seated_front",
       "detail": "best correlation 0.164 below 0.645"
+    },
+    {
+      "t": 1793258999.9885275,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.215 below 0.583"
+    },
+    {
+      "t": 1793259026.786124,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "lower_front",
+      "detail": "best correlation 0.125 below 0.658"
+    },
+    {
+      "t": 1793259105.365135,
+      "cycle": 0,
+      "step": "place:hotel:A1 slide in (fast part)",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3873, 'errMsg': '2026-10-29 00:31:42.990 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-29 00:31:42.998 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-29 00:31:43.006 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-29 00:31:43.006 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-29 00:31:43.006 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-29 00:31:43.006 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-29 00:31:43.006 Motion error: external axis 2 servo enable failed'}] after: linear move did not reach [286.4, 137.4, 98.8]; at [285.2, 137.2, 98.7]"
     }
   ],
   "last_safe_pose": [
-    120.87,
-    304.223,
-    328.589,
+    192.45,
+    137.364,
+    98.752,
     0.0,
     -0.0,
-    96.698
+    0.2243
   ],
-  "updated": 1793258906.6963685
+  "updated": 1793259105.365135
 }

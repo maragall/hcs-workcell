@@ -972,7 +972,17 @@ class Bringup:
             cyc = self.cyc()
             slot = free_slot(cyc)
             out, _ = cyc._steps(slot)
-            self.guard(lambda: cyc._run_steps(out[4:]))                                  # scan, into the free slot
+            st = cyc.store.s
+            if st.plate_at == "gripper" and st.grip == "long_edges":
+                steps = out[4:]                                                          # held by the long edges: scan, into the free slot
+            else:
+                print("   the plate is on the rotation module: turn it to 90, grip the long edges, scan, park it in the free slot")
+                P0 = F0 = c.layout()["fixtures"]["polar"]["pose_at_0"]["pose"]
+                self.guard(lambda: cyc.move_to("polar.pose_at_0"))
+                st.plate_at, st.grip, st.step_done = "polar", "none", True
+                cyc.store.save()
+                steps = out[2:]                                                          # the module turns the plate to 90 and the long-edge grip
+            self.guard(lambda: cyc._run_steps(steps))
             self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))           # the list stays true: the plate is in `slot` now
             self.found.pop("test_slot", None)
             return {"plate": f"held by the long edges -> hotel {slot}"}
