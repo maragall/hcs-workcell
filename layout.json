@@ -117,7 +117,7 @@
       "long_edges": 8.2
     },
     "closed": {
-      "short_edges": 24.82,
+      "short_edges": 24.83,
       "long_edges": 3.71
     },
     "tolerance": 0.1,
@@ -149,8 +149,8 @@
     "_tolerances": "grasp 0.08 (fresh grasp, measured sd 0.007); release 0.3 (0.6 mm, a carried plate may settle)",
     "accept_band": {
       "short_edges": [
-        24.72,
-        25.32
+        24.73,
+        25.33
       ],
       "long_edges": [
         3.61,
@@ -1460,10 +1460,10 @@
       }
     },
     "grips": {
-      "short_closed": 24.82,
+      "short_closed": 24.83,
       "long_closed": 3.71,
-      "grip_offset": 31.675,
-      "measured_at": "2026-10-29 00:05:55"
+      "grip_offset": 0.0,
+      "measured_at": "2026-10-29 00:19:14"
     },
     "microscope": {
       "seat_pose": [
