@@ -865,6 +865,7 @@ class Bringup:
                 time.sleep(0.2)
             self.squid.home()
             self.guard(lambda: cyc._run_steps(out))
+            self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))           # the list stays true: the plate is in `slot` now
             return {"plate": f"module -> {self.scope} -> module -> hotel {slot}", "acquisitions": getattr(self.squid, "acquisitions", "n/a")}
 
         return Section("test", [Step("polar", "module to microscope stage, acquire, back to the module, grip the long edges, to a free hotel slot", run, moves=True)])
