@@ -186,7 +186,7 @@ class Hotel:
             ready = None
         if sv is None and ready is None:                     # nobody looked: not the same as "empty"
             raise StopSafe(f"{step}: no view of {slot}; the front camera and the live detection both failed")
-        occupied = sv is not None and sv.decision == "occupied"          # placing onto a plate: always blocks
+        occupied = sv is not None and sv.decision == "occupied" and self._enforce(self.slot_cfg, self.slots.ready(slot))      # the picture blocks only when the gate is enforced; the ledger above always does
         if not occupied and (sv is None or sv.decision == "unknown") and ready:
             occupied = not self.corr.operator_or_stop(step, f"{slot} may be occupied (vendor live detection)",
                                                       "Slot is actually empty?")
