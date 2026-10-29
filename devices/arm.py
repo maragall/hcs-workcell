@@ -110,14 +110,25 @@ class VendorRobot:
             raise RobotFault("SetSpeedAsync refused")
         self._speed = fraction
 
+    def _read(self, get):
+        """A readout (it moves nothing): when the SDK says the device is not connected, connect again once and read again."""
+        try:
+            return get()
+        except Exception as e:
+            self._log("robot", "reconnect", f"readout failed ({str(e)[:60]}): connecting again")
+            self.disconnect()
+            time.sleep(1.0)
+            self.connect()
+            return get()
+
     def pose(self):
-        return [float(v) for v in self._r.GetCurPoseAsync()]
+        return self._read(lambda: [float(v) for v in self._r.GetCurPoseAsync()])
 
     def joints(self):
-        return [float(v) for v in self._r.GetCurJointAsync()]
+        return self._read(lambda: [float(v) for v in self._r.GetCurJointAsync()])
 
     def jaw(self):
-        return float(list(self._r.GetCurExtJointAsync())[self.grip_axis])
+        return self._read(lambda: float(list(self._r.GetCurExtJointAsync())[self.grip_axis]))
 
     def _verify_pose(self, p, ok: bool, kind: str, tol: float = 1.0, timeout: float = 60.0):
         """Raises MotionRefused when the pose is not reached."""

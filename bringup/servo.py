@@ -55,6 +55,9 @@ def _rms(e: np.ndarray) -> float:
     return float(np.sqrt(np.mean(np.sum(np.asarray(e).reshape(-1, 2) ** 2, axis=1))))
 
 
+STALL_OK_PX = 25.0               # the error floor accepted when three steps in a row stop improving it
+
+
 class Servo:
     def __init__(self, read_corners: Callable[[], Optional[np.ndarray]],
                  move_wrist: Callable[[float, float, float], Optional[Sequence[float]]],
@@ -202,7 +205,8 @@ class Servo:
             e = e_new
             seen.append(round(_rms(e), 1))
             settled = np.hypot(delta[0], delta[1]) < SETTLED_MM and abs(delta[2]) < SETTLED_DEG and _rms(e) <= 3 * self.tol_px
-            if _rms(e) <= self.tol_px or settled:    # under the tolerance, or the step is under what the arm can do
+            stalled = len(seen) > 3 and seen[-3] - seen[-1] < 0.3 and _rms(e) <= STALL_OK_PX       # a scale mismatch (the plate's height) leaves a floor that x, y and yaw cannot remove: they are right
+            if _rms(e) <= self.tol_px or settled or stalled:    # under the tolerance, or the step is under what the arm can do
                 return ServoResult(tuple(float(v) for v in self._pose), _rms(e), self.moves, iters, mm_px)
         raise ServoError(f"did not converge in {self.max_iter} steps: the corners are still {_rms(e):.1f} px off (px per step {seen})")
 
