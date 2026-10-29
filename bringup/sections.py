@@ -799,7 +799,6 @@ class Bringup:
 
         return Section("microscope.toml", [
             Step("computer", "read the stage travel limits from squid", limits),
-            Step("polar", "leave the scope zone for the module", route, moves=True),
             Step("polar", "drive the route with the empty hand", drive, moves=True)])
 
     # ---- clear the stage
@@ -820,6 +819,7 @@ class Bringup:
             self.guard(lambda: cyc.move_to("polar.pose_at_0"))
             if seen:
                 raise Refused("the aruco plate is still on the microscope stage: take it off, then run again from \"clear the stage\"")
+            self.found["stage_clear"] = True
             return {"stage": "clear"}
 
         return Section("clear the stage", [
@@ -854,7 +854,12 @@ class Bringup:
 
         def looks():
             cyc = self.cyc()
-            for loc, gate, pos in (("module", "polar@0", "polar.pose_at_0"), (self.scope, self.scope, self.scope)):
+            spots = [("module", "polar@0", "polar.pose_at_0")]
+            if self.found.get("stage_clear"):
+                seen[self.scope] = "empty"                  # the stage was looked at a moment ago (clear the stage): no second trip over the microscope
+            else:
+                spots.append((self.scope, self.scope, self.scope))
+            for loc, gate, pos in spots:
                 self.guard(lambda: cyc.move_to(pos))
                 img = cyc._frame(cyc.down_cam)
                 full = cyc.lower.verdict(gate, "plate_present", img) if img else None
