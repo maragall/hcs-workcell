@@ -514,6 +514,12 @@ class Bringup:
                     # the tab with the tag is at the far end of the plate: the module turns the plate half a turn (the arm clears it)
                     self.guard(lambda: cyc._polar_rotate(180, P0))
             prev = self.setup_node(L).get("module_tag")
+            if prev:                                    # a reference taken from another view can never be matched: take a new one
+                pv, now_z = prev.get("view") or [0, 0, 0], float(c.robot.pose()[2])
+                if (math.hypot(pv[0] - view[0], pv[1] - view[1]) > 15.0 or abs(((pv[2] - view[2] + 180) % 360) - 180) > 8.0
+                        or abs(float(prev.get("view_z", now_z)) - now_z) > 3.0):
+                    c.note("the stored tag reference was taken from a different view: taking a new one")
+                    prev = None
             try:
                 if prev:
                     got = s.align(np.array(prev["corners"], float), start_pose=view)
@@ -530,7 +536,10 @@ class Bringup:
             def write(L):
                 n = self.setup_node(L)
                 n.update(plate_offset=offset_, plate_offset_at=_stamp())
-                n.setdefault("module_tag", dict(tag, taken_at=_stamp()))
+                if prev:
+                    n.setdefault("module_tag", dict(tag, taken_at=_stamp()))
+                else:
+                    n["module_tag"] = dict(tag, taken_at=_stamp())
             self.edit(write)
             return {"plate_offset": offset_, "tag": "reference taken" if not prev else "found again"}
 
