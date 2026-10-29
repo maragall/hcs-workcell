@@ -977,7 +977,6 @@ class Bringup:
                 steps = out[4:]                                                          # held by the long edges: scan, into the free slot
             else:
                 print("   the plate is on the rotation module: turn it to 90, grip the long edges, scan, park it in the free slot")
-                P0 = F0 = c.layout()["fixtures"]["polar"]["pose_at_0"]["pose"]
                 self.guard(lambda: cyc.move_to("polar.pose_at_0"))
                 st.plate_at, st.grip, st.step_done = "polar", "none", True
                 cyc.store.save()
