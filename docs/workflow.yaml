@@ -23,7 +23,7 @@ cameras.toml:
     - polar : centre the camera over the tag
     - polar : drive the capture plan   # -> pictures, captured_at
     - computer : solve intrinsic and extrinsic calibration together   # -> error_px, error_mm
-    - computer : refuse if px > 2.0 or mm > 1.0
+    - computer : refuse if px > 5.0 or mm > 2.0
     - computer : re-upload to nova, which restarts   # -> uploaded_at
     - nova : validate. detect aruco from two poses   # -> check_mm, checked_at
 

@@ -51,7 +51,7 @@ prediction models train on.
 | section | what happens | where the result goes |
 |---|---|---|
 | connect | ports found, Squid homed (a Squid with no motors stays where it is), arm to the nest, module to 0 deg, camera over the module plate | the nest is `routes.nest` |
-| cameras.toml | down camera: aruco read, lens and camera-to-gripper solved together, refused above 2 px / 1 mm, uploaded, checked from two poses | `vision.calibration` |
+| cameras.toml | down camera: aruco read, lens and camera-to-gripper solved together, refused above 5 px / 2 mm, uploaded, checked from two poses | `vision.calibration` |
 | hotel.toml | arm to the nest (the hotel view), front camera picture; then the camera goes to the slot position of rows 2 and 4, one at a time, and the cell is asked "is there a slot here, yes or no" until it knows by itself: slots there mean 30, none 15 | `setup.hotel`, `fixtures.hotel.rows` |
 | swap | the aruco plate's tag, as seen from straight above the module, is the reference; **you** move the aruco plate to the microscope stage and put a real plate on the rotation module | `setup.module_tag`, `setup.plate_offset` |
 | grips.toml | short and long grip closed on the real plate, accept bands, three carry-seat-regrip cycles | `gripper.closed`, `gripper.accept_band`, `setup.grips` |

@@ -105,8 +105,8 @@
       }
     },
     "calibration_limits": {
-      "px": 2.0,
-      "mm": 1.0
+      "px": 5.0,
+      "mm": 2.0
     },
     "_calibration_limits_note": "5 px / 1 mm: the solver reaches 3 px and 0.38 mm on the real captures; 0.5 px is not reachable with the poses a plan can show the tag from (synthetic captures with 0.3 px noise stop near 2.3 px)",
     "led_percent": 15

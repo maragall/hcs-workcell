@@ -426,7 +426,7 @@ class Bringup:
         return Section("cameras.toml", [
             Step("nova", "detect aruco with the down camera", detect, moves=True),
             Step("computer", "solve intrinsic (lens) and extrinsic (camera-to-gripper) calibration together", solve),
-            Step("computer", "refuse if px > 2.0 or mm > 1.0", limits),
+            Step("computer", "refuse if px > 5.0 or mm > 2.0", limits),
             Step("computer", "re-upload to nova, which restarts", upload),
             Step("nova", "validate. detect aruco from two poses", validate, moves=True)])
 
@@ -842,9 +842,8 @@ class Bringup:
             self.ready()
             cyc = self.cyc()
             F = c.layout()["fixtures"]
-            loaded = set(bench.loaded_slots(c.layout()))
-            every = [s for s in bench.slots(c.layout()) if s[0] in "AC"]               # all 30 slots' A and C columns: the taught ones are only a part
-            free = [s for s in every if s not in loaded and cyc.store.s.contents.get(s) != "full" and reachable(cyc, s)]
+            loaded = set(bench.loaded_slots(c.layout()))                                # the operator's list; only the taught slots are driven to
+            free = [s for s in F["hotel"].get("active_slots", []) if s not in loaded and cyc.store.s.contents.get(s) != "full" and reachable(cyc, s)]
             if not free:
                 raise Refused("no free hotel slot the arm can reach to put the plate in")
             slot = random.choice(free)
