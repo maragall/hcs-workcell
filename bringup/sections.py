@@ -568,7 +568,6 @@ class Bringup:
             return {"plate_offset": offset_, "tag": "reference taken" if not prev else "found again"}
 
         return Section("swap", [
-            Step("nova", "detect aruco on the plate in the rotation module with the down camera (the module turns the plate half a turn if the tag is at the far end)", read_plate, moves=True),
             Step("user", "take the aruco plate off the rotation module and set it flat in the microscope's plate holder; then drag the arm "
                          "so the open fingers straddle the plate as they would to grip it, the claw square to the instrument, and press Enter", before=self.loosen),
             Step("computer", "take that pose as the microscope seat", lambda: self.stage_hover(hand_is_seat=True)),
