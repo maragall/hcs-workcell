@@ -459,26 +459,26 @@
       },
       "pose_at_90": {
         "pose": [
-          306.338,
-          323.474,
-          67.687,
+          315.92,
+          305.855,
+          67.868,
           0.0,
           -0.0,
-          -89.4695
+          -92.159
         ],
-        "taught_at": "2026-10-28 20:17:28",
-        "jaw_at_teach": 3.946,
+        "taught_at": "2026-10-29 00:15:23",
+        "jaw_at_teach": 3.889,
         "vendor_teach": {
           "name": "polar90-wide",
           "pick_method": "wide",
-          "id": "286892cc-0e27-4c96-9157-cd4c048a5391",
+          "id": "f49e6c43-a5f2-4731-82ad-d37e54e30380",
           "workspace": "autoteach"
         },
         "joints_at_teach": [
-          29.089,
-          38.66,
-          -135.6,
-          7.47
+          29.269,
+          32.328,
+          -128.331,
+          3.844
         ],
         "stage_axis_at_teach": -0.099,
         "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\polar_pose_at_90",
@@ -550,7 +550,7 @@
       "headroom_mm": 17,
       "grip_back_mm": {
         "30": 31.675,
-        "15": 31.675
+        "15": 0.0
       },
       "_headroom_note": "30-plate hotel, 2026-10-22: 17 mm above a seated plate. preflight refuses a run while lift_mm is not below it; lift_mm 25 predates this hotel and must be re-taught from the plate height and the finger stand-off",
       "columns": [
@@ -560,7 +560,7 @@
       ],
       "taught": {
         "A1": [
-          261.666,
+          293.341,
           137.174,
           74.632,
           0.0,
@@ -568,7 +568,7 @@
           -0.9959
         ],
         "A9": [
-          259.385,
+          291.06,
           136.889,
           379.06,
           0.0,
@@ -576,7 +576,7 @@
           -0.6795
         ],
         "B1": [
-          262.312,
+          293.987,
           0.651,
           72.126,
           0,
@@ -584,7 +584,7 @@
           -1.0275
         ],
         "C1": [
-          261.305,
+          292.98,
           -129.531,
           71.951,
           0,
@@ -592,7 +592,7 @@
           -1.0267
         ],
         "C9": [
-          261.828,
+          293.503,
           -128.356,
           378.99,
           0.0,
@@ -611,7 +611,7 @@
       "taught_detail": {
         "A1": {
           "pose": [
-            261.666,
+            293.341,
             137.174,
             74.632,
             0.0,
@@ -631,7 +631,7 @@
         },
         "A9": {
           "pose": [
-            259.385,
+            291.06,
             136.889,
             379.06,
             0.0,
@@ -651,7 +651,7 @@
         },
         "C9": {
           "pose": [
-            261.828,
+            293.503,
             -128.356,
             378.99,
             0.0,
@@ -738,7 +738,11 @@
       "tray_thickness_mm": 8.0,
       "tray_clearance_mm": 1.5,
       "_tray_note": "From the CAD: shelves 8 mm thick every 38 mm of row pitch. The carry lift is cut to what the gap between two trays allows (procedures/hotel.py _lift_for).",
-      "_grip_back_15_note": "2026-10-28 placeholder: the 30-slot value, until the 15-slot hotel's own is measured; the grips step refuses a null"
+      "_grip_back_15_note": "2026-10-29: 0. The long edges are gripped at the middle (pose_at_90 re-taught by hand, wrist 187.9 from the module axis like the short-edge grip's 186.5). The taught slot poses were for a plate gripped 31.675 further back, so their x was moved +31.675 (the 2026-10-22 shift undone).",
+      "_x_offset_2026_10_29": {
+        "dx_mm": 31.675,
+        "note": "undoes _x_offset_2026_10_22: the long edges are gripped at the middle again"
+      }
     },
     "microscope_2": {
       "pose": null,
@@ -846,8 +850,8 @@
       "_note": "The plate in the claw, as rectangles in the tool frame: its centre is 219.9 ahead of the wrist on the long edges (hotel: taught wrist x 261.7 against the CAD plate centre 481.6) and 186.5 on the short edges (module: wrist y 304.5 against axis y 118). The plate's front edge may be this far inside the hotel's footprint: at the approach point it is above the slot, about 33 mm in, before it slides in.",
       "long_edges": {
         "x": [
-          156.2,
-          283.6
+          124.525,
+          251.925
         ],
         "y": [
           -42.6,
@@ -864,7 +868,8 @@
           63.7
         ]
       },
-      "hotel_front_allowance_mm": 45.0
+      "hotel_front_allowance_mm": 45.0,
+      "_note_2026_10_29": "long_edges x moved -31.675: the plate is gripped at the middle, its centre about 188 ahead of the wrist"
     },
     "axis_keepout_mm": 60.0
   },
