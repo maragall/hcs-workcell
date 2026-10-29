@@ -164,6 +164,9 @@ class Motion:
         if self.safety.regions.get(self.safety.region_of(hover), {}).get("no_swing"):
             raise SafetyViolation(f"{label}: trajectory must end at the hover inside a no-swing zone "
                                   f"(arm is {max(abs(here[i] - hover[i]) for i in range(3)):.0f} mm away)")
+        if self._planned():                                  # the planner's way (the claw and the held plate checked against the volumes), not the controller's joint interpolation:
+            self.go_to(hover, label)                         # from A3 it swung the plate through something low and stopped on axis 4 (2026-10-29)
+            return
         self._move("J", hover, label, speed)
 
     def _waypoints(self, name: str, reverse: bool = False):
