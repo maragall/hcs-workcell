@@ -296,6 +296,7 @@ class Motion:
     def go_to(self, target: List[float], name: str) -> None:
         """move_to for a pose that is not a taught position (the setup script's computed views)."""
         grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
+        self.tele.log("move", f"move_to {name}", "planning a new route")
         route = plan(self.L, self.safety, self.robot.pose(), target, self._position_here(), name,
                      holding=grip if grip and grip != "none" else None)
         self.tele.log("move", f"move_to {name}", route.name, taught=route.taught, waypoints=len(route.poses))
