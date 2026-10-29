@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Optional, Sequence
 
 import cv2
 import numpy as np
 
 DEFAULT_SPEED = 0.1
+SETTLE_S = 1.0                  # after a move the arm still creeps a few hundredths of a mm: 0.5 px at 19 px/mm (measured 2026-10-28)
 
 
 def run_plan(poses: Optional[Sequence[Sequence[float]]], camera: str, robot, box, out_dir: str,
@@ -30,6 +32,7 @@ def run_plan(poses: Optional[Sequence[Sequence[float]]], camera: str, robot, box
         if stop is not None and stop.is_set():
             return i - 1
         robot.move_linear([float(v) for v in p])
+        time.sleep(SETTLE_S)
         _grab(camera, robot, box, out_dir, i, led)
     return have + len(poses)
 

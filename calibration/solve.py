@@ -55,6 +55,7 @@ class Result:
     images: int
     unobservable: Tuple[str, ...] = ()
     skipped: Tuple[str, ...] = ()
+    marker_shape_mm: Tuple[float, ...] = ()      # (4 corners x dx, dy): how the real tag differs from a 40 mm square, when fitted
 
     def write(self, out_dir: str) -> Tuple[str, str]:
         os.makedirs(out_dir, exist_ok=True)
@@ -232,16 +233,17 @@ def fit(caps: Captures, start: halcon.CamParam, marker_size_m: float, sy: float 
 
 
 # ------------------------------------------------------------------ the staged solve for a flat marker at a known height
-STAGES = (("focus", "cx", "cy"), ("focus", "cx", "cy", "k1"), ("focus", "cx", "cy", "k1", "k2"))
+STAGES = (("focus", "cx", "cy", "sx"), ("focus", "cx", "cy", "sx", "k1"), ("focus", "cx", "cy", "sx", "k1", "k2"))
+# sx: the pixel aspect. Measured on the arm 2026-10-28 (shifts per mm of x and of y move): 19.03 vs 18.69 px/mm, 1.8 % apart, 89.6 deg
 # no K3 / P1 / P2 stage: with a dozen pictures they ran to their bounds (2026-10-28) and only soaked up the corner bias
 FLAT_SCALE = {"r1": 1, "r2": 1, "r3": 1, "tx": .1, "ty": .1, "tz": .1, "mx": .1, "my": .1, "myaw": 1, "focus": .1, "cx": 100,
-              "cy": 100, "k1": 1e4, "k2": 1e9, "k3": 1e14, "p1": 10.0, "p2": 10.0}
-FLAT_NAMES = ("r1", "r2", "r3", "tx", "ty", "tz", "mx", "my", "myaw", "focus", "cx", "cy", "k1", "k2", "k3", "p1", "p2")
+              "cy": 100, "k1": 1e4, "k2": 1e9, "k3": 1e14, "p1": 10.0, "p2": 10.0, "sx": 0.01}
+FLAT_NAMES = ("r1", "r2", "r3", "tx", "ty", "tz", "mx", "my", "myaw", "focus", "cx", "cy", "k1", "k2", "k3", "p1", "p2", "sx")
 EXTRINSICS = FLAT_NAMES[:9]
 # the focal length trades against the camera's height when the marker height is pinned and the plan has few heights, so every
 # parameter stays near where it started: a lens is a few percent off, a principal point a few hundred pixels
 FLAT_BOUND = {"r1": 10, "r2": 10, "r3": 10, "tx": 0.4, "ty": 0.4, "tz": 0.4, "mx": 1.0, "my": 1.0, "myaw": 20.0, "focus": 0.12,
-              "cx": 300.0, "cy": 300.0, "k1": 3.0, "k2": 30.0, "k3": 30.0, "p1": 30.0, "p2": 30.0}
+              "cx": 300.0, "cy": 300.0, "k1": 3.0, "k2": 30.0, "k3": 30.0, "p1": 30.0, "p2": 30.0, "sx": 5.0}
 START_YAWS_DEG, START_CAM_Z_M, CAM_AHEAD_M = range(0, 360, 30), (-0.3, -0.15, 0.0, 0.1), 0.115
 REFINE_STARTS = 3                 # the sweep is a few iterations each; only the best starts are run to the end
 MAX_TAG_FRACTION = 0.35           # a tag wider than this share of the picture is too close: out of focus, at the lens's edge
@@ -264,7 +266,7 @@ def distinct(caps: Captures, tol_mm: float = 0.5, tol_deg: float = 0.5) -> List[
 
 
 def _flat_model(z, start: halcon.CamParam, marker_z: float):
-    cam = replace(start, focus=start.focus * (1 + z[9]), cx=start.cx + z[10], cy=start.cy + z[11],
+    cam = replace(start, focus=start.focus * (1 + z[9]), cx=start.cx + z[10], cy=start.cy + z[11], sx=start.sx * (1 + 0.01 * z[17]),
                   poly=(start.poly[0] + z[12] * 1e4, start.poly[1] + z[13] * 1e9, start.poly[2] + z[14] * 1e14,
                         start.poly[3] + z[15] * 10.0, start.poly[4] + z[16] * 10.0))
     T_bm = np.eye(4)
@@ -281,6 +283,39 @@ def _flat_residuals(z, T_bt, corners, obj, start, marker_z):
         P = T_ct @ _inv(T) @ T_bm
         out.append(cam.project(obj @ P[:3, :3].T + P[:3, 3]) - c)
     return np.concatenate(out).ravel()
+
+
+SHAPE_BOUND_MM = 0.8
+
+
+def _fit_shape(z0, names, args):
+    """The last stage: the same fit with the four corners of the tag free to sit a fraction of a mm off a perfect square, one set
+    shared by every picture (it is the tag's shape, not the arm's). The practice plate's tag fits 1.88 px as a square and 0.80 px
+    with its corners moved by 0.03 to 0.4 mm (2026-10-28): the print is not square to the 0.2 mm the drawing allows. Corner 0
+    stays on the square so the offsets are not also a shift of the whole tag (the marker pose is free already)."""
+    T_bt, corners, obj, start, marker_z = args
+    idx = [FLAT_NAMES.index(n) for n in names]
+    lo = np.array([-FLAT_BOUND[n] for n in names] + [-SHAPE_BOUND_MM] * 6)
+    hi = -lo
+    scale = np.array([FLAT_SCALE[n] for n in names] + [0.1] * 6)
+
+    def f(v):
+        z = z0.copy()
+        z[idx] = v[:len(idx)]
+        return _flat_residuals(z, T_bt, corners, _with_shape(obj, v[len(idx):]), start, marker_z)
+    x0 = np.concatenate([z0[idx], np.zeros(6)])
+    r = least_squares(f, np.clip(x0, lo + 1e-9, hi - 1e-9), x_scale=scale, bounds=(lo, hi), xtol=1e-13, ftol=1e-13, max_nfev=600)
+    z = z0.copy()
+    z[idx] = r.x[:len(idx)]
+    px = float(np.sqrt(np.mean(np.sum(r.fun.reshape(-1, 2) ** 2, axis=1))))
+    return z, px, r.x[len(idx):]
+
+
+def _with_shape(obj: np.ndarray, shape_mm) -> np.ndarray:
+    """The marker's object points with corners 1..3 moved by `shape_mm` (3 x 2, in mm)."""
+    out = obj.copy()
+    out[1:, :2] += np.asarray(shape_mm, float).reshape(3, 2) * 1e-3
+    return out
 
 
 def _fit_names(z0, names, args, max_nfev: int = 600, loss: str = "soft_l1"):
@@ -353,6 +388,7 @@ def fit_flat(caps: Captures, start: halcon.CamParam, marker_size_m: float, marke
     z, px, res = _fit_names(z, EXTRINSICS, args, loss="linear")      # the basin is found and the outliers dropped: plain least squares
     for names in STAGES:
         z, px, res = _fit_names(z, EXTRINSICS + names, args, loss="linear")
+    z, px, shape = _fit_shape(z, tuple(EXTRINSICS + STAGES[-1]), args)
     cam, T_tc, T_bm = _flat_model(z, start, marker_z_m)
     LAST.update(files=[os.path.basename(caps.files[i]) for i in use], z=z, res=res.reshape(len(use), 4, 2), names=FLAT_NAMES)   # for diagnosis
     errs = [np.linalg.norm((_inv(T_tc) @ _inv(T) @ T_bm)[:3, 3] - marker_pose(c, cam, marker_size_m)[:3, 3])
@@ -360,4 +396,4 @@ def fit_flat(caps: Captures, start: halcon.CamParam, marker_size_m: float, marke
     kept = {caps.files[i] for i in use}
     skipped = tuple(caps.skipped) + tuple(os.path.basename(f) for f in caps.files if f not in kept)
     return Result(cam.with_error(px), halcon.Pose.from_matrix(T_tc), halcon.Pose.from_matrix(T_bm), px, float(np.mean(errs)),
-                  len(use), ("marker height",), skipped)
+                  len(use), ("marker height",), skipped, tuple(float(v) for v in shape))
