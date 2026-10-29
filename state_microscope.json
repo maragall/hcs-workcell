@@ -1,8 +1,8 @@
 {
  "plate_at": "polar",
- "polar_angle": 0,
+ "polar_angle": 90,
  "grip": "none",
- "step": "place:polar",
+ "step": "polar:0",
  "step_done": true,
  "cycle": 0,
  "hotel": {
@@ -11,14 +11,15 @@
   "B9": "",
   "C9": "",
   "C7": "",
-  "B7": ""
+  "B7": "",
+  "A3": ""
  },
  "plate_id": "",
  "contents": {
   "A1": "empty",
   "B1": "empty",
   "C1": "empty",
-  "A3": "empty",
+  "A3": "full",
   "B3": "empty",
   "C3": "empty",
   "A5": "full",
@@ -34,7 +35,7 @@
   "module": "full",
   "gripper": "empty"
  },
- "home_slot": "B3",
+ "home_slot": "A1",
  "faults": [
   {
    "t": 1793157153.533813,
@@ -791,15 +792,148 @@
    "step": "place:polar",
    "kind": "not_seated_front",
    "detail": "best correlation 0.236 below 0.550"
+  },
+  {
+   "t": 1793268755.1394596,
+   "cycle": 0,
+   "step": "pick:polar",
+   "kind": "lower_front",
+   "detail": "best correlation 0.727 below 0.878"
+  },
+  {
+   "t": 1793268762.725741,
+   "cycle": 0,
+   "step": "pick:polar",
+   "kind": "not_held",
+   "detail": "best correlation 0.433 below 0.550"
+  },
+  {
+   "t": 1793268841.9521463,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation -0.017 below 0.645"
+  },
+  {
+   "t": 1793268845.858609,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated",
+   "detail": "best correlation 0.413 below 0.550"
+  },
+  {
+   "t": 1793268860.5395608,
+   "cycle": 0,
+   "step": "pick:microscope",
+   "kind": "not_held",
+   "detail": "best correlation 0.422 below 0.550"
+  },
+  {
+   "t": 1793268956.7294693,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.439 below 0.583"
+  },
+  {
+   "t": 1793268959.0754943,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.212 below 0.550"
+  },
+  {
+   "t": 1793268962.7161343,
+   "cycle": 0,
+   "step": "polar:90",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.426 below 0.550"
+  },
+  {
+   "t": 1793268969.4188964,
+   "cycle": 0,
+   "step": "pick:polar",
+   "kind": "lower_front",
+   "detail": "best correlation 0.142 below 0.658"
+  },
+  {
+   "t": 1793269044.517527,
+   "cycle": 0,
+   "step": "place:hotel:A1",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.419 below 0.550"
+  },
+  {
+   "t": 1793269137.1748774,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.228 below 0.550"
+  },
+  {
+   "t": 1793269139.5236385,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.529 below 0.550"
+  },
+  {
+   "t": 1793269151.4277685,
+   "cycle": 0,
+   "step": "pick:polar",
+   "kind": "lower_front",
+   "detail": "best correlation 0.748 below 0.878"
+  },
+  {
+   "t": 1793269240.9835308,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation -0.016 below 0.645"
+  },
+  {
+   "t": 1793269244.9715798,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated",
+   "detail": "best correlation 0.373 below 0.550"
+  },
+  {
+   "t": 1793269352.8914244,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.422 below 0.583"
+  },
+  {
+   "t": 1793269355.2703834,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.371 below 0.550"
+  },
+  {
+   "t": 1793269367.2486968,
+   "cycle": 0,
+   "step": "pick:polar",
+   "kind": "lower_front",
+   "detail": "best correlation 0.140 below 0.658"
+  },
+  {
+   "t": 1793269458.2396634,
+   "cycle": 0,
+   "step": "place:hotel:A9 lower",
+   "kind": "controller_error",
+   "detail": "[{'errCode': 3873, 'errMsg': '2026-10-29 03:24:15.185 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-29 03:24:15.193 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-29 03:24:15.201 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-29 03:24:15.065 Motion error: axis 1 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-29 03:24:15.073 Motion error: failed to enable axis 1 servo'}, {'errCode': 3960, 'errMsg': '2026-10-29 03:24:15.073 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-29 03:24:15.073 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-29 03:24:15.073 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-29 03:24:15.073 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-29 03:24:15.073 Motion error: external axis 2 servo enable failed'}] after: linear move did not reach [292.4, 137.4, 377.8]; at [293.4, 137.5, 390.4]"
   }
  ],
  "last_safe_pose": [
-  315.92,
-  305.855,
-  102.276,
+  292.449,
+  137.364,
+  383.755,
   0.0,
   -0.0,
-  -92.159
+  -1.0592
  ],
- "updated": 1793268734.492849
+ "updated": 1793269458.2396634
 }
