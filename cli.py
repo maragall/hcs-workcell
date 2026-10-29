@@ -920,7 +920,7 @@ def _tee_console(name: str) -> str:
 
         def write(self, text):
             self.stream.write(text)
-            log.write(re.sub(r"\[[0-9;]*m", "", text))
+            log.write(_plain(text))
 
         def flush(self):
             self.stream.flush()
