@@ -879,6 +879,16 @@ class Bringup:
             Step("computer", "detect plate or empty at each, then choose the first task", choose)])
 
     # ---- test
+    def _acquire(self):
+        c = self.cell
+        self.squid.acquire()
+        deadline = time.time() + ACQUISITION_TIMEOUT_S
+        while not self.squid.done():
+            if c.stop_event.is_set() or time.time() > deadline:
+                raise Refused("the acquisition did not finish")
+            time.sleep(0.2)
+        self.squid.home()
+
     def test(self) -> Section:
         c = self.cell
 
@@ -901,15 +911,27 @@ class Bringup:
             route = F[self.scope].get("trajectory", "microscope_to_polar")
             self.guard(lambda: cyc._pick("polar", P0, F["polar"], "short_edges", None, gate="polar@0"))
             self.guard(lambda: cyc._place(self.scope, F[self.scope]["pose"], F[self.scope], self.scope, route, reverse=True))
-            self.squid.acquire()
-            deadline = time.time() + ACQUISITION_TIMEOUT_S
-            while not self.squid.done():
-                if c.stop_event.is_set() or time.time() > deadline:
-                    raise Refused("the acquisition did not finish")
-                time.sleep(0.2)
-            self.squid.home()
+            self._acquire()
             self.guard(lambda: cyc._run_steps(out))
             self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))           # the list stays true: the plate is in `slot` now
             return {"plate": f"module -> {self.scope} -> module -> hotel {slot}", "acquisitions": getattr(self.squid, "acquisitions", "n/a")}
 
-        return Section("test", [Step("polar", "module to microscope stage, acquire, back to the module, grip the long edges, to a free hotel slot", run, moves=True)])
+        def rotate():
+            cyc = self.cyc()
+            F = c.layout()["fixtures"]
+            taught = [x for x in F["hotel"].get("active_slots", []) if x in set(bench.loaded_slots(c.layout())) and reachable(cyc, x)]
+            skipped = [x for x in bench.loaded_slots(c.layout()) if x not in taught]
+            done = []
+            for slot in taught:
+                out, back = cyc._steps(slot)
+                print(f"   rotate: {slot} to the microscope and back")
+                self.edit(lambda L, slot=slot: bench.set_loaded(L, [x for x in bench.loaded_slots(L) if x != slot]))      # in transit: the slot is empty
+                self.guard(lambda: cyc._run_steps(back))
+                self._acquire()
+                self.guard(lambda: cyc._run_steps(out))
+                self.edit(lambda L, slot=slot: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))       # a failure leaves it out: where the plate is, is not known
+                done.append(slot)
+            return {"rotated": done, "not taught, left alone": skipped}
+
+        return Section("test", [Step("polar", "module to microscope stage, acquire, back to the module, grip the long edges, to a free hotel slot", run, moves=True),
+                                Step("polar", "every plate in a taught slot to the microscope, acquire, back to its slot", rotate, moves=True)])
