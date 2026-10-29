@@ -215,7 +215,7 @@
           450
         ]
       },
-      "z_floor": 255.0,
+      "z_floor": 248.0,
       "_note": "microscope at x 123 y 400; polar stage sits at x 317 y 305, same y band but 200 mm away in x and 200 mm lower, so the zone is bounded in x",
       "no_swing": true,
       "max_lateral_mm": 5.0,
@@ -227,7 +227,7 @@
       "_free_above_z_note": "From the operator (2026-10-28), heights above the base: stage lips 210 mm, stage 190 mm, flatfield module 260 mm; the platform top is robot z 35.6 (CAD 93 + k), so the highest part is about robot z 296. The claw's lowest edge is the wrist z - 25: from wrist z 350 it clears everything by about 30 mm. Above this height the no-swing rule (vertical moves only) does not apply, so the camera can be moved sideways to see the tag.",
       "_max_lateral_note": "5.0 (was 2.0): the taught route ends 3 mm from the microscope pose that was re-taught after it; the hover is a free-air spot (nothing within 70 mm above the holder), so a 3 mm correction there is harmless. The seat shift the setup accepts is this value too.",
       "_max_yaw_note": "3.0 (was 0.5): the taught route ends at yaw 90.1, the microscope pose was re-taught at 87.8; the hover is a free-air spot",
-      "_floor_note": "255 (was 262.5): the seat the setup found is z 258.2, the plate rests on the holder there; the old floor refused the lift off the seat"
+      "_floor_note": "248: the hand-taught seat is z 254.4 (the plate rests there); the lift off the seat must not count as below the floor"
     },
     "stage_sweep": {
       "box": null,
