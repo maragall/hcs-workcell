@@ -930,6 +930,19 @@ def _tee_console(name: str) -> str:
 
 def cmd_setup(args):
     """The one-click setup in the terminal: each line printed, Enter on the user's, the machine's run in order."""
+    if getattr(args, "list", False):                      # the sections and their step numbers, so a run can start where it is needed
+        from bringup import sim
+        from bringup.cell import Cell
+        from bringup.sections import Bringup
+        from devices.fake_squid import FakeSquid
+        cell = Cell(*sim.build(), sim=True)
+        for sec in Bringup(cell, FakeSquid("microscope", 0.0), lambda p: "").sections():
+            print(f"{sec.name}")
+            for i, st in enumerate(sec.steps):
+                print(f"   step {i}: {st.actor} : {st.text[:95]}")
+        print(chr(10) + 'start in a section:  python cli.py setup --from "<section>"   at a step:  --step N   stop early:  --stop-after N')
+        cell.frames.stop()
+        return 0
     log_path = _tee_console("setup")
     print(f"this run is logged to {log_path} (and runs/setup_*/events.jsonl)")
 
@@ -1141,7 +1154,7 @@ def main():
     p.add_argument("--tolerance-mm", type=float, default=1.0); p.add_argument("--no-reboot", action="store_true")
     p.add_argument("--sim", action="store_true"); p.set_defaults(fn=cmd_calibrate)
     p = sub.add_parser("setup", help="the one-click setup: follow the printed steps, Enter after each of yours")
-    p.add_argument("--sim", action="store_true"); p.add_argument("--from", dest="start", help="continue from this section")
+    p.add_argument("--sim", action="store_true"); p.add_argument("--from", dest="start", help="continue from this section"); p.add_argument("--list", action="store_true", help="list the sections and their step numbers, then exit")
     p.add_argument("--yes", action="store_true", help="answer every prompt with Enter (simulator tests)")
     p.add_argument("--acquisition-s", type=float, default=0.0, help="how long the practice Squid pretends to image")
     p.add_argument("--auto", action="store_true", help="a driver is watching: answer 'hands clear' with Enter, stop before each user step (exit 3)")

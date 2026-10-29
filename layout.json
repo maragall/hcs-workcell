@@ -87,7 +87,7 @@
       "enforce": "auto",
       "_note": "down camera at the clear pose above the stage, before it rotates: the plate must look seated and nothing else in view. References collected by the cell per direction (to_0, to_90); auto: blocks once auto_refs are collected"
     },
-    "_marker_note": "the marker tab (aruco标定板 drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
+    "_marker_note": "the marker tab (aruco\u6807\u5b9a\u677f drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
     "calibration": {
       "auto_teach_camera": {
         "marker": "ok",
@@ -1244,7 +1244,7 @@
       "dz": 204.565,
       "dyaw": -95.73
     },
-    "plate_offset_at": "2026-10-28 00:40:22",
+    "plate_offset_at": "2026-10-28 19:32:32",
     "module_marker": [
       108.701,
       12.123,
@@ -1256,35 +1256,35 @@
     "module_tag": {
       "corners": [
         [
-          1108.193603515625,
-          139.97457885742188
+          2070.2601690869114,
+          1201.5153846071241
         ],
         [
-          1719.009521484375,
-          140.05859375
+          1357.383745620281,
+          1203.9649040923816
         ],
         [
-          1728.773681640625,
-          738.327392578125
+          1348.6428548404763,
+          508.97263048245156
         ],
         [
-          1117.5386962890625,
-          740.9517211914062
+          2055.043329839693,
+          505.2396456777297
         ]
       ],
       "view": [
-        311.631,
-        264.543,
-        -91.2624
+        310.937,
+        233.05,
+        -91.2623
       ],
       "grip": [
         312.512,
         304.533,
         -91.2625
       ],
-      "view_z": 229.7,
+      "view_z": 207.2,
       "grip_z": 66.807,
-      "taken_at": "2026-10-28 00:40:22"
+      "taken_at": "2026-10-28 19:32:32"
     },
     "microscope_hover": {
       "hand_pose": [

@@ -286,12 +286,20 @@ class Bringup:
         ahead = cad_poses.load_hardware()["claw"]["camera_ahead_of_wrist_mm"]
         return {"tag_xy": [p[0] + ahead * math.cos(yaw), p[1] + ahead * math.sin(yaw)], "dist_mm": dist}
 
+    @staticmethod
+    def _tag_orientation(corners) -> str:
+        """Which way round the plate sits, as the nearest quarter turn of the tag's first edge in the picture ("0", "90", "180", "270").
+        The plate turned half a turn on the module is its twin: a different reference."""
+        d = np.asarray(corners, float)[1] - np.asarray(corners, float)[0]
+        return str(int(round(math.degrees(math.atan2(d[1], d[0])) / 90.0)) * 90 % 360)
+
     def view_module(self) -> List[float]:
         """Take the camera over the module's plate and read the marker: the CAD pose first, then a small cross of
         offsets (the camera's sideways offset from the claw is not known). Remembers where it read."""
         c, v = self.cell, self.cell.layout()["vision"]
         cyc = self.cyc()
-        tries = [self.found["module_view"]] if self.found.get("module_view") else []
+        stored = self.setup_node(c.layout()).get("module_view")
+        tries = [self.found["module_view"]] if self.found.get("module_view") else ([stored] if stored else [])
         tries += [self.module_view_pose(a, b, z) for z in VIEW_LIFTS_MM for a, b in VIEW_SEARCH_MM]
         last = "no pose tried"
         for pose in tries:
@@ -301,8 +309,9 @@ class Bringup:
                 last = str(e)
                 continue
             try:
-                if any(c.vision.aruco_pose(v["down_camera"], 1, None, v["led"]).pixel):
+                if any(c.vision.aruco_pose(v["down_camera"], 1, None, v["led"]).pixel) or cameras._local_reads(c, v["down_camera"], v["led"]):
                     self.found["module_view"] = pose
+                    self.edit(lambda L, pose=pose: self.setup_node(L).update(module_view=[round(float(x), 3) for x in pose]))
                     return pose
             except Exception:
                 pass
@@ -513,7 +522,12 @@ class Bringup:
                                       f"orientation of the plate: {e}")
                     # the tab with the tag is at the far end of the plate: the module turns the plate half a turn (the arm clears it)
                     self.guard(lambda: cyc._polar_rotate(180, P0))
-            prev = self.setup_node(L).get("module_tag")
+            node = self.setup_node(L)
+            refs = dict(node.get("module_tags") or {})
+            if node.get("module_tag"):                                                   # the single reference of earlier runs
+                refs.setdefault(self._tag_orientation(np.array(node["module_tag"]["corners"], float)), node["module_tag"])
+            bucket = self._tag_orientation(corners)           # which way round the plate sits, from how the tag looks (0/90/180/270)
+            prev = refs.get(bucket)
             if prev:                                    # a reference taken from another view can never be matched: take a new one
                 pv, now_z = prev.get("view") or [0, 0, 0], float(c.robot.pose()[2])
                 if (math.hypot(pv[0] - view[0], pv[1] - view[1]) > 15.0 or abs(((pv[2] - view[2] + 180) % 360) - 180) > 8.0
@@ -536,10 +550,13 @@ class Bringup:
             def write(L):
                 n = self.setup_node(L)
                 n.update(plate_offset=offset_, plate_offset_at=_stamp())
-                if prev:
-                    n.setdefault("module_tag", dict(tag, taken_at=_stamp()))
-                else:
-                    n["module_tag"] = dict(tag, taken_at=_stamp())
+                held = dict(n.get("module_tags") or {})
+                for k, v in refs.items():
+                    held.setdefault(k, v)                      # every orientation seen keeps its own reference
+                if not prev:
+                    held[bucket] = dict(tag, taken_at=_stamp())
+                n["module_tags"] = held
+                n["module_tag"] = held[bucket]                 # the one the stage steps carry over
             self.edit(write)
             return {"plate_offset": offset_, "tag": "reference taken" if not prev else "found again"}
 
