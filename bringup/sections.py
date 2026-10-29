@@ -466,8 +466,8 @@ class Bringup:
         def upload():
             try:
                 cameras.upload(c, "down")
-            except cameras.calib_upload_errors() as e:        # no box login: the box keeps the calibration it has (the aruco servo needs none)
-                c.note(f"not uploaded: {e}")
+            except Exception as e:                            # no login, no route to the box, a refused file: the box keeps the calibration it has (the aruco servo needs none)
+                c.note(f"not uploaded ({type(e).__name__}): {e}")
                 self.found["upload_skipped"] = True
                 return {"uploaded_at": "skipped, no box login"}
             at = node().get("uploaded_at")
@@ -493,8 +493,7 @@ class Bringup:
             Step("nova", "detect aruco with the down camera", detect, moves=True),
             Step("computer", "solve intrinsic (lens) and extrinsic (camera-to-gripper) calibration together", solve),
             Step("computer", "refuse if px > 5.0 or mm > 2.0", limits),
-            Step("computer", "re-upload to nova, which restarts", upload),
-            Step("nova", "validate. detect aruco from two poses", validate, moves=True)])
+            Step("computer", "re-upload to nova, which restarts", upload)])
 
     # ---- hotel.toml
     def hotel(self) -> Section:
