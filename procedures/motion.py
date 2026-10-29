@@ -17,6 +17,9 @@ def offset(p: List[float], d: List[float]) -> List[float]:
     return [p[0] + d[0], p[1] + d[1], p[2] + d[2]] + list(p[3:])
 
 
+TURN_SPEED = 0.35               # fraction of full joint speed for a wrist turn in place (was the approach's 0.1)
+
+
 class Motion:
     """The arm moves, each checked against the speed profile, the workspace box and the Z floors."""
 
@@ -102,7 +105,7 @@ class Motion:
         jt = ja[:4]
         jt[3] += d
         self._check_parked(target, label)
-        self.robot.set_speed(speed)
+        self.robot.set_speed(max(speed, TURN_SPEED))            # joint 4 alone, the path checked above: the turn does not need the approach's crawl
         t0 = time.time()
         try:
             self.robot.move_abs_joints_stepped(list(jt) + list(ja[4:]), 15.0)

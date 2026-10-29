@@ -1,8 +1,8 @@
 {
-  "plate_at": "microscope",
-  "polar_angle": 0,
+  "plate_at": "polar",
+  "polar_angle": 90,
   "grip": "none",
-  "step": "pick:microscope",
+  "step": "pick:polar",
   "step_done": false,
   "cycle": 0,
   "hotel": {
@@ -31,8 +31,8 @@
     "A9": "full",
     "B9": "full",
     "C9": "full",
-    "module": "empty",
-    "microscope": "full",
+    "microscope": "empty",
+    "module": "unknown",
     "gripper": "empty"
   },
   "home_slot": "A1",
@@ -407,15 +407,92 @@
       "step": "jaw open",
       "kind": "jaw_refused",
       "detail": "external axis 1 stopped at 26.41, target 28.5 (sdk=False)"
+    },
+    {
+      "t": 1793257399.4844034,
+      "cycle": 0,
+      "step": "pick:microscope",
+      "kind": "not_held",
+      "detail": "best correlation -0.010 below 0.550"
+    },
+    {
+      "t": 1793257410.0044127,
+      "cycle": 0,
+      "step": "place:microscope",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.191 below 0.645"
+    },
+    {
+      "t": 1793257520.8316622,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.241 below 0.583"
+    },
+    {
+      "t": 1793257523.1262271,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.137 below 0.550"
+    },
+    {
+      "t": 1793257561.5070055,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.014 below 0.550"
+    },
+    {
+      "t": 1793257578.9806979,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.014 below 0.550"
+    },
+    {
+      "t": 1793257581.2777805,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.098 below 0.781"
+    },
+    {
+      "t": 1793257719.4916399,
+      "cycle": 0,
+      "step": "place:microscope",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.198 below 0.645"
+    },
+    {
+      "t": 1793257738.4618094,
+      "cycle": 0,
+      "step": "pick:microscope",
+      "kind": "not_held",
+      "detail": "best correlation 0.506 below 0.550"
+    },
+    {
+      "t": 1793257833.0971713,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.205 below 0.583"
+    },
+    {
+      "t": 1793257835.494784,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.413 below 0.550"
     }
   ],
   "last_safe_pose": [
-    118.824,
-    302.388,
-    350.007,
+    312.024,
+    305.696,
+    163.284,
     0.0,
     -0.0,
-    95.9807
+    -91.3398
   ],
-  "updated": 1793257160.4054208
+  "updated": 1793257842.6563075
 }

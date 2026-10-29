@@ -117,8 +117,8 @@
       "long_edges": 8.2
     },
     "closed": {
-      "short_edges": 24.81,
-      "long_edges": 3.69
+      "short_edges": 24.82,
+      "long_edges": 3.71
     },
     "tolerance": 0.1,
     "stall_lag": 0.3,
@@ -149,12 +149,12 @@
     "_tolerances": "grasp 0.08 (fresh grasp, measured sd 0.007); release 0.3 (0.6 mm, a carried plate may settle)",
     "accept_band": {
       "short_edges": [
-        24.71,
-        25.31
+        24.72,
+        25.32
       ],
       "long_edges": [
-        3.59,
-        4.74
+        3.61,
+        4.76
       ],
       "_note": "2026-10-22 new plate, grips read by hand in drag mode (operator): short 24.87, long 3.68; band = closed -0.1/+0.5 (short) and -0.1/+1.05 (long) as for the production plate. Opens widened by the same 2.5 / 2.2 so the clearance per side stays the same. Fixture signatures (microscope grasp_width) cleared: learned again by the first picks."
     }
@@ -265,12 +265,12 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        118.824,
-        302.388,
-        261.936,
+        120.87,
+        304.223,
+        261.884,
         0.0,
         0.0,
-        95.98
+        96.698
       ],
       "hover_mm": 66.7,
       "approach": {
@@ -288,7 +288,7 @@
       },
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
-      "taught_at": "2026-10-28 23:59:10",
+      "taught_at": "2026-10-29 00:02:53",
       "jaw_at_teach": 24.807,
       "vendor_teach": {
         "name": "microscope-short",
@@ -298,14 +298,14 @@
       },
       "hover": {
         "pose": [
-          118.824,
-          302.388,
-          328.636,
+          120.87,
+          304.223,
+          328.584,
           0.0,
           0.0,
-          95.98
+          96.698
         ],
-        "derived_from_seat": "2026-10-28 23:59:10"
+        "derived_from_seat": "2026-10-29 00:02:53"
       },
       "joints_at_teach": [
         210.184,
@@ -417,6 +417,16 @@
           0.0,
           0.0,
           94.942
+        ]
+      },
+      "previous_pose_2026_10_29": {
+        "pose": [
+          118.824,
+          302.388,
+          261.936,
+          0.0,
+          0.0,
+          95.98
         ]
       }
     },
@@ -1383,23 +1393,23 @@
     },
     "microscope_hover": {
       "hand_pose": [
-        118.824,
-        302.388,
-        261.936,
+        120.87,
+        304.223,
+        261.884,
         0.0,
         -0.0,
-        95.9804
+        96.6981
       ],
       "seat": [
-        118.824,
-        302.388,
-        261.936,
+        120.87,
+        304.223,
+        261.884,
         0.0,
         0.0,
-        95.98
+        96.698
       ],
-      "from_taught_mm": 4.1,
-      "at": "2026-10-28 23:59:10"
+      "from_taught_mm": 2.7,
+      "at": "2026-10-29 00:02:53"
     },
     "module_view": [
       310.937,
@@ -1445,10 +1455,10 @@
       }
     },
     "grips": {
-      "short_closed": 24.81,
-      "long_closed": 3.69,
+      "short_closed": 24.82,
+      "long_closed": 3.71,
       "grip_offset": 31.675,
-      "measured_at": "2026-10-28 23:33:06"
+      "measured_at": "2026-10-29 00:05:55"
     },
     "microscope": {
       "seat_pose": [
