@@ -708,21 +708,7 @@
         7,
         9
       ],
-      "loaded": {
-        "A": [
-          3,
-          5,
-          7
-        ],
-        "B": [
-          7,
-          9
-        ],
-        "C": [
-          7,
-          9
-        ]
-      },
+      "loaded": {},
       "_loaded_note": "ground truth (operator, 2026-10-28): column A holds plates on the odd rows, column C on the even rows, B none",
       "_x_offset_2026_10_22": {
         "dx_mm": -31.675,

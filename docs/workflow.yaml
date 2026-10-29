@@ -6,7 +6,7 @@ user : place squid on the indicated region (base 25 cm or more from the polar ba
 user : connect squid
 user : connect polar   # robot
 user : connect nova    # vision
-user : place a plate on the rotation module
+user : place one plate on the rotation module; the hotel is empty (the saved occupancy is an empty hotel, one plate in total)
 
 # Connect system modules
 connect:
