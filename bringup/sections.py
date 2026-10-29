@@ -156,6 +156,7 @@ class Bringup:
             if old and moved and moved > 0.5:
                 f[f"previous_pose_{time.strftime('%Y_%m_%d')}"] = {"pose": old}
             f["pose"], f["taught_at"] = seat, _stamp()
+            f["hover"] = {"pose": [seat[0], seat[1], round(seat[2] + float(f.get("hover_mm", 67.0)), 3)] + seat[3:], "derived_from_seat": _stamp()}     # the hover is the seat's, never a second teach
             if moved is None or moved > SEAT_MOVED_DROP_ROUTE_MM:
                 for name in [k for k in L.get("trajectories", {}) if k.startswith(f"{self.scope}_to_")]:
                     L["trajectories"].pop(name)
