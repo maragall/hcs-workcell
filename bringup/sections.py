@@ -588,6 +588,10 @@ class Bringup:
             F, p0, _ = poses()
             cyc = self.cyc()
             self.guard(lambda: cyc.move_to("polar.pose_at_0"))
+            if cyc.polar.driver == "ext_axis" and abs(((cyc.polar.read_angle() + 180.0) % 360.0) - 180.0) > 3.0:
+                print(f"   the module reads {cyc.polar.read_angle():.1f} deg: turning it to the short-edge grip (0) first")
+                self.guard(lambda: cyc._polar_rotate(0, p0))
+                self.guard(lambda: cyc.move_to("polar.pose_at_0"))
             self.guard(lambda: cyc._pick("polar", corrected(p0), F, "short_edges", None, gate="polar@0"))
             widths["short_edges"] = round(c.robot.jaw(), 2)
             return {"short_closed": widths["short_edges"]}
