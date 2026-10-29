@@ -561,7 +561,7 @@
       "taught": {
         "A1": [
           293.341,
-          134.174,
+          137.174,
           74.632,
           0.0,
           -0.0,
@@ -569,7 +569,7 @@
         ],
         "A9": [
           291.06,
-          133.889,
+          136.889,
           379.06,
           0.0,
           -0.0,
@@ -612,7 +612,7 @@
         "A1": {
           "pose": [
             293.341,
-            134.174,
+            137.174,
             74.632,
             0.0,
             -0.0,
@@ -632,7 +632,7 @@
         "A9": {
           "pose": [
             291.06,
-            133.889,
+            136.889,
             379.06,
             0.0,
             -0.0,
@@ -742,11 +742,6 @@
       "_x_offset_2026_10_29": {
         "dx_mm": 31.675,
         "note": "undoes _x_offset_2026_10_22: the long edges are gripped at the middle again"
-      },
-      "_y_nudge_2026_10_29": {
-        "column": "A",
-        "dy_mm": -3.0,
-        "note": "the plate hit the left (+y) wall of A1 on the first park with the middle grip. In the claw the plate sits about 3.8 mm to the left of the wrist (module axis 3.8 mm off the new grip's centre line): the column moved 3 mm toward -y. An estimate: adjust from what the next park shows."
       }
     },
     "microscope_2": {

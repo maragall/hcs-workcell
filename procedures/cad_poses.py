@@ -62,7 +62,9 @@ class CadPoses:
         b = sum((p[0] - mx) * (p[3] - wy) - (p[1] - my) * (p[2] - wx) for p in pts)
         theta = math.degrees(math.atan2(b, a)) if abs(a) + abs(b) > 1e-9 else 0.0
         rx, ry = _rot(theta, mx, my)
-        return {"theta_deg": theta, "x": wx - rx, "y": wy - ry, "z_row1": sum(p[4] for p in pts) / n}
+        yaws = [p[1] for _, p in self._taught_rows()]
+        yaw = sum(q[5] for q in yaws) / len(yaws) if yaws else theta
+        return {"theta_deg": theta, "yaw_deg": yaw, "x": wx - rx, "y": wy - ry, "z_row1": sum(p[4] for p in pts) / n}
 
     def fit_from_registration(self, layout: dict, reg) -> Dict[str, float]:
         """The same numbers as fit_from_taught, from a Registration and the claw's geometry, with no taught pose: the wrist stands
@@ -89,7 +91,7 @@ class CadPoses:
         col, row = slot[:1], int(slot[1:])
         f = self.fit
         x, y = _rot(f["theta_deg"], self.cx, self.cols[col])
-        return [x + f["x"], y + f["y"], f["z_row1"] + self.pitch * (row - 1), 0.0, 0.0, f["theta_deg"] if yaw is None else yaw]
+        return [x + f["x"], y + f["y"], f["z_row1"] + self.pitch * (row - 1), 0.0, 0.0, f.get("yaw_deg", f["theta_deg"]) if yaw is None else yaw]
 
     def compare(self) -> List[dict]:
         """Per taught hotel slot: the CAD pose and the difference (taught minus CAD), mm and degrees."""
