@@ -1231,7 +1231,8 @@
     "hotel": {
       "size": 30,
       "rows_seen": {},
-      "detected_at": "set by hand 2026-10-28 (30-slot hotel; hotel.toml skipped)"
+      "detected_at": "set by hand 2026-10-28 (30-slot hotel; hotel.toml skipped)",
+      "occupancy": "by hand"
     },
     "plate_offset": [
       0.0,

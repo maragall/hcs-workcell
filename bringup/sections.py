@@ -780,6 +780,10 @@ class Bringup:
             cyc = self.cyc()
             L = c.layout()
             names = [s for s in bench.slots(L) if s[0] in bench.state(L)["taught_columns"]]
+            if L.get("setup", {}).get("hotel", {}).get("occupancy") == "by hand":      # the operator's list (layout fixtures.hotel.loaded) is the truth
+                loaded = set(bench.loaded_slots(L))
+                seen.update({s: "full" if s in loaded else "empty" for s in names})
+                return {"slots": f"{len(loaded)} full, {len(names) - len(loaded)} empty (by hand, not looked at)"}
             self.guard(lambda: cyc.move_to("polar.pose_at_0"))
             self.guard(cyc._to_hotel)
             for s in names:
@@ -838,7 +842,9 @@ class Bringup:
             self.ready()
             cyc = self.cyc()
             F = c.layout()["fixtures"]
-            free = [s for s in F["hotel"].get("active_slots", []) if cyc.store.s.contents.get(s) != "full" and reachable(cyc, s)]
+            loaded = set(bench.loaded_slots(c.layout()))
+            every = [s for s in bench.slots(c.layout()) if s[0] in "AC"]               # all 30 slots' A and C columns: the taught ones are only a part
+            free = [s for s in every if s not in loaded and cyc.store.s.contents.get(s) != "full" and reachable(cyc, s)]
             if not free:
                 raise Refused("no free hotel slot the arm can reach to put the plate in")
             slot = random.choice(free)
