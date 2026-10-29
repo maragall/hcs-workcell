@@ -982,29 +982,33 @@ class Bringup:
             longest, so the hole walks down the column and every plate moves. It needs one empty taught slot besides the one the test
             plate took: the rotation module is the way in and out of the microscope, so it cannot be a spare place."""
             cyc = self.cyc()
-            F = c.layout()["fixtures"]
-            have = set(bench.loaded_slots(c.layout()))
-            taught = [x for x in F["hotel"].get("active_slots", []) if reachable(cyc, x)]
-            full = [x for x in taught if x in have]
-            holes = [x for x in taught if x not in have and cyc.store.s.contents.get(x) != "full"]
-            skipped = [x for x in bench.loaded_slots(c.layout()) if x not in taught]
-            if not holes:
-                raise Refused("the rotation needs one empty taught slot to start (every taught slot is full once the test plate is in). "
-                              "Take a plate out of a taught slot by hand (put it in an untaught one if you like), then run: "
-                              "python cli.py setup --from \"test\" --step 2")
-            moved = []
-            for slot in full:
-                dest = holes.pop(0)
-                print(f"   rotate: {slot} to the microscope, then into {dest}")
-                self.edit(lambda L, slot=slot: bench.set_loaded(L, [x for x in bench.loaded_slots(L) if x != slot]))       # in transit: the slot is empty
-                self.guard(lambda: cyc._run_steps(cyc._steps(slot)[1]))
-                self._acquire()
-                self.guard(lambda: cyc._run_steps(cyc._steps(dest)[0]))
-                self.edit(lambda L, dest=dest: bench.set_loaded(L, list(bench.loaded_slots(L)) + [dest]))
-                holes.append(slot)
-                moved.append(f"{slot}->{dest}")
-            return {"moved": ", ".join(moved), "empty now": ", ".join(holes), "not taught, left alone": skipped}
+            passes, moves = 0, 0
+            while True:
+                F = c.layout()["fixtures"]
+                have = set(bench.loaded_slots(c.layout()))
+                taught = [x for x in F["hotel"].get("active_slots", []) if reachable(cyc, x)]
+                full = [x for x in taught if x in have]
+                holes = [x for x in taught if x not in have and cyc.store.s.contents.get(x) != "full"]
+                skipped = [x for x in bench.loaded_slots(c.layout()) if x not in taught]
+                if not holes:
+                    raise Refused("the rotation needs one empty taught slot to start (every taught slot is full once the test plate is in). "
+                                  "Take a plate out of a taught slot by hand (put it in an untaught one if you like), then run: "
+                                  "python cli.py setup --from \"test\" --step 2")
+                passes += 1
+                print(f"   rotation pass {passes} (stops when runs/STOP exists or with Ctrl+C)")
+                for slot in full:
+                    if c.stop_event.is_set() or os.path.exists(os.path.join(c.runs_dir, "STOP")):
+                        return {"stopped": "by request, between plates", "passes": passes - 1, "plates moved": moves}
+                    dest = holes.pop(0)
+                    print(f"   rotate: {slot} to the microscope, then into {dest}")
+                    self.edit(lambda L, slot=slot: bench.set_loaded(L, [x for x in bench.loaded_slots(L) if x != slot]))       # in transit: the slot is empty
+                    self.guard(lambda: cyc._run_steps(cyc._steps(slot)[1]))
+                    self._acquire()
+                    self.guard(lambda: cyc._run_steps(cyc._steps(dest)[0]))
+                    self.edit(lambda L, dest=dest: bench.set_loaded(L, list(bench.loaded_slots(L)) + [dest]))
+                    holes.append(slot)
+                    moves += 1
 
         return Section("test", [Step("polar", "module to microscope stage, acquire, back to the module, grip the long edges", to_long, moves=True),
                                 Step("polar", "scan the plate and put it in the free hotel slot", to_hotel, moves=True),
-                                Step("polar", "the hotel's plates go round: each plate in a taught slot to the microscope, then into the slot empty the longest", rotate, moves=True)])
+                                Step("polar", "the hotel's plates go round for ever: each plate in a taught slot to the microscope, then into the slot empty the longest", rotate, moves=True)])
