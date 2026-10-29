@@ -215,7 +215,7 @@
           450
         ]
       },
-      "z_floor": 248.0,
+      "z_floor": 262.5,
       "_note": "microscope at x 123 y 400; polar stage sits at x 317 y 305, same y band but 200 mm away in x and 200 mm lower, so the zone is bounded in x",
       "no_swing": true,
       "max_lateral_mm": 5.0,
@@ -267,7 +267,7 @@
       "pose": [
         116.28,
         300.045,
-        261.34,
+        267.101,
         0.0,
         0.0,
         90.0
@@ -419,7 +419,9 @@
           0.0,
           90.0
         ]
-      }
+      },
+      "holder_z": 267.101,
+      "_holder_z_note": "2026-10-28: the wrist z at which the production plate rests in the holder (first pick that gripped, 2026-10-22). The swap takes x, y, yaw from the hand and this z: a hand-taught 254 and 261 pressed the plate 6 to 13 mm into the holder and the jaws bound (open stopped at 26.4)."
     },
     "polar": {
       "pose_at_0": {

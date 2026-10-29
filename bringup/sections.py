@@ -35,7 +35,7 @@ from procedures.telemetry import Telemetry
 SEAT_MOVED_KEEP_MM = 1.0          # closer than this the taught seat stays: the read has that much noise
 SEARCH_HEIGHTS = 4                # heights tried below the microscope hover, highest allowed first
 BAND_BELOW, BAND_ABOVE = 0.1, {"short_edges": 0.5, "long_edges": 1.05}     # as gripper.accept_band was set 2026-10-22
-RESEATS = 3                       # carry, seat and re-grip cycles in the grips section
+RESEATS = 1
 ACQUISITION_TIMEOUT_S = 600
 VIEW_DISTANCE_MM = 140.0         # camera height above the tag for the capture grid (calibration/plan.py tag_in_view)
 TAG_VIEW_MARGIN_MM = 5.0         # headroom under the workspace top for the stage view
@@ -141,7 +141,8 @@ class Bringup:
         here = [float(v) for v in self.cell.robot.pose()]
         hover_mm = 0.0 if hand_is_seat else float(f.get("hover_mm", 67.0))      # taught by hand at the grip: the pose is the seat itself
         yaw = min((90.0 * k for k in (-2, -1, 0, 1, 2)), key=lambda a: abs(geometry.wrap(here[5] - a)))
-        seat = [round(here[0], 3), round(here[1], 3), round(here[2] - hover_mm, 3), 0.0, 0.0, yaw]
+        z = float(f["holder_z"]) if hand_is_seat and f.get("holder_z") else here[2] - hover_mm      # a hand cannot find the height: the fingers are tall; the holder's is fixed
+        seat = [round(here[0], 3), round(here[1], 3), round(z, 3), 0.0, 0.0, yaw]
         old = f.get("pose")
         moved = round(geometry.moved_mm(old, seat), 1) if old else None
         r = math.hypot(seat[0] - 126.0, seat[1])
