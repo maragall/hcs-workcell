@@ -1,9 +1,9 @@
 {
- "plate_at": "polar",
+ "plate_at": "gripper",
  "polar_angle": 0,
- "grip": "none",
- "step": "polar:0",
- "step_done": true,
+ "grip": "short_edges",
+ "step": "place:microscope",
+ "step_done": false,
  "cycle": 0,
  "hotel": {
   "A1": "",
@@ -27,7 +27,7 @@
   "C5": "empty",
   "A7": "full",
   "B7": "empty",
-  "C7": "empty",
+  "C7": "full",
   "A9": "full",
   "B9": "full",
   "C9": "full",
@@ -312,12 +312,12 @@
   }
  ],
  "last_safe_pose": [
-  117.565,
-  303.272,
-  324.863,
+  312.024,
+  305.696,
+  103.284,
   0.0,
   -0.0,
-  93.8397
+  -91.34
  ],
- "updated": 1793252395.4770312
+ "updated": 1793253212.017858
 }
