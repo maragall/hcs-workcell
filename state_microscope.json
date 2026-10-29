@@ -1,9 +1,9 @@
 {
-  "plate_at": "gripper",
+  "plate_at": "hotel:A1",
   "polar_angle": 90,
-  "grip": "long_edges",
+  "grip": "none",
   "step": "place:hotel:A1",
-  "step_done": false,
+  "step_done": true,
   "cycle": 0,
   "hotel": {
     "A3": "",
@@ -12,7 +12,8 @@
     "A9": "",
     "B9": "",
     "C9": "",
-    "C7": ""
+    "C7": "",
+    "A1": ""
   },
   "plate_id": "",
   "contents": {
@@ -610,15 +611,36 @@
       "step": "place:hotel:A1 slide in (fast part)",
       "kind": "controller_error",
       "detail": "[{'errCode': 3873, 'errMsg': '2026-10-29 00:45:15.223 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-29 00:45:15.231 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-29 00:45:15.239 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-29 00:45:15.239 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-29 00:45:15.239 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-29 00:45:15.239 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-29 00:45:15.239 Motion error: external axis 2 servo enable failed'}] after: linear move did not reach [286.4, 136.2, 98.8]; at [276.2, 136.1, 98.7]"
+    },
+    {
+      "t": 1793260062.795201,
+      "cycle": 0,
+      "step": "place:hotel:A1",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.354 below 0.550"
+    },
+    {
+      "t": 1793260184.171632,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "lower_front",
+      "detail": "best correlation 0.121 below 0.658"
+    },
+    {
+      "t": 1793260259.5234544,
+      "cycle": 0,
+      "step": "place:hotel:A1",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.450 below 0.550"
     }
   ],
   "last_safe_pose": [
-    192.444,
-    136.164,
+    192.45,
+    137.364,
     98.752,
     0.0,
     -0.0,
-    0.2268
+    -1.0591
   ],
-  "updated": 1793259917.7696884
+  "updated": 1793260267.0111537
 }
