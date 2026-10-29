@@ -961,7 +961,10 @@ class Bringup:
             slot = free_slot(cyc)
             out, _ = cyc._steps(slot)
             st = cyc.store.s
-            if st.plate_at == "gripper" and st.grip == "long_edges":
+            lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
+            if lo <= c.robot.jaw() <= hi:                                                # the fingers are closed on a plate at the long-edge width: it is in the hand (the ledger can be stale)
+                st.plate_at, st.grip, st.step_done = "gripper", "long_edges", True
+                cyc.store.save()
                 return {"plate": "already held by the long edges"}
             if st.plate_at == self.scope and st.step_done:
                 print(f"   the plate is already on the {self.scope} stage (an earlier run stopped there): carrying on from it")
@@ -985,7 +988,10 @@ class Bringup:
             slot = free_slot(cyc)
             out, _ = cyc._steps(slot)
             st = cyc.store.s
-            if st.plate_at == "gripper" and st.grip == "long_edges":
+            lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
+            if lo <= c.robot.jaw() <= hi:                                                # closed on a plate at the long-edge width: it is in the hand (the ledger can be stale)
+                st.plate_at, st.grip, st.step_done = "gripper", "long_edges", True
+                cyc.store.save()
                 steps = out[4:]                                                          # held by the long edges: scan, into the free slot
             else:
                 print("   the plate is on the rotation module: turn it to 90, grip the long edges, scan, park it in the free slot")
