@@ -265,7 +265,7 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        114.78,
+        116.28,
         300.045,
         261.34,
         0.0,
@@ -419,8 +419,7 @@
           0.0,
           90.0
         ]
-      },
-      "_nudge_note": "2026-10-28: x 116.28 -> 114.78. The first placement ran the plate into the stage's +x lip and the jaws stopped opening at 26.4 of 28.5 (about 0.8 mm of finger travel), so the plate sat against the lip: moved 1.5 mm toward -x. The height is the operator's choice (261.34), not the old 267.1."
+      }
     },
     "polar": {
       "pose_at_0": {

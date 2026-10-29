@@ -181,6 +181,20 @@ class Bringup:
         self.guard(lambda: cyc._move("L", [here[0], here[1], top] + here[3:], "setup:straight up out of the holder", cyc.safety.profile.approach))
         return {"left the holder": f"straight up to z {top:.0f}", "plate released": release}
 
+    def check_seat(self) -> dict:
+        """The hand-taught seat, proved with the machine's own pick and place: the aruco plate is in the holder, the arm closes on it from
+        the hover, lifts it clear, sets it back, opens. The grip width must be in the band and the jaw must open all the way."""
+        c = self.cell
+        self.ready()
+        cyc = self.cyc()
+        F = c.layout()["fixtures"]
+        cyc.store.s.plate_at, cyc.store.s.grip, cyc.store.s.step_done = self.scope, "none", True
+        cyc.store.save()
+        self.guard(lambda: cyc._pick(self.scope, F[self.scope]["pose"], F[self.scope], "short_edges", None))
+        held = round(c.robot.jaw(), 2)
+        self.guard(lambda: cyc._place(self.scope, F[self.scope]["pose"], F[self.scope], self.scope, None))
+        return {"gripped at": held, "put back and released": f"jaw {round(c.robot.jaw(), 2)}"}
+
     def tag_height(self) -> float:
         """Where the module's tag reference is taken from: straight above the module's grip pose, as high as the same view over
         the stage still fits under the workspace top (the stage seat is higher than the module's by SEAT_RISE). Both pictures
@@ -587,6 +601,7 @@ class Bringup:
                          "so the open fingers straddle the plate as they would to grip it, the claw square to the instrument, and press Enter", before=self.loosen),
             Step("computer", "take that pose as the microscope seat", lambda: self.stage_hover(hand_is_seat=True)),
             Step("polar", "let go of the plate and rise straight out of the holder", lambda: self.leave_holder(release=True), moves=True),
+            Step("polar", "prove the seat: pick the plate from it, lift, set it back, release (the grip width in its band, the jaw opening all the way)", self.check_seat, moves=True),
             Step("user", "place a real plate on the rotation module")])
 
     # ---- grips.toml
