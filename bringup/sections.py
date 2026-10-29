@@ -981,7 +981,7 @@ class Bringup:
                 print(f"   a plate is in the hand by the long edges: scan, into {slot}")
                 self.guard(lambda: cyc._run_steps(cyc._steps(slot)[0][4:]))
                 self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))
-            elif st.contents.get("module") == "full" or st.plate_at in ("polar", self.scope):
+            if st.contents.get("module") == "full" or st.plate_at in ("polar", self.scope):          # also when a plate was in the hand: the module's is still to go
                 slot = holes.pop(random.randrange(len(holes)))
                 out = cyc._steps(slot)[0]
                 if st.plate_at == self.scope and st.step_done:
