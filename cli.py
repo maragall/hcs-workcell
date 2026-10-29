@@ -950,7 +950,7 @@ def cmd_setup(args):
         sys.exit(f"the arm is not reachable: {cell.arm_error}. Close the GUI and RobStudio (one client at a time) and run again")
     answers = {"slot in front of the camera": "yes" if args.hotel_size == 30 else "no" if args.hotel_size == 15 else ""}   # what a driver knows; the hands-clear Enter is the user's go
     runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else input,
-                    stop=cell.stop_event)
+                    stop=cell.stop_event, on_section_done=save_known_good)
     todo = Bringup(cell, squid, runner.ask, confirm_stage=args.confirm_stage).sections()
     stopped = runner.run(todo, args.start, args.step, pause_at_user=args.auto, skip=args.skip.split(",") if args.skip else None,
                          stop_after=args.stop_after)
@@ -984,6 +984,44 @@ def cmd_doctor(args):
     """Is this PC and this cell ready? Read-only; prints PASS/FAIL lines with the fix for each."""
     from tools import doctor
     return doctor.main(["--sim"] if args.sim else [])
+
+
+KNOWN_GOOD = os.path.join(RUNS, "known_good")
+KNOWN_FILES = ("state.json", "state_microscope.json")
+
+
+def save_known_good(section: str) -> None:
+    """When a section of the setup has run every step, keep the layout and the state files as they are then: a later failure can
+    go back to them (`python cli.py restore "<section>"`) and resume from the next section."""
+    import shutil
+    dest = os.path.join(KNOWN_GOOD, section.replace(" ", "_").replace(".", "_"))
+    os.makedirs(dest, exist_ok=True)
+    for f in (LAYOUT,) + tuple(os.path.join(HERE, n) for n in KNOWN_FILES):
+        if os.path.exists(f):
+            shutil.copy2(f, os.path.join(dest, os.path.basename(f)))
+    with open(os.path.join(dest, "saved_at.txt"), "w", encoding="utf-8") as fh:
+        fh.write(time.strftime("%Y-%m-%d %H:%M:%S") + f" after {section}" + chr(10))
+    print(f"   (known good after {section}: saved to {dest})")
+
+
+def cmd_restore(args):
+    """Put back the layout and state as they were when `section` last ran completely. No section: list what is saved."""
+    import shutil
+    saved = sorted(os.listdir(KNOWN_GOOD)) if os.path.isdir(KNOWN_GOOD) else []
+    if not args.section:
+        for d in saved:
+            when = open(os.path.join(KNOWN_GOOD, d, "saved_at.txt"), encoding="utf-8").read().strip() if os.path.exists(os.path.join(KNOWN_GOOD, d, "saved_at.txt")) else "?"
+            print(f"  {d:22s} {when}")
+        return 0 if saved else 1
+    src = os.path.join(KNOWN_GOOD, args.section.replace(" ", "_").replace(".", "_"))
+    if not os.path.isdir(src):
+        sys.exit(f"nothing saved for {args.section!r}; saved: {', '.join(saved) or 'nothing'}")
+    for name in os.listdir(src):
+        if name == "saved_at.txt":
+            continue
+        shutil.copy2(os.path.join(src, name), LAYOUT if name == os.path.basename(LAYOUT) else os.path.join(HERE, name))
+    print(f"restored layout and state from after {args.section}; continue with the next section: python cli.py setup --from <next>")
+    return 0
 
 
 def cmd_recover(args):
@@ -1032,6 +1070,7 @@ def cmd_recover(args):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    p = sub.add_parser("restore"); p.add_argument("section", nargs="?"); p.set_defaults(fn=cmd_restore)
     sub.add_parser("status").set_defaults(fn=cmd_status)
     sub.add_parser("preflight").set_defaults(fn=cmd_preflight)
     p = sub.add_parser("record-pose"); p.add_argument("name"); p.add_argument("--local-only", action="store_true")

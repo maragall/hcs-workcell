@@ -36,8 +36,9 @@ class Section:
 
 class Runner:
     def __init__(self, say: Callable[[str], None] = print, ask: Callable[[str], str] = input,
-                 stop: Optional[threading.Event] = None):
+                 stop: Optional[threading.Event] = None, on_section_done: Optional[Callable[[str], None]] = None):
         self.say, self.ask, self.stop = say, ask, stop or threading.Event()
+        self.on_section_done = on_section_done                  # called with the section's name when every step of it ran
 
     def _wait(self, prompt: str) -> str:
         answer = self.ask(prompt).strip().lower()
@@ -93,6 +94,8 @@ class Runner:
                     if n == 0 and stop_after is not None and i == stop_after:
                         self.say(f"   (stopped after step {i} of {sec.name}, as asked)")
                         return None
+                if self.on_section_done:
+                    self.on_section_done(sec.name)
         except (Quit, EOFError):
             self.say("   quit")
             return current
