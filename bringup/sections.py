@@ -902,6 +902,12 @@ class Bringup:
                 raise Refused("no free hotel slot the arm can reach to put the plate in")
             slot = random.choice(free)
             out, _ = cyc._steps(slot)
+            if cyc.store.s.plate_at == self.scope and cyc.store.s.step_done:
+                print(f"   the plate is already on the {self.scope} stage (an earlier run stopped there): carrying on from it")
+                self._acquire()
+                self.guard(lambda: cyc._run_steps(out))
+                self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))
+                return {"plate": f"{self.scope} -> hotel {slot} (resumed)"}
             P0, P90 = F["polar"]["pose_at_0"]["pose"], F["polar"]["pose_at_90"]["pose"]
             self.guard(lambda: cyc.move_to("polar.pose_at_0"))
             if cyc.polar.angle != 0:
