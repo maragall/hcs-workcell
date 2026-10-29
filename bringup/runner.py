@@ -67,7 +67,7 @@ class Runner:
                 self.say(f"\n== {sec.name}")
                 first = start_step if n == 0 else 0
                 if any(s.moves for s in sec.steps[first:]):
-                    self._wait(paint("   The arm moves in this section. Hands clear? Enter to go, q to quit: "))
+                    self.say("   (the arm moves in this section: hands assumed clear; Ctrl+C stops)")
                 for i, step in enumerate(sec.steps):
                     if i < first:
                         continue

@@ -91,7 +91,7 @@
     "calibration": {
       "auto_teach_camera": {
         "marker": "ok",
-        "marker_at": "2026-10-29 01:07:42",
+        "marker_at": "2026-10-29 01:34:18",
         "pictures": 25,
         "px": 1.588,
         "mm": 0.611,
@@ -101,7 +101,9 @@
           "px": 1.643,
           "mm": 0.803,
           "at": "2026-10-28 18:27:08"
-        }
+        },
+        "uploaded_at": "2026-10-29 01:27:47",
+        "checked_mm": null
       }
     },
     "calibration_limits": {
