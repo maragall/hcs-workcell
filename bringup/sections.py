@@ -942,68 +942,10 @@ class Bringup:
         self.squid.home()
 
     def test(self) -> Section:
+        """The test is the rotation: the plate on the module goes through the microscope into the first empty taught slot, then every plate
+        in a taught slot visits the microscope and goes to the slot that has been empty the longest, for ever. It needs one more empty
+        taught slot than the module's plate takes: the module is the way in and out of the microscope, so it cannot be a spare place."""
         c = self.cell
-
-        def free_slot(cyc):
-            F = c.layout()["fixtures"]
-            if self.found.get("test_slot"):
-                return self.found["test_slot"]
-            loaded = set(bench.loaded_slots(c.layout()))                                # the operator's list; only the taught slots are driven to
-            free = [x for x in F["hotel"].get("active_slots", []) if x not in loaded and cyc.store.s.contents.get(x) != "full" and reachable(cyc, x)]
-            if not free:
-                raise Refused("no free hotel slot the arm can reach to put the plate in")
-            self.found["test_slot"] = random.choice(free)
-            return self.found["test_slot"]
-
-        def to_long():
-            self.ready()
-            cyc = self.cyc()
-            F = c.layout()["fixtures"]
-            slot = free_slot(cyc)
-            out, _ = cyc._steps(slot)
-            st = cyc.store.s
-            lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
-            if lo <= c.robot.jaw() <= hi:                                                # the fingers are closed on a plate at the long-edge width: it is in the hand (the ledger can be stale)
-                st.plate_at, st.grip, st.step_done = "gripper", "long_edges", True
-                cyc.store.save()
-                return {"plate": "already held by the long edges"}
-            if st.plate_at == self.scope and st.step_done:
-                print(f"   the plate is already on the {self.scope} stage (an earlier run stopped there): carrying on from it")
-            else:
-                P0, P90 = F["polar"]["pose_at_0"]["pose"], F["polar"]["pose_at_90"]["pose"]
-                self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-                if cyc.polar.angle != 0:
-                    self.guard(lambda: cyc._polar_rotate(0, P90))
-                st.plate_at, st.grip, st.step_done = "polar", "none", True
-                cyc.store.save()
-                route = F[self.scope].get("trajectory", "microscope_to_polar")
-                self.guard(lambda: cyc._pick("polar", P0, F["polar"], "short_edges", None, gate="polar@0"))
-                self.guard(lambda: cyc._place(self.scope, F[self.scope]["pose"], F[self.scope], self.scope, route, reverse=True))
-            self._acquire()
-            self.guard(lambda: cyc._run_steps(out[:4]))                                  # stage -> module, turn, long-edge grip
-            return {"plate": f"{self.scope} -> module -> held by the long edges", "acquisitions": getattr(self.squid, "acquisitions", "n/a")}
-
-        def to_hotel():
-            self.ready()
-            cyc = self.cyc()
-            slot = free_slot(cyc)
-            out, _ = cyc._steps(slot)
-            st = cyc.store.s
-            lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
-            if lo <= c.robot.jaw() <= hi:                                                # closed on a plate at the long-edge width: it is in the hand (the ledger can be stale)
-                st.plate_at, st.grip, st.step_done = "gripper", "long_edges", True
-                cyc.store.save()
-                steps = out[4:]                                                          # held by the long edges: scan, into the free slot
-            else:
-                print("   the plate is on the rotation module: turn it to 90, grip the long edges, scan, park it in the free slot")
-                self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-                st.plate_at, st.grip, st.step_done = "polar", "none", True
-                cyc.store.save()
-                steps = out[2:]                                                          # the module turns the plate to 90 and the long-edge grip
-            self.guard(lambda: cyc._run_steps(steps))
-            self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))           # the list stays true: the plate is in `slot` now
-            self.found.pop("test_slot", None)
-            return {"plate": f"held by the long edges -> hotel {slot}"}
 
         def unattended(fn):
             def run():
@@ -1014,28 +956,63 @@ class Bringup:
                     self.unattended = False
             return run
 
+        def stopped():
+            return c.stop_event.is_set() or os.path.exists(os.path.join(c.runs_dir, "STOP"))
+
         def rotate():
-            """The hotel's plates go round: each plate in a taught slot visits the microscope and ends in the slot that has been empty the
-            longest, so the hole walks down the column and every plate moves. It needs one empty taught slot besides the one the test
-            plate took: the rotation module is the way in and out of the microscope, so it cannot be a spare place."""
+            self.ready()
             cyc = self.cyc()
-            passes, moves = 0, 0
-            while True:
-                F = c.layout()["fixtures"]
+            F = c.layout()["fixtures"]
+            st = cyc.store.s
+            taught = [x for x in F["hotel"].get("active_slots", []) if reachable(cyc, x)]
+            holes = [x for x in taught if x not in set(bench.loaded_slots(c.layout())) and st.contents.get(x) != "full"]
+            lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
+            moves = 0
+            if lo <= c.robot.jaw() <= hi:                                                  # a plate in the hand at the long-edge width: the ledger can be stale
+                st.plate_at, st.grip, st.step_done = "gripper", "long_edges", True
+                cyc.store.save()
+            if not holes and st.plate_at != "gripper":
+                raise Refused("the test needs an empty taught slot for the module's plate, and another for the rotation to start: free two taught slots "
+                              "(put their plates in untaught ones) and tell the occupancy")
+            if st.plate_at == "gripper" and st.grip == "long_edges":
+                slot = holes.pop(0)
+                print(f"   a plate is in the hand by the long edges: scan, into {slot}")
+                self.guard(lambda: cyc._run_steps(cyc._steps(slot)[0][4:]))
+                self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))
+            elif st.contents.get("module") == "full" or st.plate_at in ("polar", self.scope):
+                slot = holes.pop(0)
+                out = cyc._steps(slot)[0]
+                if st.plate_at == self.scope and st.step_done:
+                    print(f"   the plate is already on the {self.scope} stage: carrying on from it")
+                else:
+                    P0, P90 = F["polar"]["pose_at_0"]["pose"], F["polar"]["pose_at_90"]["pose"]
+                    self.guard(lambda: cyc.move_to("polar.pose_at_0"))
+                    if cyc.polar.angle != 0:
+                        self.guard(lambda: cyc._polar_rotate(0, P90))
+                    st.plate_at, st.grip, st.step_done = "polar", "none", True
+                    cyc.store.save()
+                    route = F[self.scope].get("trajectory", "microscope_to_polar")
+                    print(f"   the module's plate to the microscope, acquire, then into {slot}")
+                    self.guard(lambda: cyc._pick("polar", P0, F["polar"], "short_edges", None, gate="polar@0"))
+                    self.guard(lambda: cyc._place(self.scope, F[self.scope]["pose"], F[self.scope], self.scope, route, reverse=True))
+                self._acquire()
+                self.guard(lambda: cyc._run_steps(out))
+                self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))
+                st.contents["module"] = "empty"
+                cyc.store.save()
+            passes = 0
+            while not stopped():
                 have = set(bench.loaded_slots(c.layout()))
-                taught = [x for x in F["hotel"].get("active_slots", []) if reachable(cyc, x)]
                 full = [x for x in taught if x in have]
-                holes = [x for x in taught if x not in have and cyc.store.s.contents.get(x) != "full"]
-                skipped = [x for x in bench.loaded_slots(c.layout()) if x not in taught]
+                holes = [x for x in taught if x not in have and st.contents.get(x) != "full"]
                 if not holes:
-                    raise Refused("the rotation needs one empty taught slot to start (every taught slot is full once the test plate is in). "
-                                  "Take a plate out of a taught slot by hand (put it in an untaught one if you like), then run: "
-                                  "python cli.py setup --from \"test\" --step 2")
+                    raise Refused("the rotation has no empty taught slot to start from: free one (put its plate in an untaught slot) and run: "
+                                  "python cli.py setup --from \"test\"")
                 passes += 1
                 print(f"   rotation pass {passes} (stops when runs/STOP exists or with Ctrl+C)")
                 for slot in full:
-                    if c.stop_event.is_set() or os.path.exists(os.path.join(c.runs_dir, "STOP")):
-                        return {"stopped": "by request, between plates", "passes": passes - 1, "plates moved": moves}
+                    if stopped():
+                        break
                     dest = holes.pop(0)
                     print(f"   rotate: {slot} to the microscope, then into {dest}")
                     self.edit(lambda L, slot=slot: bench.set_loaded(L, [x for x in bench.loaded_slots(L) if x != slot]))       # in transit: the slot is empty
@@ -1045,7 +1022,6 @@ class Bringup:
                     self.edit(lambda L, dest=dest: bench.set_loaded(L, list(bench.loaded_slots(L)) + [dest]))
                     holes.append(slot)
                     moves += 1
+            return {"stopped": "by request, between plates", "passes": passes, "plates moved": moves}
 
-        return Section("test", [Step("polar", "module to microscope stage, acquire, back to the module, grip the long edges", to_long, moves=True),
-                                Step("polar", "scan the plate and put it in the free hotel slot", to_hotel, moves=True),
-                                Step("polar", "the hotel's plates go round for ever: each plate in a taught slot to the microscope, then into the slot empty the longest", unattended(rotate), moves=True)])
+        return Section("test", [Step("polar", "the rotation, for ever: the module's plate through the microscope into an empty slot, then every plate in a taught slot to the microscope and into the slot empty the longest", unattended(rotate), moves=True)])
