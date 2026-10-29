@@ -718,6 +718,7 @@ class Bringup:
                     aligned = s.align(ref, start_pose=view)           # sideways moves are free this high above the instrument
                 except servo.ServoError as e:
                     last = str(e)
+                    print(f"      tag seen at {x - hx:+.0f} {y - hy:+.0f}, not aligned: {last}")
                     continue
                 got = (heights[0], aligned)
                 break

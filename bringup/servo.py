@@ -179,6 +179,7 @@ class Servo:
         mm_px = self.mm_per_px(J)
         scale = np.array([1.0, 1.0, 1.0])
         iters = 0
+        seen = [round(_rms(e), 1)]
         for iters in range(1, self.max_iter + 1):
             A = J.T @ J + self.damping * np.trace(J.T @ J) / 3 * np.eye(3)
             delta = -np.linalg.solve(A, J.T @ e)
@@ -199,10 +200,11 @@ class Servo:
                 dp = delta * scale                   # Broyden: a real step taught the Jacobian something (a tiny one is noise)
                 J = J + np.outer(e_new - e - J @ dp, dp) / float(dp @ dp)
             e = e_new
+            seen.append(round(_rms(e), 1))
             settled = np.hypot(delta[0], delta[1]) < SETTLED_MM and abs(delta[2]) < SETTLED_DEG and _rms(e) <= 3 * self.tol_px
             if _rms(e) <= self.tol_px or settled:    # under the tolerance, or the step is under what the arm can do
                 return ServoResult(tuple(float(v) for v in self._pose), _rms(e), self.moves, iters, mm_px)
-        raise ServoError(f"did not converge in {self.max_iter} steps: the corners are still {_rms(e):.1f} px off")
+        raise ServoError(f"did not converge in {self.max_iter} steps: the corners are still {_rms(e):.1f} px off (px per step {seen})")
 
 
 @dataclass(frozen=True)
