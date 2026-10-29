@@ -371,11 +371,6 @@ class Bringup:
             self.guard(self.cyc().go_nest)
 
         return Section("connect", [
-            Step("user", "drag the arm by hand to where the microscope stage will be: hover the hand there, claw square to the instrument, the "
-                         "fingers about 7 cm above where the aruco plate will sit; then put the microscope so its plate holder is "
-                         "right under the hand. The microscope (Squid) base must be at least 25 cm away from the arm's base. "
-                         "Press Enter", before=self.loosen),
-            Step("computer", "take that pose as the microscope's hover and calculate where the stage is from it", self.stage_hover),
             Step("computer", "search ports", search_ports),
             Step("squid", "home stage", home, moves=True),
             Step("polar", "arm to the nest (a pose in the clear in front of the hotel; also where it goes after any fault)", to_nest, moves=True),
