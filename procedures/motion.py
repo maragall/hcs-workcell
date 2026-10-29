@@ -105,7 +105,7 @@ class Motion:
         self.robot.set_speed(speed)
         t0 = time.time()
         try:
-            self.robot.move_abs_joints_stepped(list(jt) + list(ja[4:]), 3.0)
+            self.robot.move_abs_joints_stepped(list(jt) + list(ja[4:]), 15.0)
         except MotionRefused as e:
             self._refused(label, e)
         self._wait_still(label)
