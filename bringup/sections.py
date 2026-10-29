@@ -187,6 +187,7 @@ class Bringup:
         the hover, lifts it clear, sets it back, opens. The grip width must be in the band and the jaw must open all the way."""
         c = self.cell
         self.ready()
+        self.confirm_stage = True                    # the operator is at the stage and has just set the plate in it: lowering onto it is theirs, confirmed
         cyc = self.cyc()
         F = c.layout()["fixtures"]
         cyc.store.s.plate_at, cyc.store.s.grip, cyc.store.s.step_done = self.scope, "none", True
@@ -598,7 +599,7 @@ class Bringup:
             return {"plate_offset": offset_, "tag": "reference taken" if not prev else "found again"}
 
         return Section("swap", [
-            Step("user", "take the aruco plate off the rotation module and set it flat in the microscope's plate holder; then drag the arm "
+            Step("user", "take the plate off the rotation module and set it flat in the microscope's plate holder (the aruco plate or a real one); then drag the arm "
                          "so the open fingers straddle the plate as they would to grip it, the claw square to the instrument, and press Enter", before=self.loosen),
             Step("computer", "take that pose as the microscope seat", lambda: self.stage_hover(hand_is_seat=True)),
             Step("polar", "let go of the plate and rise straight out of the holder", lambda: self.leave_holder(release=True), moves=True),
