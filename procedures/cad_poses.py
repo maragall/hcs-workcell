@@ -62,8 +62,8 @@ class CadPoses:
         b = sum((p[0] - mx) * (p[3] - wy) - (p[1] - my) * (p[2] - wx) for p in pts)
         theta = math.degrees(math.atan2(b, a)) if abs(a) + abs(b) > 1e-9 else 0.0
         rx, ry = _rot(theta, mx, my)
-        yaws = [p[1] for _, p in self._taught_rows()]
-        yaw = sum(q[5] for q in yaws) / len(yaws) if yaws else theta
+        yaws = [pose[5] for _, pose in self._taught_rows()]
+        yaw = sum(yaws) / len(yaws) if yaws else theta
         return {"theta_deg": theta, "yaw_deg": yaw, "x": wx - rx, "y": wy - ry, "z_row1": sum(p[4] for p in pts) / n}
 
     def fit_from_registration(self, layout: dict, reg) -> Dict[str, float]:
