@@ -701,14 +701,17 @@ class Bringup:
             ref = np.array(tag["corners"], float)
             got, last = None, "the tag is not in the picture"
             self.guard(lambda: cyc._move("L", [hx, hy, heights[0], rx, ry, hyaw], f"setup:up to z{heights[0]:.0f}", cyc.safety.profile.approach))
-            for dx, dy in STAGE_SEARCH_MM:
-                x, y = hx + dx, hy + dy
+            a = math.radians(hyaw)                                    # forward is the way the camera looks: along the claw, as at the module
+            ahead, side = (math.cos(a), math.sin(a)), (-math.sin(a), math.cos(a))
+            bx, by = seat[0] + TAG_AHEAD_MM * ahead[0], seat[1] + TAG_AHEAD_MM * ahead[1]     # where the camera sees the plate centre, as at the module
+            for dx, dy in STAGE_SEARCH_MM:                            # dx along the claw, dy across it
+                x, y = bx + dx * ahead[0] + dy * side[0], by + dx * ahead[1] + dy * side[1]
                 if L.get("volumes") and not 100.0 <= math.hypot(x - 126.0, y) <= 395.0:
                     continue                                          # out of the arm's reach: not a place to look
                 wb = L["workspace_box"]
                 if not (wb["x"][0] <= x <= wb["x"][1] and wb["y"][0] <= y <= wb["y"][1]):
                     continue                                          # outside the workspace box: the arm refuses it
-                self.guard(lambda x=x, y=y: cyc._move("L", [x, y, heights[0], rx, ry, hyaw], f"setup:search {x - hx:+.0f} {y - hy:+.0f}", cyc.safety.profile.approach))
+                self.guard(lambda x=x, y=y: cyc._move("L", [x, y, heights[0], rx, ry, hyaw], f"setup:search {dx:+.0f} along {dy:+.0f} across", cyc.safety.profile.approach))
                 try:
                     corners, view = s.observe()
                 except servo.ServoError as e:
@@ -718,7 +721,7 @@ class Bringup:
                     aligned = s.align(ref, start_pose=view)           # sideways moves are free this high above the instrument
                 except servo.ServoError as e:
                     last = str(e)
-                    print(f"      tag seen at {x - hx:+.0f} {y - hy:+.0f}, not aligned: {last}")
+                    print(f"      tag seen at {dx:+.0f} along {dy:+.0f} across, not aligned: {last}")
                     continue
                 got = (heights[0], aligned)
                 break
