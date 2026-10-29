@@ -411,6 +411,9 @@ class Bringup:
             return {"uploaded_at": at}
 
         def validate():
+            if str(node().get("uploaded_at", "")).startswith("skipped"):      # the box never got the calibration: nothing for it to check
+                c.note("validate skipped: the calibration was not uploaded (no box login)")
+                return {"check_mm": "skipped, not uploaded", "checked_at": _stamp()}
             self.ready()
             self.guard(lambda: cameras.check(c, "down"))
             mm = node().get("checked_mm")
