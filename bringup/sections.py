@@ -131,14 +131,14 @@ class Bringup:
         if why:
             raise Refused(why)
 
-    def stage_hover(self) -> dict:
+    def stage_hover(self, hand_is_seat: bool = False) -> dict:
         """The customer dragged the hand over the plate holder (the aruco plate sits in it): that pose is the hover, and the seat
         is calculated from it, hover_mm below, the claw square to the instrument. A hover far from the taught one means the
         microscope was moved: the taught route to the old place is dropped, the planner takes over."""
         L = self.cell.layout()
         f = L["fixtures"][self.scope]
         here = [float(v) for v in self.cell.robot.pose()]
-        hover_mm = float(f.get("hover_mm", 67.0))
+        hover_mm = 0.0 if hand_is_seat else float(f.get("hover_mm", 67.0))      # taught by hand at the grip: the pose is the seat itself
         yaw = min((90.0 * k for k in (-2, -1, 0, 1, 2)), key=lambda a: abs(geometry.wrap(here[5] - a)))
         seat = [round(here[0], 3), round(here[1], 3), round(here[2] - hover_mm, 3), 0.0, 0.0, yaw]
         old = f.get("pose")
@@ -569,10 +569,9 @@ class Bringup:
 
         return Section("swap", [
             Step("nova", "detect aruco on the plate in the rotation module with the down camera (the module turns the plate half a turn if the tag is at the far end)", read_plate, moves=True),
-            Step("user", "take the aruco plate off the rotation module and set it in the microscope's plate holder, the tab with the tag on "
-                         "the side toward the arm's hand (the same way round as it sat on the module); then drag the arm to hover above "
-                         "the stage, roughly over the plate, and press Enter", before=self.loosen),
-            Step("computer", "take that pose as the hover; the arm will search around it for the aruco", self.stage_hover),
+            Step("user", "take the aruco plate off the rotation module and set it flat in the microscope's plate holder; then drag the arm "
+                         "so the open fingers straddle the plate as they would to grip it, the claw square to the instrument, and press Enter", before=self.loosen),
+            Step("computer", "take that pose as the microscope seat", lambda: self.stage_hover(hand_is_seat=True)),
             Step("user", "place a real plate on the rotation module")])
 
     # ---- grips.toml
@@ -785,8 +784,6 @@ class Bringup:
 
         return Section("microscope.toml", [
             Step("computer", "read the stage travel limits from squid", limits),
-            Step("polar", "over the scope, straight down to the height the module view had over the plate, and measure the aruco tag", find_marker, moves=True),
-            Step("computer", "seat_pose from the tag on the stage, carried from the module's tag and grip pose", seat),
             Step("polar", "leave the scope zone for the module", route, moves=True),
             Step("polar", "drive the route with the empty hand", drive, moves=True)])
 
