@@ -8,6 +8,7 @@ null entry refuses, nothing is hard-coded. paramiko is imported on use only.
 """
 from __future__ import annotations
 
+import json
 import os
 import posixpath
 import time
@@ -26,12 +27,19 @@ def credentials(layout: dict) -> Dict[str, Optional[str]]:
     """The ssh block of layout.json, checked: user plus a password or a key path."""
     ssh = (layout.get("vision") or {}).get("ssh") or {}
     user, password, key = ssh.get("user"), ssh.get("password"), ssh.get("key_path")
+    local = {}
+    try:                                                            # nova_ssh.local.json beside layout.json: kept out of git, read here
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "nova_ssh.local.json"), encoding="utf-8") as f:
+            local = json.load(f)
+    except (OSError, ValueError):
+        pass
+    user, password, key = user or local.get("user"), password or local.get("password"), key or local.get("key_path")
     user = user or os.environ.get("NOVA_SSH_USER")                 # the login can live in the environment, out of every file
     password = password or os.environ.get("NOVA_SSH_PASSWORD")
     key = key or os.environ.get("NOVA_SSH_KEY")
     if not user or not (password or key):
         raise NoCredentials("the box login is missing: layout.json vision.ssh, or the environment NOVA_SSH_USER with "
-                            "NOVA_SSH_PASSWORD or NOVA_SSH_KEY (null refuses)")
+                            "NOVA_SSH_PASSWORD or NOVA_SSH_KEY (null refuses), or the file nova_ssh.local.json beside layout.json: {\"user\": ..., \"password\": ...}")
     return {"user": user, "password": password, "key_path": key}
 
 

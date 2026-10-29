@@ -92,10 +92,10 @@
       "auto_teach_camera": {
         "marker": "ok",
         "marker_at": "2026-10-29 01:07:42",
-        "pictures": 24,
-        "px": 1.73,
-        "mm": 0.728,
-        "captured_at": "2026-10-28 19:03:30",
+        "pictures": 25,
+        "px": 1.588,
+        "mm": 0.611,
+        "captured_at": "2026-10-29 01:14:33",
         "last_failed": {
           "pictures": 13,
           "px": 1.643,

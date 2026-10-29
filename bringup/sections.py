@@ -468,6 +468,7 @@ class Bringup:
                 cameras.upload(c, "down")
             except cameras.calib_upload_errors() as e:        # no box login: the box keeps the calibration it has (the aruco servo needs none)
                 c.note(f"not uploaded: {e}")
+                self.found["upload_skipped"] = True
                 return {"uploaded_at": "skipped, no box login"}
             at = node().get("uploaded_at")
             if not at:
@@ -475,7 +476,7 @@ class Bringup:
             return {"uploaded_at": at}
 
         def validate():
-            if str(node().get("uploaded_at", "")).startswith("skipped"):      # the box never got the calibration: nothing for it to check
+            if self.found.get("upload_skipped") or str(node().get("uploaded_at", "")).startswith("skipped"):      # the box never got the calibration: nothing for it to check
                 c.note("validate skipped: the calibration was not uploaded (no box login)")
                 return {"check_mm": "skipped, not uploaded", "checked_at": _stamp()}
             self.ready()
