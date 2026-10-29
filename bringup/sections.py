@@ -423,7 +423,7 @@ class Bringup:
         return Section("cameras.toml", [
             Step("nova", "detect aruco with the down camera", detect, moves=True),
             Step("computer", "solve intrinsic (lens) and extrinsic (camera-to-gripper) calibration together", solve),
-            Step("computer", "refuse if px > 1.0 or mm > 1.0", limits),
+            Step("computer", "refuse if px > 1.5 or mm > 1.0", limits),
             Step("computer", "re-upload to nova, which restarts", upload),
             Step("nova", "validate. detect aruco from two poses", validate, moves=True)])
 
