@@ -31,6 +31,8 @@ from scipy.optimize import least_squares
 from calibration import halcon, marker
 
 IMX219_CELL_M = 1.12e-6
+LAST: dict = {}               # the last flat solve's per-picture residuals (diagnosis only)
+EDGE_MARGIN_PX = 100          # captures with a tag corner closer than this to the picture's edge are left out of the solve
 
 
 @dataclass
@@ -105,6 +107,10 @@ def load_folder(folder: str, marker_id: Optional[int] = marker.MARKER_ID) -> Cap
             c = marker.detect(img, marker_id)
         except marker.MarkerNotFound:
             skipped.append(os.path.basename(f))
+            continue
+        h, w = img.shape
+        if min(c[:, 0].min(), c[:, 1].min(), w - 1 - c[:, 0].max(), h - 1 - c[:, 1].max()) < EDGE_MARGIN_PX:
+            skipped.append(os.path.basename(f))        # a corner near the picture's edge: the lens bends it most and a cut corner is mis-read
             continue
         with open(meta, "r", encoding="utf-8") as fh:
             T_bt.append(tool_matrix(json.load(fh)["pose"]))
@@ -348,6 +354,7 @@ def fit_flat(caps: Captures, start: halcon.CamParam, marker_size_m: float, marke
     for names in STAGES:
         z, px, res = _fit_names(z, EXTRINSICS + names, args, loss="linear")
     cam, T_tc, T_bm = _flat_model(z, start, marker_z_m)
+    LAST.update(files=[os.path.basename(caps.files[i]) for i in use], z=z, res=res.reshape(len(use), 4, 2), names=FLAT_NAMES)   # for diagnosis
     errs = [np.linalg.norm((_inv(T_tc) @ _inv(T) @ T_bm)[:3, 3] - marker_pose(c, cam, marker_size_m)[:3, 3])
             for T, c in zip(T_bt, corners)]
     kept = {caps.files[i] for i in use}
