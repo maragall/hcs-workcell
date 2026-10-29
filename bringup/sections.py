@@ -109,6 +109,10 @@ class Bringup:
                 cyc.tele.log("setup", "gate", f"auto-confirmed during setup ({said['reason'][:80]}): the grip width after the next pick is the check; the picture becomes a reference")
                 print(f"      (setup confirms this itself: {question.strip()} -> y; the grip width after the next pick is the check)")
                 return "y"
+            if "safe to lower" in question and "reference images for" in said["reason"] and "need" in said["reason"]:
+                cyc.tele.log("setup", "lower_check", f"too few references to judge ({said['reason'][:90]}): lowering confirmed, the picture is kept as a reference")
+                print("      (too few reference pictures to judge yet: setup confirms the lowering and keeps this picture)")
+                return "y"
             if self.confirm_stage and "safe to lower" in question and self.scope in said["reason"]:
                 cyc.tele.log("setup", "lower_check", "the operator confirmed lowering at the stage for this run (--confirm-stage)")
                 return "y"

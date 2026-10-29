@@ -1,526 +1,568 @@
 {
- "plate_at": "gripper",
- "polar_angle": 90,
- "grip": "long_edges",
- "step": "place:polar",
- "step_done": false,
- "cycle": 0,
- "hotel": {
-  "A3": "",
-  "A5": "",
-  "A7": "",
-  "A9": "",
-  "B9": "",
-  "C9": "",
-  "C7": ""
- },
- "plate_id": "",
- "contents": {
-  "A1": "empty",
-  "B1": "empty",
-  "C1": "empty",
-  "A3": "full",
-  "B3": "empty",
-  "C3": "empty",
-  "A5": "full",
-  "B5": "empty",
-  "C5": "empty",
-  "A7": "full",
-  "B7": "empty",
-  "C7": "full",
-  "A9": "full",
-  "B9": "full",
-  "C9": "full",
-  "microscope": "empty",
-  "module": "unknown",
-  "gripper": "empty"
- },
- "home_slot": "A1",
- "faults": [
-  {
-   "t": 1793157153.533813,
-   "cycle": 0,
-   "step": "move_to polar.pose_at_0 [2/3]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3873, 'errMsg': '2026-10-27 20:12:31.106 Motion error: axis 3 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-27 20:12:31.114 Motion error: axis 3 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-27 20:12:31.122 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-27 20:12:31.122 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-27 20:12:31.122 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-27 20:12:31.122 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-27 20:12:31.122 Motion error: external axis 2 servo enable failed'}] after: linear move did not reach [312.5, 304.5, 335.0]; at [199.3, 121.0, 335.0]"
-  },
-  {
-   "t": 1793164119.0047429,
-   "cycle": 0,
-   "step": "move_to polar.pose_at_0 [1/5]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3570, 'errMsg': '2026-10-27 22:08:36.761 Motion error: singularity or unreachable path'}] after: linear move did not reach [150.0, 70.0, 148.2]; at [130.2, -0.5, 148.2]"
-  },
-  {
-   "t": 1793166338.5180516,
-   "cycle": 0,
-   "step": "polar_to_hotel[5/5]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3873, 'errMsg': '2026-10-27 22:45:34.981 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-27 22:45:34.988 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-27 22:45:34.996 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-27 22:45:34.996 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-27 22:45:34.996 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-27 22:45:34.996 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-27 22:45:34.996 Motion error: external axis 2 servo enable failed'}] after: abs joint move did not reach [64.08, 18.39, -91.75, 29.01]; at [64.11, 20.62, -94.56, 25.62]"
-  },
-  {
-   "t": 1793169520.0317223,
-   "cycle": 0,
-   "step": "move_to hotel approach A2 [3/3]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3570, 'errMsg': '2026-10-27 23:38:37.708 Motion error: singularity or unreachable path'}] after: linear move did not reach [160.8, 137.4, 136.8]; at [161.3, 3.4, 136.8]"
-  },
-  {
-   "t": 1793173536.0314553,
-   "cycle": 0,
-   "step": "move_to hotel stage C1 [1/4]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3873, 'errMsg': '2026-10-28 00:45:33.473 Motion error: axis 3 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 00:45:33.480 Motion error: axis 3 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 00:45:33.488 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 00:45:33.488 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 00:45:33.488 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 00:45:33.488 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 00:45:33.488 Motion error: external axis 2 servo enable failed'}] after: joint move did not reach [119.0, -99.7, 85.4]; at [101.2, -31.1, 85.4]"
-  },
-  {
-   "t": 1793174024.2056253,
-   "cycle": 0,
-   "step": "move_to nest [4/4]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3571, 'errMsg': '2026-10-28 00:53:40.892 Motion error: joint reached soft limit'}] after: abs joint move did not reach [194.11, 99.38, 14.42, -113.47]; at [194.11, 95.1, 15.13, -109.9]"
-  },
-  {
-   "t": 1793174690.7494447,
-   "cycle": 0,
-   "step": "pick:polar",
-   "kind": "not_held",
-   "detail": "best correlation 0.403 below 0.550"
-  },
-  {
-   "t": 1793175087.4197729,
-   "cycle": 0,
-   "step": "place:microscope",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.040 below 0.645"
-  },
-  {
-   "t": 1793177718.2712305,
-   "cycle": 0,
-   "step": "move_to polar.pose_at_0 [5/5]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3960, 'errMsg': '2026-10-28 01:55:15.123 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 01:55:15.123 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 01:55:15.123 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 01:55:15.123 Motion error: external axis 2 servo enable failed'}, {'errCode': 3873, 'errMsg': '2026-10-28 01:55:15.091 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 01:55:15.099 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 01:55:15.107 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 01:55:15.115 Motion error: axis 1 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 01:55:15.123 Motion error: failed to enable axis 1 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 01:55:15.123 Motion error: failed to enable axis 2 servo'}] after: linear move did not reach [312.5, 304.5, 101.2]; at [312.5, 304.4, 213.9]"
-  },
-  {
-   "t": 1793178156.5771055,
-   "cycle": 0,
-   "step": "move_to polar.pose_at_0 [3/5]",
-   "kind": "yaw_deviation",
-   "detail": "115.14 deg"
-  },
-  {
-   "t": 1793178230.0125878,
-   "cycle": 0,
-   "step": "move_to polar.pose_at_0 [1/5]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3571, 'errMsg': '2026-10-28 02:03:47.708 Motion error: joint reached soft limit'}] after: joint-fallback move did not reach [120.6, 287.4, 370.0]; at [120.6, 287.4, 343.6]"
-  },
-  {
-   "t": 1793178367.9953868,
-   "cycle": 0,
-   "step": "move_to polar.pose_at_0 [1/6]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3571, 'errMsg': '2026-10-28 02:06:05.694 Motion error: joint reached soft limit'}] after: joint-fallback move did not reach [120.6, 287.4, 370.0]; at [120.6, 287.4, 343.6]"
-  },
-  {
-   "t": 1793178806.6791291,
-   "cycle": 0,
-   "step": "move_to polar.pose_at_0 [4/4]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3960, 'errMsg': '2026-10-28 02:13:23.515 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 02:13:23.515 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 02:13:23.515 Motion error: external axis 2 servo enable failed'}, {'errCode': 3873, 'errMsg': '2026-10-28 02:13:23.483 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 02:13:23.491 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 02:13:23.499 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 02:13:23.507 Motion error: axis 1 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 02:13:23.515 Motion error: failed to enable axis 1 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 02:13:23.515 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 02:13:23.515 Motion error: failed to enable axis 3 servo'}] after: linear move did not reach [312.5, 304.5, 101.2]; at [312.5, 304.6, 191.2]"
-  },
-  {
-   "t": 1793179004.3080778,
-   "cycle": 0,
-   "step": "move_to nest [2/4]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3570, 'errMsg': '2026-10-28 02:16:42.136 Motion error: singularity or unreachable path'}] after: linear move did not reach [178.2, 85.3, 232.7]; at [296.4, 278.2, 232.7]"
-  },
-  {
-   "t": 1793179782.0893667,
-   "cycle": 0,
-   "step": "move_to polar.pose_at_0 [3/5]",
-   "kind": "yaw_deviation",
-   "detail": "178.74 deg"
-  },
-  {
-   "t": 1793179895.8081877,
-   "cycle": 0,
-   "step": "move_to polar.pose_at_0 [5/9]",
-   "kind": "yaw_deviation",
-   "detail": "139.80 deg"
-  },
-  {
-   "t": 1793242091.8111026,
-   "cycle": 0,
-   "step": "pick:polar",
-   "kind": "not_held",
-   "detail": "best correlation 0.297 below 0.550"
-  },
-  {
-   "t": 1793242130.0170465,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.224 below 0.583"
-  },
-  {
-   "t": 1793242870.1535914,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.227 below 0.583"
-  },
-  {
-   "t": 1793244052.0195065,
-   "cycle": 0,
-   "step": "pick:polar",
-   "kind": "not_held",
-   "detail": "best correlation 0.107 below 0.550"
-  },
-  {
-   "t": 1793244118.8904362,
-   "cycle": 0,
-   "step": "move_to hotel stage A1 [2/4]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3873, 'errMsg': '2026-10-28 20:21:55.300 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 20:21:55.308 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:21:55.316 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:21:55.316 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:21:55.316 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:21:55.316 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:21:55.316 Motion error: external axis 2 servo enable failed'}] after: abs joint move did not reach [63.49, 17.38, -50.84, 26.2]; at [63.48, 17.38, -50.86, 22.18]"
-  },
-  {
-   "t": 1793244698.6157448,
-   "cycle": 0,
-   "step": "pick:polar",
-   "kind": "not_held",
-   "detail": "best correlation 0.128 below 0.550"
-  },
-  {
-   "t": 1793244712.168604,
-   "cycle": 0,
-   "step": "polar_to_hotel[3/5]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3873, 'errMsg': '2026-10-28 20:31:48.619 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 20:31:48.626 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 20:31:48.633 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:31:48.641 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:31:48.641 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:31:48.642 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:31:48.642 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:31:48.642 Motion error: external axis 2 servo enable failed'}] after: abs joint move did not reach [64.22, 31.26, -114.81, 18.81]; at [64.06, 31.32, -115.95, 16.34]"
-  },
-  {
-   "t": 1793244868.2494388,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation -0.010 below 0.550"
-  },
-  {
-   "t": 1793244903.6335158,
-   "cycle": 0,
-   "step": "polar_to_hotel[4/7]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3873, 'errMsg': '2026-10-28 20:35:00.053 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 20:35:00.059 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 20:35:00.066 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:35:00.074 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:35:00.074 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:35:00.074 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:35:00.075 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:35:00.075 Motion error: external axis 2 servo enable failed'}] after: abs joint move did not reach [101.4, 31.24, -114.77, 18.8]; at [101.4, 31.3, -115.92, 16.39]"
-  },
-  {
-   "t": 1793245010.998713,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation -0.012 below 0.550"
-  },
-  {
-   "t": 1793245097.8784375,
-   "cycle": 0,
-   "step": "pick:hotel:A1",
-   "kind": "grasp",
-   "detail": "jaw stopped at 6.83: obstruction or plate not seated"
-  },
-  {
-   "t": 1793249596.64352,
-   "cycle": 0,
-   "step": "pick:polar",
-   "kind": "not_held",
-   "detail": "best correlation 0.447 below 0.550"
-  },
-  {
-   "t": 1793249624.4124508,
-   "cycle": 0,
-   "step": "pick:polar",
-   "kind": "not_held",
-   "detail": "best correlation 0.449 below 0.550"
-  },
-  {
-   "t": 1793249782.504601,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.319 below 0.583"
-  },
-  {
-   "t": 1793249865.8282785,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.003 below 0.550"
-  },
-  {
-   "t": 1793249900.8996294,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated",
-   "detail": "best correlation 0.439 below 0.781"
-  },
-  {
-   "t": 1793249913.7572696,
-   "cycle": 0,
-   "step": "pick:polar",
-   "kind": "not_held",
-   "detail": "best correlation 0.511 below 0.550"
-  },
-  {
-   "t": 1793249923.264781,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.002 below 0.550"
-  },
-  {
-   "t": 1793249928.6341443,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated",
-   "detail": "best correlation 0.202 below 0.781"
-  },
-  {
-   "t": 1793249945.5500636,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.003 below 0.550"
-  },
-  {
-   "t": 1793249950.5534437,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated",
-   "detail": "best correlation 0.630 below 0.781"
-  },
-  {
-   "t": 1793249969.2808564,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.003 below 0.550"
-  },
-  {
-   "t": 1793249973.7669282,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated",
-   "detail": "best correlation 0.186 below 0.781"
-  },
-  {
-   "t": 1793253393.6878464,
-   "cycle": 0,
-   "step": "pick:polar",
-   "kind": "not_held",
-   "detail": "best correlation 0.521 below 0.550"
-  },
-  {
-   "t": 1793253511.4069626,
-   "cycle": 0,
-   "step": "place:microscope",
-   "kind": "not_seated_front",
-   "detail": "best correlation -0.008 below 0.645"
-  },
-  {
-   "t": 1793254902.598496,
-   "cycle": 0,
-   "step": "move_to polar.pose_at_0 [1/5]",
-   "kind": "controller_error",
-   "detail": "[{'errCode': 3873, 'errMsg': '2026-10-28 23:21:39.131 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 23:21:39.138 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 23:21:39.146 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 23:21:39.146 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 23:21:39.146 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 23:21:39.146 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 23:21:39.146 Motion error: external axis 2 servo enable failed'}] after: abs joint move did not reach [214.64, 48.1, -93.3, 134.19]; at [215.5, 50.49, -97.8, 141.17]"
-  },
-  {
-   "t": 1793255180.7593775,
-   "cycle": 0,
-   "step": "jaw open",
-   "kind": "jaw_refused",
-   "detail": "external axis 1 stopped at 27.93, target 28.5 (sdk=False)"
-  },
-  {
-   "t": 1793255546.19893,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.327 below 0.583"
-  },
-  {
-   "t": 1793255551.1788447,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated",
-   "detail": "best correlation 0.163 below 0.550"
-  },
-  {
-   "t": 1793255591.5793817,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.002 below 0.550"
-  },
-  {
-   "t": 1793255634.6945946,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.000 below 0.550"
-  },
-  {
-   "t": 1793255662.029626,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated",
-   "detail": "best correlation 0.111 below 0.781"
-  },
-  {
-   "t": 1793255678.998494,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation -0.001 below 0.550"
-  },
-  {
-   "t": 1793255688.8830552,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated",
-   "detail": "best correlation 0.749 below 0.781"
-  },
-  {
-   "t": 1793255705.555668,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation -0.000 below 0.550"
-  },
-  {
-   "t": 1793255739.118604,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated",
-   "detail": "best correlation 0.451 below 0.781"
-  },
-  {
-   "t": 1793256349.5959828,
-   "cycle": 0,
-   "step": "jaw open",
-   "kind": "jaw_refused",
-   "detail": "external axis 1 stopped at 26.41, target 28.5 (sdk=False)"
-  },
-  {
-   "t": 1793257399.4844034,
-   "cycle": 0,
-   "step": "pick:microscope",
-   "kind": "not_held",
-   "detail": "best correlation -0.010 below 0.550"
-  },
-  {
-   "t": 1793257410.0044127,
-   "cycle": 0,
-   "step": "place:microscope",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.191 below 0.645"
-  },
-  {
-   "t": 1793257520.8316622,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.241 below 0.583"
-  },
-  {
-   "t": 1793257523.1262271,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated",
-   "detail": "best correlation 0.137 below 0.550"
-  },
-  {
-   "t": 1793257561.5070055,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.014 below 0.550"
-  },
-  {
-   "t": 1793257578.9806979,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.014 below 0.550"
-  },
-  {
-   "t": 1793257581.2777805,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated",
-   "detail": "best correlation 0.098 below 0.781"
-  },
-  {
-   "t": 1793257719.4916399,
-   "cycle": 0,
-   "step": "place:microscope",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.198 below 0.645"
-  },
-  {
-   "t": 1793257738.4618094,
-   "cycle": 0,
-   "step": "pick:microscope",
-   "kind": "not_held",
-   "detail": "best correlation 0.506 below 0.550"
-  },
-  {
-   "t": 1793257833.0971713,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.205 below 0.583"
-  },
-  {
-   "t": 1793257835.494784,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated",
-   "detail": "best correlation 0.413 below 0.550"
-  },
-  {
-   "t": 1793258270.5860016,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.223 below 0.583"
-  },
-  {
-   "t": 1793258313.851681,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.235 below 0.583"
-  },
-  {
-   "t": 1793258354.172492,
-   "cycle": 0,
-   "step": "pick:polar",
-   "kind": "not_held",
-   "detail": "best correlation 0.200 below 0.550"
-  },
-  {
-   "t": 1793258392.5801601,
-   "cycle": 0,
-   "step": "place:polar",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.061 below 0.550"
-  }
- ],
- "last_safe_pose": [
-  315.92,
-  305.855,
-  67.862,
-  0.0,
-  -0.0,
-  -92.1589
- ],
- "updated": 1793258392.5801601
+  "plate_at": "microscope",
+  "polar_angle": 0,
+  "grip": "none",
+  "step": "pick:microscope",
+  "step_done": false,
+  "cycle": 0,
+  "hotel": {
+    "A3": "",
+    "A5": "",
+    "A7": "",
+    "A9": "",
+    "B9": "",
+    "C9": "",
+    "C7": ""
+  },
+  "plate_id": "",
+  "contents": {
+    "A1": "empty",
+    "B1": "empty",
+    "C1": "empty",
+    "A3": "full",
+    "B3": "empty",
+    "C3": "empty",
+    "A5": "full",
+    "B5": "empty",
+    "C5": "empty",
+    "A7": "full",
+    "B7": "empty",
+    "C7": "full",
+    "A9": "full",
+    "B9": "full",
+    "C9": "full",
+    "microscope": "empty",
+    "module": "unknown",
+    "gripper": "empty"
+  },
+  "home_slot": "A1",
+  "faults": [
+    {
+      "t": 1793157153.533813,
+      "cycle": 0,
+      "step": "move_to polar.pose_at_0 [2/3]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3873, 'errMsg': '2026-10-27 20:12:31.106 Motion error: axis 3 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-27 20:12:31.114 Motion error: axis 3 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-27 20:12:31.122 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-27 20:12:31.122 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-27 20:12:31.122 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-27 20:12:31.122 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-27 20:12:31.122 Motion error: external axis 2 servo enable failed'}] after: linear move did not reach [312.5, 304.5, 335.0]; at [199.3, 121.0, 335.0]"
+    },
+    {
+      "t": 1793164119.0047429,
+      "cycle": 0,
+      "step": "move_to polar.pose_at_0 [1/5]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3570, 'errMsg': '2026-10-27 22:08:36.761 Motion error: singularity or unreachable path'}] after: linear move did not reach [150.0, 70.0, 148.2]; at [130.2, -0.5, 148.2]"
+    },
+    {
+      "t": 1793166338.5180516,
+      "cycle": 0,
+      "step": "polar_to_hotel[5/5]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3873, 'errMsg': '2026-10-27 22:45:34.981 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-27 22:45:34.988 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-27 22:45:34.996 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-27 22:45:34.996 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-27 22:45:34.996 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-27 22:45:34.996 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-27 22:45:34.996 Motion error: external axis 2 servo enable failed'}] after: abs joint move did not reach [64.08, 18.39, -91.75, 29.01]; at [64.11, 20.62, -94.56, 25.62]"
+    },
+    {
+      "t": 1793169520.0317223,
+      "cycle": 0,
+      "step": "move_to hotel approach A2 [3/3]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3570, 'errMsg': '2026-10-27 23:38:37.708 Motion error: singularity or unreachable path'}] after: linear move did not reach [160.8, 137.4, 136.8]; at [161.3, 3.4, 136.8]"
+    },
+    {
+      "t": 1793173536.0314553,
+      "cycle": 0,
+      "step": "move_to hotel stage C1 [1/4]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3873, 'errMsg': '2026-10-28 00:45:33.473 Motion error: axis 3 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 00:45:33.480 Motion error: axis 3 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 00:45:33.488 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 00:45:33.488 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 00:45:33.488 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 00:45:33.488 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 00:45:33.488 Motion error: external axis 2 servo enable failed'}] after: joint move did not reach [119.0, -99.7, 85.4]; at [101.2, -31.1, 85.4]"
+    },
+    {
+      "t": 1793174024.2056253,
+      "cycle": 0,
+      "step": "move_to nest [4/4]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3571, 'errMsg': '2026-10-28 00:53:40.892 Motion error: joint reached soft limit'}] after: abs joint move did not reach [194.11, 99.38, 14.42, -113.47]; at [194.11, 95.1, 15.13, -109.9]"
+    },
+    {
+      "t": 1793174690.7494447,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "not_held",
+      "detail": "best correlation 0.403 below 0.550"
+    },
+    {
+      "t": 1793175087.4197729,
+      "cycle": 0,
+      "step": "place:microscope",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.040 below 0.645"
+    },
+    {
+      "t": 1793177718.2712305,
+      "cycle": 0,
+      "step": "move_to polar.pose_at_0 [5/5]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3960, 'errMsg': '2026-10-28 01:55:15.123 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 01:55:15.123 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 01:55:15.123 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 01:55:15.123 Motion error: external axis 2 servo enable failed'}, {'errCode': 3873, 'errMsg': '2026-10-28 01:55:15.091 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 01:55:15.099 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 01:55:15.107 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 01:55:15.115 Motion error: axis 1 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 01:55:15.123 Motion error: failed to enable axis 1 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 01:55:15.123 Motion error: failed to enable axis 2 servo'}] after: linear move did not reach [312.5, 304.5, 101.2]; at [312.5, 304.4, 213.9]"
+    },
+    {
+      "t": 1793178156.5771055,
+      "cycle": 0,
+      "step": "move_to polar.pose_at_0 [3/5]",
+      "kind": "yaw_deviation",
+      "detail": "115.14 deg"
+    },
+    {
+      "t": 1793178230.0125878,
+      "cycle": 0,
+      "step": "move_to polar.pose_at_0 [1/5]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3571, 'errMsg': '2026-10-28 02:03:47.708 Motion error: joint reached soft limit'}] after: joint-fallback move did not reach [120.6, 287.4, 370.0]; at [120.6, 287.4, 343.6]"
+    },
+    {
+      "t": 1793178367.9953868,
+      "cycle": 0,
+      "step": "move_to polar.pose_at_0 [1/6]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3571, 'errMsg': '2026-10-28 02:06:05.694 Motion error: joint reached soft limit'}] after: joint-fallback move did not reach [120.6, 287.4, 370.0]; at [120.6, 287.4, 343.6]"
+    },
+    {
+      "t": 1793178806.6791291,
+      "cycle": 0,
+      "step": "move_to polar.pose_at_0 [4/4]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3960, 'errMsg': '2026-10-28 02:13:23.515 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 02:13:23.515 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 02:13:23.515 Motion error: external axis 2 servo enable failed'}, {'errCode': 3873, 'errMsg': '2026-10-28 02:13:23.483 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 02:13:23.491 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 02:13:23.499 Motion error: axis 1 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 02:13:23.507 Motion error: axis 1 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 02:13:23.515 Motion error: failed to enable axis 1 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 02:13:23.515 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 02:13:23.515 Motion error: failed to enable axis 3 servo'}] after: linear move did not reach [312.5, 304.5, 101.2]; at [312.5, 304.6, 191.2]"
+    },
+    {
+      "t": 1793179004.3080778,
+      "cycle": 0,
+      "step": "move_to nest [2/4]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3570, 'errMsg': '2026-10-28 02:16:42.136 Motion error: singularity or unreachable path'}] after: linear move did not reach [178.2, 85.3, 232.7]; at [296.4, 278.2, 232.7]"
+    },
+    {
+      "t": 1793179782.0893667,
+      "cycle": 0,
+      "step": "move_to polar.pose_at_0 [3/5]",
+      "kind": "yaw_deviation",
+      "detail": "178.74 deg"
+    },
+    {
+      "t": 1793179895.8081877,
+      "cycle": 0,
+      "step": "move_to polar.pose_at_0 [5/9]",
+      "kind": "yaw_deviation",
+      "detail": "139.80 deg"
+    },
+    {
+      "t": 1793242091.8111026,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "not_held",
+      "detail": "best correlation 0.297 below 0.550"
+    },
+    {
+      "t": 1793242130.0170465,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.224 below 0.583"
+    },
+    {
+      "t": 1793242870.1535914,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.227 below 0.583"
+    },
+    {
+      "t": 1793244052.0195065,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "not_held",
+      "detail": "best correlation 0.107 below 0.550"
+    },
+    {
+      "t": 1793244118.8904362,
+      "cycle": 0,
+      "step": "move_to hotel stage A1 [2/4]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3873, 'errMsg': '2026-10-28 20:21:55.300 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 20:21:55.308 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:21:55.316 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:21:55.316 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:21:55.316 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:21:55.316 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:21:55.316 Motion error: external axis 2 servo enable failed'}] after: abs joint move did not reach [63.49, 17.38, -50.84, 26.2]; at [63.48, 17.38, -50.86, 22.18]"
+    },
+    {
+      "t": 1793244698.6157448,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "not_held",
+      "detail": "best correlation 0.128 below 0.550"
+    },
+    {
+      "t": 1793244712.168604,
+      "cycle": 0,
+      "step": "polar_to_hotel[3/5]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3873, 'errMsg': '2026-10-28 20:31:48.619 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 20:31:48.626 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 20:31:48.633 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:31:48.641 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:31:48.641 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:31:48.642 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:31:48.642 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:31:48.642 Motion error: external axis 2 servo enable failed'}] after: abs joint move did not reach [64.22, 31.26, -114.81, 18.81]; at [64.06, 31.32, -115.95, 16.34]"
+    },
+    {
+      "t": 1793244868.2494388,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation -0.010 below 0.550"
+    },
+    {
+      "t": 1793244903.6335158,
+      "cycle": 0,
+      "step": "polar_to_hotel[4/7]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3873, 'errMsg': '2026-10-28 20:35:00.053 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 20:35:00.059 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 20:35:00.066 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:35:00.074 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:35:00.074 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 20:35:00.074 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:35:00.075 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 20:35:00.075 Motion error: external axis 2 servo enable failed'}] after: abs joint move did not reach [101.4, 31.24, -114.77, 18.8]; at [101.4, 31.3, -115.92, 16.39]"
+    },
+    {
+      "t": 1793245010.998713,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation -0.012 below 0.550"
+    },
+    {
+      "t": 1793245097.8784375,
+      "cycle": 0,
+      "step": "pick:hotel:A1",
+      "kind": "grasp",
+      "detail": "jaw stopped at 6.83: obstruction or plate not seated"
+    },
+    {
+      "t": 1793249596.64352,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "not_held",
+      "detail": "best correlation 0.447 below 0.550"
+    },
+    {
+      "t": 1793249624.4124508,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "not_held",
+      "detail": "best correlation 0.449 below 0.550"
+    },
+    {
+      "t": 1793249782.504601,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.319 below 0.583"
+    },
+    {
+      "t": 1793249865.8282785,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.003 below 0.550"
+    },
+    {
+      "t": 1793249900.8996294,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.439 below 0.781"
+    },
+    {
+      "t": 1793249913.7572696,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "not_held",
+      "detail": "best correlation 0.511 below 0.550"
+    },
+    {
+      "t": 1793249923.264781,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.002 below 0.550"
+    },
+    {
+      "t": 1793249928.6341443,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.202 below 0.781"
+    },
+    {
+      "t": 1793249945.5500636,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.003 below 0.550"
+    },
+    {
+      "t": 1793249950.5534437,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.630 below 0.781"
+    },
+    {
+      "t": 1793249969.2808564,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.003 below 0.550"
+    },
+    {
+      "t": 1793249973.7669282,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.186 below 0.781"
+    },
+    {
+      "t": 1793253393.6878464,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "not_held",
+      "detail": "best correlation 0.521 below 0.550"
+    },
+    {
+      "t": 1793253511.4069626,
+      "cycle": 0,
+      "step": "place:microscope",
+      "kind": "not_seated_front",
+      "detail": "best correlation -0.008 below 0.645"
+    },
+    {
+      "t": 1793254902.598496,
+      "cycle": 0,
+      "step": "move_to polar.pose_at_0 [1/5]",
+      "kind": "controller_error",
+      "detail": "[{'errCode': 3873, 'errMsg': '2026-10-28 23:21:39.131 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-10-28 23:21:39.138 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-10-28 23:21:39.146 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 23:21:39.146 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-10-28 23:21:39.146 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-10-28 23:21:39.146 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-10-28 23:21:39.146 Motion error: external axis 2 servo enable failed'}] after: abs joint move did not reach [214.64, 48.1, -93.3, 134.19]; at [215.5, 50.49, -97.8, 141.17]"
+    },
+    {
+      "t": 1793255180.7593775,
+      "cycle": 0,
+      "step": "jaw open",
+      "kind": "jaw_refused",
+      "detail": "external axis 1 stopped at 27.93, target 28.5 (sdk=False)"
+    },
+    {
+      "t": 1793255546.19893,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.327 below 0.583"
+    },
+    {
+      "t": 1793255551.1788447,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.163 below 0.550"
+    },
+    {
+      "t": 1793255591.5793817,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.002 below 0.550"
+    },
+    {
+      "t": 1793255634.6945946,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.000 below 0.550"
+    },
+    {
+      "t": 1793255662.029626,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.111 below 0.781"
+    },
+    {
+      "t": 1793255678.998494,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation -0.001 below 0.550"
+    },
+    {
+      "t": 1793255688.8830552,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.749 below 0.781"
+    },
+    {
+      "t": 1793255705.555668,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation -0.000 below 0.550"
+    },
+    {
+      "t": 1793255739.118604,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.451 below 0.781"
+    },
+    {
+      "t": 1793256349.5959828,
+      "cycle": 0,
+      "step": "jaw open",
+      "kind": "jaw_refused",
+      "detail": "external axis 1 stopped at 26.41, target 28.5 (sdk=False)"
+    },
+    {
+      "t": 1793257399.4844034,
+      "cycle": 0,
+      "step": "pick:microscope",
+      "kind": "not_held",
+      "detail": "best correlation -0.010 below 0.550"
+    },
+    {
+      "t": 1793257410.0044127,
+      "cycle": 0,
+      "step": "place:microscope",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.191 below 0.645"
+    },
+    {
+      "t": 1793257520.8316622,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.241 below 0.583"
+    },
+    {
+      "t": 1793257523.1262271,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.137 below 0.550"
+    },
+    {
+      "t": 1793257561.5070055,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.014 below 0.550"
+    },
+    {
+      "t": 1793257578.9806979,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.014 below 0.550"
+    },
+    {
+      "t": 1793257581.2777805,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.098 below 0.781"
+    },
+    {
+      "t": 1793257719.4916399,
+      "cycle": 0,
+      "step": "place:microscope",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.198 below 0.645"
+    },
+    {
+      "t": 1793257738.4618094,
+      "cycle": 0,
+      "step": "pick:microscope",
+      "kind": "not_held",
+      "detail": "best correlation 0.506 below 0.550"
+    },
+    {
+      "t": 1793257833.0971713,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.205 below 0.583"
+    },
+    {
+      "t": 1793257835.494784,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.413 below 0.550"
+    },
+    {
+      "t": 1793258270.5860016,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.223 below 0.583"
+    },
+    {
+      "t": 1793258313.851681,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.235 below 0.583"
+    },
+    {
+      "t": 1793258354.172492,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "not_held",
+      "detail": "best correlation 0.200 below 0.550"
+    },
+    {
+      "t": 1793258392.5801601,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.061 below 0.550"
+    },
+    {
+      "t": 1793258396.4989412,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "lower_front",
+      "detail": "best correlation 0.126 below 0.658"
+    },
+    {
+      "t": 1793258412.1605668,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.061 below 0.550"
+    },
+    {
+      "t": 1793258414.423194,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "not_seated",
+      "detail": "best correlation 0.528 below 0.550"
+    },
+    {
+      "t": 1793258541.1192963,
+      "cycle": 0,
+      "step": "place:microscope",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.180 below 0.645"
+    },
+    {
+      "t": 1793258662.4968307,
+      "cycle": 0,
+      "step": "pick:polar",
+      "kind": "not_held",
+      "detail": "best correlation 0.351 below 0.550"
+    },
+    {
+      "t": 1793258800.861871,
+      "cycle": 0,
+      "step": "place:microscope",
+      "kind": "not_seated_front",
+      "detail": "best correlation 0.164 below 0.645"
+    }
+  ],
+  "last_safe_pose": [
+    120.87,
+    304.223,
+    328.589,
+    0.0,
+    -0.0,
+    96.698
+  ],
+  "updated": 1793258804.8390913
 }
