@@ -799,7 +799,7 @@ class Bringup:
 
         return Section("microscope.toml", [
             Step("computer", "read the stage travel limits from squid", limits),
-            Step("polar", "drive the route with the empty hand", drive, moves=True)])
+            ])
 
     # ---- clear the stage
     def clear_stage(self) -> Section:
@@ -824,7 +824,7 @@ class Bringup:
 
         return Section("clear the stage", [
             Step("user", "remove the aruco plate from the microscope stage", before=self.loosen),
-            Step("polar", "look down at the stage: the aruco must be gone", look, moves=True)])
+            Step("computer", "note the stage as empty", lambda: self.found.update(stage_clear=True) or {"stage": "empty (the user took the plate off)"})])
 
     # ---- system_state.json
     def system_state(self) -> Section:
