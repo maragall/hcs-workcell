@@ -32,7 +32,7 @@ from procedures.safety import SafetyViolation
 from procedures.state import StateStore
 from procedures.telemetry import Telemetry
 
-CARRY_ON = ("safe to lower", "clear to lower", "clear to rotate", "fine to continue", "seated correctly", "held correctly")      # the camera gates' questions: the setup answers yes and logs the mismatch
+CARRY_ON = ("safe to lower", "clear to lower", "clear to rotate", "fine to continue", "seated correctly", "held correctly", "Continue anyway", "Proceed with the taught pose")      # the camera gates' questions: the setup answers yes and logs the mismatch
 SEAT_MOVED_KEEP_MM = 1.0          # closer than this the taught seat stays: the read has that much noise
 SEARCH_HEIGHTS = 4                # heights tried below the microscope hover, highest allowed first
 BAND_BELOW, BAND_ABOVE = 0.1, {"short_edges": 0.5, "long_edges": 1.05}     # as gripper.accept_band was set 2026-10-22
