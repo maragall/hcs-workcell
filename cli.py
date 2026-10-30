@@ -985,7 +985,7 @@ def cmd_setup(args):
 
 
 def cmd_shuffle(args):
-    """Plates moved between the taught hotel slots at random, for ever: no setup, no microscope. Stop: runs/STOP or Ctrl+C."""
+    """Random plates through the microscope into random empty taught slots, for ever: no setup. Stop: runs/STOP or Ctrl+C."""
     args.shuffle = True
     try:
         os.remove(os.path.join(RUNS, "STOP"))          # the last run's stop request does not stop this one
@@ -1179,7 +1179,7 @@ def main():
     p.add_argument("--step", type=int, default=0, help="with --from: the first step of that section to run")
     p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the hotel you have, answers 'is there a slot here' for every row")
     p.set_defaults(fn=cmd_setup, moves=0)
-    p = sub.add_parser("shuffle", help="move plates between the taught hotel slots at random, for ever (hotel only; occupancy = fixtures.hotel.loaded)")
+    p = sub.add_parser("shuffle", help="random plates through the microscope into random empty taught slots, for ever (occupancy = fixtures.hotel.loaded)")
     p.add_argument("--sim", action="store_true"); p.add_argument("--moves", type=int, default=0, help="stop after this many moves (default: for ever)")
     p.set_defaults(fn=cmd_shuffle, start=None, list=False, yes=False, acquisition_s=0.0, auto=False, stop_after=None, confirm_stage=False, skip=None, step=0, hotel_size=None)
     p = sub.add_parser("cad-poses", help="hotel poses computed from the CAD against the taught ones (nothing moves)")

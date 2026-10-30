@@ -933,7 +933,7 @@ class Bringup:
 
     # ---- shuffle
     def shuffle(self, limit: int = 0) -> Section:
-        """Hotel only, no microscope: a plate from a random taught slot goes to a random empty taught slot, for ever (or `limit` moves).
+        """A random plate from a taught slot goes to the microscope, is imaged, and goes into a random empty taught slot, for ever (or `limit` moves).
         The occupancy is fixtures.hotel.loaded; the ledger is made to agree with it before the first move. A plate left in the
         fingers by an earlier stop (the jaw at the long-edge width) is put into a slot first."""
         c = self.cell
@@ -981,11 +981,12 @@ class Bringup:
                     full = [x for x in taught if x in have]
                     holes = [x for x in taught if x not in have]
                     src, want = random.choice(full), random.choice(holes)
-                    print(f"   move {moved + 1}: {src} to {want}   (plates in {sorted(have)}; stops when runs/STOP exists or with Ctrl+C)")
+                    print(f"   move {moved + 1}: {src} to the microscope, then into {want}   (plates in {sorted(have)}; stops when runs/STOP exists or with Ctrl+C)")
                     have.remove(src)
                     self.edit(lambda L: bench.set_loaded(L, have))       # in transit: the slot is empty
-                    self.guard(lambda: cyc._hotel_pick(src))
-                    self.guard(lambda: cyc._hotel_place_free(want))
+                    self.guard(lambda: cyc._run_steps(cyc._steps(src)[1]))      # slot, module, microscope stage
+                    self._acquire()
+                    self.guard(lambda: cyc._run_steps(cyc._steps(want)[0]))     # stage, module, scan, slot
                     have.append(landed(want))
                     self.edit(lambda L: bench.set_loaded(L, have))
                     moved += 1
@@ -994,7 +995,7 @@ class Bringup:
                 self.unattended = False
 
         return Section("shuffle", [connect[0], connect[2], connect[3],
-                                   Step("polar", "move plates between the taught hotel slots, a random plate to a random empty slot, for ever", run, moves=True)])
+                                   Step("polar", "a random plate from a taught slot through the microscope into a random empty taught slot, for ever", run, moves=True)])
 
     # ---- test
     def _acquire(self):
