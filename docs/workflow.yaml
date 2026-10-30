@@ -57,3 +57,8 @@ test:
     - polar : module plate to the microscope, acquire, into an empty taught slot
     - polar : each plate in a taught slot to the microscope, acquire, into the slot empty the longest
     - computer : repeat until runs/STOP   # camera-gate doubts are logged to runs/mismatches.log
+
+# Shuffle (python cli.py shuffle [--moves N]): hotel only, no setup, no microscope
+shuffle:
+    - computer : occupancy = fixtures.hotel.loaded; a plate in the fingers goes into a slot first
+    - polar : a random plate in a taught slot to a random empty taught slot, for ever   # stop: runs/STOP

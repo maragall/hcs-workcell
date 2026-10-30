@@ -931,6 +931,71 @@ class Bringup:
             Step("polar", "look at microscope, module and gripper", looks, moves=True),
             Step("computer", "detect plate or empty at each, then choose the first task", choose)])
 
+    # ---- shuffle
+    def shuffle(self, limit: int = 0) -> Section:
+        """Hotel only, no microscope: a plate from a random taught slot goes to a random empty taught slot, for ever (or `limit` moves).
+        The occupancy is fixtures.hotel.loaded; the ledger is made to agree with it before the first move. A plate left in the
+        fingers by an earlier stop (the jaw at the long-edge width) is put into a slot first."""
+        c = self.cell
+        connect = self.connect().steps
+
+        def stopped():
+            return c.stop_event.is_set() or os.path.exists(os.path.join(c.runs_dir, "STOP"))
+
+        def run():
+            self.unattended = True                      # no question may wait for a person: camera doubts are logged and carried on
+            try:
+                self.ready()
+                cyc = self.cyc()
+                st = cyc.store.s
+                F = c.layout()["fixtures"]
+                taught = [x for x in F["hotel"].get("active_slots", []) if reachable(cyc, x)]
+                lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
+                in_hand = lo <= c.robot.jaw() <= hi
+                have = [x for x in bench.loaded_slots(c.layout()) if x in taught]
+                if len(have) + (1 if in_hand else 0) < 1:
+                    raise Refused("no plate to move: set the occupancy (fixtures.hotel.loaded) to the plates that are in the taught slots " + str(taught))
+                if len(have) + (1 if in_hand else 0) >= len(taught):
+                    raise Refused(f"every taught slot {taught} holds a plate: the shuffle needs one empty slot to move into")
+                st.hotel = {x: "" for x in have}                        # the ledger takes the occupancy from the positions file
+                st.contents.update({x: ("full" if x in have else "empty") for x in st.contents if x[:1] in "ABC" and x[1:].isdigit()})
+                st.contents.update({"module": "empty", "microscope": "empty", "gripper": "full" if in_hand else "empty"})
+                st.plate_at, st.grip, st.step_done = ("gripper", "long_edges", True) if in_hand else ("none", "none", True)
+                cyc.store.save()
+                if os.path.exists(os.path.join(c.runs_dir, "STOP")):
+                    os.remove(os.path.join(c.runs_dir, "STOP"))         # left by the last run: this one starts clean
+
+                def landed(want):
+                    at = st.plate_at
+                    return at.split(":", 1)[1] if at.startswith("hotel:") else want
+
+                if in_hand:
+                    holes = [x for x in taught if x not in have]
+                    want = random.choice(holes)
+                    print(f"   a plate is in the hand by the long edges: into {want}")
+                    self.guard(lambda: cyc._hotel_place_free(want))
+                    have.append(landed(want))
+                    self.edit(lambda L: bench.set_loaded(L, have))
+                moved = 0
+                while not stopped() and (not limit or moved < limit):
+                    full = [x for x in taught if x in have]
+                    holes = [x for x in taught if x not in have]
+                    src, want = random.choice(full), random.choice(holes)
+                    print(f"   move {moved + 1}: {src} to {want}   (plates in {sorted(have)}; stops when runs/STOP exists or with Ctrl+C)")
+                    have.remove(src)
+                    self.edit(lambda L: bench.set_loaded(L, have))       # in transit: the slot is empty
+                    self.guard(lambda: cyc._hotel_pick(src))
+                    self.guard(lambda: cyc._hotel_place_free(want))
+                    have.append(landed(want))
+                    self.edit(lambda L: bench.set_loaded(L, have))
+                    moved += 1
+                return {"plates moved": moved, "occupancy": sorted(have)}
+            finally:
+                self.unattended = False
+
+        return Section("shuffle", [connect[0], connect[2], connect[3],
+                                   Step("polar", "move plates between the taught hotel slots, a random plate to a random empty slot, for ever", run, moves=True)])
+
     # ---- test
     def _acquire(self):
         c = self.cell

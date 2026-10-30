@@ -968,7 +968,8 @@ def cmd_setup(args):
     answers = {"slot in front of the camera": "yes" if args.hotel_size == 30 else "no" if args.hotel_size == 15 else ""}   # what a driver knows; the hands-clear Enter is the user's go
     runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else input,
                     stop=cell.stop_event, on_section_done=save_known_good)
-    todo = Bringup(cell, squid, runner.ask, confirm_stage=args.confirm_stage).sections()
+    bring = Bringup(cell, squid, runner.ask, confirm_stage=args.confirm_stage)
+    todo = [bring.shuffle(args.moves)] if getattr(args, "shuffle", False) else bring.sections()
     stopped = runner.run(todo, args.start, args.step, pause_at_user=args.auto, skip=args.skip.split(",") if args.skip else None,
                          stop_after=args.stop_after)
     cell.frames.stop()
@@ -981,6 +982,12 @@ def cmd_setup(args):
         return 2
     print("\nsetup done")
     return 0
+
+
+def cmd_shuffle(args):
+    """Plates moved between the taught hotel slots at random, for ever: no setup, no microscope. Stop: runs/STOP or Ctrl+C."""
+    args.shuffle = True
+    return cmd_setup(args)
 
 
 def cmd_cad_poses(args):
@@ -1167,7 +1174,10 @@ def main():
     p.add_argument("--skip", help="sections to leave out, comma separated, e.g. cameras.toml")
     p.add_argument("--step", type=int, default=0, help="with --from: the first step of that section to run")
     p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the hotel you have, answers 'is there a slot here' for every row")
-    p.set_defaults(fn=cmd_setup)
+    p.set_defaults(fn=cmd_setup, moves=0)
+    p = sub.add_parser("shuffle", help="move plates between the taught hotel slots at random, for ever (hotel only; occupancy = fixtures.hotel.loaded)")
+    p.add_argument("--sim", action="store_true"); p.add_argument("--moves", type=int, default=0, help="stop after this many moves (default: for ever)")
+    p.set_defaults(fn=cmd_shuffle, start=None, list=False, yes=False, acquisition_s=0.0, auto=False, stop_after=None, confirm_stage=False, skip=None, step=0, hotel_size=None)
     p = sub.add_parser("cad-poses", help="hotel poses computed from the CAD against the taught ones (nothing moves)")
     p.set_defaults(fn=cmd_cad_poses)
     p = sub.add_parser("doctor", help="check this PC and the cell are ready (read-only)")
