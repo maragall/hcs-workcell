@@ -28,6 +28,7 @@ from procedures import cad_poses
 from procedures.corrector import StopSafe
 from procedures.cycle import Cycle
 from procedures.motion import offset
+from procedures.recovery import clear_faults, is_motion_fault
 from procedures.safety import SafetyViolation, SpeedProfile
 from procedures.state import StateStore
 from procedures.telemetry import Telemetry
@@ -957,7 +958,8 @@ class Bringup:
                 cyc = self.cyc()
                 st = cyc.store.s
                 F = c.layout()["fixtures"]
-                cyc.safety.profile = SpeedProfile(**c.layout()["speeds"]["stress"])      # the fastest profile in the positions file: this run is a stress test
+                fast, slow = (SpeedProfile(**c.layout()["speeds"][k]) for k in ("stress", "supervised"))
+                cyc.safety.profile = fast                           # the fastest profile in the positions file: this run is a stress test
                 wanted = F["hotel"].get("active_slots", [])
                 taught = [x for x in wanted if reachable(cyc, x)]
                 print(f"   slots in the shuffle ({len(taught)}): {', '.join(taught)}" + (f"; out of reach, left out: {', '.join(x for x in wanted if x not in taught)}" if len(taught) < len(wanted) else ""))
@@ -1000,6 +1002,35 @@ class Bringup:
                         self.guard(lambda: cyc.move_to("polar.pose_at_0"))
                         self.guard(lambda: cyc._polar_rotate(90, P0))
 
+                def carry(steps):
+                    """A route stopped by a motion fault (a collision, a lost enable) is not the end of the run: the controller's errors are
+                    cleared, and the step that stopped starts again at the slow profile, the planner backing out against the move that hit and
+                    planning a new way in. Once per route; and only a pick with the fingers empty or a place with the plate in them (a pick
+                    restarted with the plate in the fingers would open them over it). Anything else stops the run."""
+                    try:
+                        return self.guard(lambda: cyc._run_steps(steps))
+                    except Refused as e:
+                        step = cyc.store.s.step
+                        short_lo, short_hi = c.layout()["gripper"]["accept_band"]["short_edges"]
+                        jaw = c.robot.jaw()
+                        held = lo <= jaw <= hi or short_lo <= jaw <= short_hi
+                        ok = is_motion_fault(str(e)) or "did not reach" in str(e)
+                        if not ok or step not in [n for n, _ in steps] or not (step.startswith("pick") and not held or step.startswith("place") and held):
+                            raise
+                        why = clear_faults(c.robot)
+                        line = f"{_stamp()}  {step}: {str(e)[:160]}; faults {'cleared' if not why else 'NOT cleared: ' + why}; starting the step again, slowly"
+                        print(colour.paint("   RECOVERING: " + line, colour.BAD))
+                        cyc.tele.log("recover", "retry", line)
+                        with open(os.path.join(c.runs_dir, "recoveries.log"), "a", encoding="utf-8") as f:
+                            f.write(line + chr(10))
+                        if why:
+                            raise Refused(why)
+                        cyc.safety.profile = slow
+                        try:
+                            return self.guard(lambda: cyc._run_steps(steps, step))
+                        finally:
+                            cyc.safety.profile = fast
+
                 moved = 0
                 while not stopped() and (not limit or moved < limit):
                     module_to_90()
@@ -1010,9 +1041,9 @@ class Bringup:
                     have.remove(src)
                     self.edit(lambda L: bench.set_loaded(L, have))       # in transit: the slot is empty
                     began, doubts0 = time.time(), _lines(os.path.join(c.runs_dir, "mismatches.log"))
-                    self.guard(lambda: cyc._run_steps(cyc._steps(src)[1]))      # slot, module, microscope stage
+                    carry(cyc._steps(src)[1])                                  # slot, module, microscope stage
                     self._acquire()
-                    self.guard(lambda: cyc._run_steps(cyc._steps(want)[0]))     # stage, module, scan, slot
+                    carry(cyc._steps(want)[0])                                 # stage, module, scan, slot
                     have.append(landed(want))
                     self.edit(lambda L: bench.set_loaded(L, have))
                     moved += 1

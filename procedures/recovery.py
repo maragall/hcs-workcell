@@ -37,8 +37,8 @@ def _wait_still(robot, seconds: float = 20.0) -> None:
         time.sleep(0.2)
 
 
-def recover_to_nest(robot, motion, log: Callable[..., None] = lambda *a, **k: None) -> str:
-    """One attempt. `motion` is a Cycle (or any Motion with go_nest and a ledger). Returns what happened, in words."""
+def clear_faults(robot) -> str:
+    """No motion: wait for the arm to stand still, clear the controller's errors, enable it locked. "" when done, else why not."""
     _wait_still(robot)
     try:
         if hasattr(robot, "clear_errors"):
@@ -52,6 +52,14 @@ def recover_to_nest(robot, motion, log: Callable[..., None] = lambda *a, **k: No
             robot.drag(False)
     except Exception as e:
         return f"could not clear the fault ({e}): arm left where it stopped"
+    return ""
+
+
+def recover_to_nest(robot, motion, log: Callable[..., None] = lambda *a, **k: None) -> str:
+    """One attempt. `motion` is a Cycle (or any Motion with go_nest and a ledger). Returns what happened, in words."""
+    why = clear_faults(robot)
+    if why:
+        return why
     grip = getattr(getattr(motion, "store", None), "s", None) and motion.store.s.grip
     if grip and grip != "none":
         return f"errors cleared, arm enabled; the claw holds a plate ({grip}), so it stays where it stopped: inspect it, take the plate by hand"

@@ -118,6 +118,7 @@ class Motion:
 
     def _move(self, kind: str, target: List[float], label: str, speed: float, allow_floor=()):
         here = self.robot.pose()
+        self.last_heading = [target[i] - here[i] for i in range(3)]      # where this move was going: if it stops the arm against something, the planner backs out against it
         if (kind == "L" and max(abs(target[i] - here[i]) for i in range(3)) < 0.5 and abs(target[5] - here[5]) > 1.0
                 and len(here) > 5 and getattr(self.robot, "joints", None)):
             return self._turn_in_place(target, label, speed)
@@ -301,7 +302,7 @@ class Motion:
         grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
         self.tele.log("move", f"move_to {name}", "planning a new route")
         route = plan(self.L, self.safety, self.robot.pose(), target, self._position_here(), name,
-                     holding=grip if grip and grip != "none" else None)
+                     holding=grip if grip and grip != "none" else None, heading=getattr(self, "last_heading", None))
         self.tele.log("move", f"move_to {name}", route.name, taught=route.taught, waypoints=len(route.poses))
         if route.taught:
             self._waypoints(route.name, route.reverse)

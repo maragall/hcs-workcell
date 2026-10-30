@@ -81,22 +81,31 @@ class Volumes:
             self.relax = list(here[:3])
             self.check_pose(here, "the arm now", near_axis_ok=True)           # raises when the overlap is deeper than the shrink
 
-    def withdraw(self, here: List[float]) -> Optional[List[float]]:
-        """The arm stands inside an obstacle (it touched the hotel and stopped): the first spot, straight back along the
-        claw's axis in steps of 10 mm, where the claw and links are clear with the full margin. None if there is none."""
+    def withdraw(self, here: List[float], heading: Optional[List[float]] = None) -> Optional[List[float]]:
+        """The arm stands inside an obstacle (it touched the hotel and stopped): the first spot, in steps of 10 mm, where the claw
+        and links are clear with the full margin and the straight way there is clear too. The directions, in order: back the way
+        the move that hit was going (`heading`, the move's vector), straight up, straight back along the claw's axis, then
+        sideways either way. None if there is none."""
         c, s = math.cos(math.radians(here[5])), math.sin(math.radians(here[5]))
-        for mm in range(10, 101, 10):
-            p = [here[0] - mm * c, here[1] - mm * s] + list(here[2:])
-            try:
-                self.safety.check_target(p, "withdraw")
-                saved, self.relax = self.relax, None
+        ways = []
+        if heading is not None and math.hypot(*heading[:3]) > 1.0:
+            n = math.hypot(*heading[:3])
+            ways.append([-heading[0] / n, -heading[1] / n, -heading[2] / n])
+        ways += [[0.0, 0.0, 1.0], [-c, -s, 0.0], [-s, c, 0.0], [s, -c, 0.0]]
+        for d in ways:
+            for mm in range(10, 101, 10):
+                p = [here[0] + mm * d[0], here[1] + mm * d[1], here[2] + mm * d[2]] + list(here[3:])
                 try:
-                    self.check_pose(p, "withdraw")
-                finally:
-                    self.relax = saved
-                return p
-            except SafetyViolation:
-                continue
+                    self.safety.check_target(p, "withdraw")
+                    saved, self.relax = self.relax, None
+                    try:
+                        self.check_pose(p, "withdraw")
+                    finally:
+                        self.relax = saved
+                    self.safety.check_segment(here, p, "withdraw")
+                    return p
+                except SafetyViolation:
+                    continue
         return None
 
     def check_pose(self, p: List[float], label: str = "pose", near_axis_ok: bool = False) -> None:

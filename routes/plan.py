@@ -176,7 +176,7 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
         try:
             vol.settle(here)
         except SafetyViolation as why:      # the arm stands inside an obstacle (it touched it and stopped): back out first
-            withdrawn = vol.withdraw(here)
+            withdrawn = vol.withdraw(here, _HEADING)
             if withdrawn is None:
                 raise SafetyViolation(f"{why}; and there is no clear spot straight back along the claw")
             safety.check_segment(here, withdrawn, "withdraw")
@@ -279,8 +279,14 @@ def _via_nest(layout: dict, safety: Safety, here: List[float], target: List[floa
     return Route("via-the-nest", poses, joint_targets=targets)
 
 
+_HEADING: Optional[List[float]] = None      # the vector of the move that last stopped the arm; a withdraw backs out against it first
+
+
 def plan(layout: dict, safety: Safety, here: List[float], target: List[float],
-         from_name: Optional[str] = None, to_name: Optional[str] = None, holding: Optional[str] = None) -> Route:
+         from_name: Optional[str] = None, to_name: Optional[str] = None, holding: Optional[str] = None,
+         heading: Optional[List[float]] = None) -> Route:
+    global _HEADING
+    _HEADING = heading
     route = taught_route(layout, from_name, to_name)
     if route is not None:
         for i, p in enumerate(route.poses, 1):
