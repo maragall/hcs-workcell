@@ -60,6 +60,14 @@ def reachable(cyc: Cycle, slot: str) -> bool:
         return False
 
 
+def _lines(path: str) -> int:
+    try:
+        with open(path, "rb") as f:
+            return sum(1 for _ in f)
+    except OSError:
+        return 0
+
+
 def _stamp() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -1001,12 +1009,15 @@ class Bringup:
                     print(f"   move {moved + 1}: {src} to the microscope, then into {want}   (plates in {sorted(have)}; stops when runs/STOP exists or with Ctrl+C)")
                     have.remove(src)
                     self.edit(lambda L: bench.set_loaded(L, have))       # in transit: the slot is empty
+                    began, doubts0 = time.time(), _lines(os.path.join(c.runs_dir, "mismatches.log"))
                     self.guard(lambda: cyc._run_steps(cyc._steps(src)[1]))      # slot, module, microscope stage
                     self._acquire()
                     self.guard(lambda: cyc._run_steps(cyc._steps(want)[0]))     # stage, module, scan, slot
                     have.append(landed(want))
                     self.edit(lambda L: bench.set_loaded(L, have))
                     moved += 1
+                    with open(os.path.join(c.runs_dir, "shuffle_moves.csv"), "a", encoding="utf-8") as f:       # one line per finished move: the data the gates are tuned from
+                        f.write(f"{_stamp()},{src},{want},{landed(want)},{time.time() - began:.1f},{_lines(os.path.join(c.runs_dir, 'mismatches.log')) - doubts0}" + chr(10))
                 return {"plates moved": moved, "occupancy": sorted(have)}
             finally:
                 self.unattended = False
