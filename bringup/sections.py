@@ -979,8 +979,22 @@ class Bringup:
                     self.guard(lambda: cyc._hotel_place_free(want))
                     have.append(landed(want))
                     self.edit(lambda L: bench.set_loaded(L, have))
+                P0, P90 = F["polar"]["pose_at_0"]["pose"], F["polar"]["pose_at_90"]["pose"]
+
+                def module_to_90():
+                    """The way in from a slot puts the plate down on the module at 90 deg: the module is turned there first, empty, from where it
+                    really is (the axis reading, not the ledger: a hand or an earlier stop may have turned it)."""
+                    turn = cyc.polar.read_angle()
+                    turn = turn - 360.0 if turn > 180.0 else turn
+                    cyc.polar.angle = int(round(turn / 90.0) * 90) if min(abs(turn), abs(turn - 90.0)) < 5.0 else -1
+                    if cyc.polar.angle != 90:
+                        print(f"   the module is at {turn:.0f} deg: turning it to 90 before the next plate comes in")
+                        self.guard(lambda: cyc.move_to("polar.pose_at_0"))
+                        self.guard(lambda: cyc._polar_rotate(90, P0))
+
                 moved = 0
                 while not stopped() and (not limit or moved < limit):
+                    module_to_90()
                     full = [x for x in taught if x in have]
                     holes = [x for x in taught if x not in have]
                     src, want = random.choice(full), random.choice(holes)

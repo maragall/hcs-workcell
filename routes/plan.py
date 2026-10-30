@@ -12,6 +12,9 @@ refuses. That is on purpose: a number nobody measured must not move the arm.
 """
 from __future__ import annotations
 
+import copy
+import hashlib
+import json
 import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
@@ -283,12 +286,38 @@ def plan(layout: dict, safety: Safety, here: List[float], target: List[float],
         for i, p in enumerate(route.poses, 1):
             safety.check_target(p, f"{route.name}[{i}/{len(route.poses)}]")
         return route
+    key = _route_key(layout, safety, here, target, holding)
+    if key in _ROUTES:                        # the same leg from the same place, planned and checked before in this run
+        return copy.deepcopy(_ROUTES[key])
     global _CACHE
     _CACHE = {}
     try:
-        return _plan(layout, safety, here, target, holding)
+        route = _plan(layout, safety, here, target, holding)
     finally:
         _CACHE = None
+    if key is not None:
+        _ROUTES[key] = copy.deepcopy(route)
+    return route
+
+
+_ROUTES: dict = {}
+
+
+def _route_key(layout, safety, here, target, holding):
+    """What a planned route depends on: the start (to 1 mm, 1 deg, with the joints it was reached by), the target, what the claw
+    holds, and the layout (every volume, region and pose; not the occupancy or the setup notes, which change every move).
+    None when the joints cannot be read: then nothing is cached."""
+    try:
+        joints = tuple(round(v) for v in safety.joints()[:4]) if safety.joints else None
+        if joints is None:
+            return None
+        fixtures = dict(layout.get("fixtures", {}))
+        hotel = {k: v for k, v in fixtures.get("hotel", {}).items() if k != "loaded"}
+        rest = {k: v for k, v in layout.items() if k not in ("setup", "vision", "fixtures")}
+        sig = hashlib.sha1(json.dumps([rest, dict(fixtures, hotel=hotel)], sort_keys=True, default=str).encode()).hexdigest()
+        return (sig, tuple(round(v) for v in here[:6]), joints, tuple(round(v, 2) for v in target[:6]), holding)
+    except Exception:
+        return None
 
 
 def _plan(layout, safety, here, target, holding):
