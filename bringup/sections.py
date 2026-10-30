@@ -941,7 +941,7 @@ class Bringup:
             Step("computer", "detect plate or empty at each, then choose the first task", choose)])
 
     # ---- shuffle
-    def shuffle(self, limit: int = 0) -> Section:
+    def shuffle(self, limit: int = 0, speed: str = "stress") -> Section:
         """A random plate from a taught slot goes to the microscope, is imaged, and goes into a random empty taught slot, for ever (or `limit` moves).
         The occupancy is fixtures.hotel.loaded; the ledger is made to agree with it before the first move. A plate left in the
         fingers by an earlier stop (the jaw at the long-edge width) is put into a slot first."""
@@ -958,8 +958,8 @@ class Bringup:
                 cyc = self.cyc()
                 st = cyc.store.s
                 F = c.layout()["fixtures"]
-                fast, slow = (SpeedProfile(**c.layout()["speeds"][k]) for k in ("stress", "supervised"))
-                cyc.safety.profile = fast                           # the fastest profile in the positions file: this run is a stress test
+                fast, slow = (SpeedProfile(**c.layout()["speeds"][k]) for k in (speed, "supervised"))
+                cyc.safety.profile = fast                           # --speed: "stress" to collect data hard, "supervised" once models are in the loop
                 wanted = F["hotel"].get("active_slots", [])
                 taught = [x for x in wanted if reachable(cyc, x)]
                 print(f"   slots in the shuffle ({len(taught)}): {', '.join(taught)}" + (f"; out of reach, left out: {', '.join(x for x in wanted if x not in taught)}" if len(taught) < len(wanted) else ""))

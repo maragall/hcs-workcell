@@ -969,7 +969,7 @@ def cmd_setup(args):
     runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else input,
                     stop=cell.stop_event, on_section_done=save_known_good)
     bring = Bringup(cell, squid, runner.ask, confirm_stage=args.confirm_stage)
-    todo = [bring.shuffle(args.moves)] if getattr(args, "shuffle", False) else bring.sections()
+    todo = [bring.shuffle(args.moves, getattr(args, "speed", "stress"))] if getattr(args, "shuffle", False) else bring.sections()
     stopped = runner.run(todo, args.start, args.step, pause_at_user=args.auto, skip=args.skip.split(",") if args.skip else None,
                          stop_after=args.stop_after)
     cell.frames.stop()
@@ -1181,6 +1181,7 @@ def main():
     p.set_defaults(fn=cmd_setup, moves=0)
     p = sub.add_parser("shuffle", help="random plates through the microscope into random empty taught slots, for ever (occupancy = fixtures.hotel.loaded)")
     p.add_argument("--sim", action="store_true"); p.add_argument("--moves", type=int, default=0, help="stop after this many moves (default: for ever)")
+    p.add_argument("--speed", default="stress", choices=("stress", "fast", "supervised"), help="speed profile from layout.json (default stress; supervised when models are in the loop)")
     p.set_defaults(fn=cmd_shuffle, start=None, list=False, yes=False, acquisition_s=0.0, auto=False, stop_after=None, confirm_stage=False, skip=None, step=0, hotel_size=None)
     p = sub.add_parser("cad-poses", help="hotel poses computed from the CAD against the taught ones (nothing moves)")
     p.set_defaults(fn=cmd_cad_poses)
