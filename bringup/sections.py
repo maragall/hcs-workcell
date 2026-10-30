@@ -941,7 +941,7 @@ class Bringup:
             Step("computer", "detect plate or empty at each, then choose the first task", choose)])
 
     # ---- shuffle
-    def shuffle(self, limit: int = 0, speed: str = "stress") -> Section:
+    def shuffle(self, limit: int = 0, speed: str = "stress", probe_every: int = 0) -> Section:
         """A random plate from a taught slot goes to the microscope, is imaged, and goes into a random empty taught slot, for ever (or `limit` moves).
         The occupancy is fixtures.hotel.loaded; the ledger is made to agree with it before the first move. A plate left in the
         fingers by an earlier stop (the jaw at the long-edge width) is put into a slot first."""
@@ -1031,8 +1031,36 @@ class Bringup:
                         finally:
                             cyc.safety.profile = fast
 
+                def look(hand):
+                    """The front camera at every taught slot's approach point, nothing touched: a labelled frame per slot (the ledger knows
+                    which hold a plate), the hand empty or holding a plate. The only frames that cross the hand with the slot."""
+                    for slot in taught:
+                        if stopped():
+                            return
+                        self.guard(lambda: cyc._hotel_go_to_approach(slot, "probe"))
+                        cyc.tele.image(f"probe_hand-{hand}_slot-{'occupied' if slot in have else 'empty'}_{slot}", cyc._frame(cyc.front_cam))
+                        self.guard(lambda: cyc._hotel_leave_approach(slot, "probe"))
+
+                def tour():
+                    print("   probe tour: every taught slot's approach with the hand empty, then with a plate in the hand")
+                    look("empty")
+                    if stopped() or not have:
+                        return
+                    src = random.choice([x for x in taught if x in have])
+                    have.remove(src)
+                    self.edit(lambda L: bench.set_loaded(L, have))
+                    self.guard(lambda: cyc._hotel_pick(src))
+                    look("plate")
+                    self.guard(lambda: cyc._hotel_place_free(src))
+                    have.append(landed(src))
+                    self.edit(lambda L: bench.set_loaded(L, have))
+
                 moved = 0
                 while not stopped() and (not limit or moved < limit):
+                    if probe_every and moved % probe_every == 0:
+                        tour()
+                        if stopped():
+                            break
                     module_to_90()
                     full = [x for x in taught if x in have]
                     holes = [x for x in taught if x not in have]
