@@ -28,7 +28,7 @@ from procedures import cad_poses
 from procedures.corrector import StopSafe
 from procedures.cycle import Cycle
 from procedures.motion import offset
-from procedures.safety import SafetyViolation
+from procedures.safety import SafetyViolation, SpeedProfile
 from procedures.state import StateStore
 from procedures.telemetry import Telemetry
 
@@ -949,7 +949,10 @@ class Bringup:
                 cyc = self.cyc()
                 st = cyc.store.s
                 F = c.layout()["fixtures"]
-                taught = [x for x in F["hotel"].get("active_slots", []) if reachable(cyc, x)]
+                cyc.safety.profile = SpeedProfile(**c.layout()["speeds"]["stress"])      # the fastest profile in the positions file: this run is a stress test
+                wanted = F["hotel"].get("active_slots", [])
+                taught = [x for x in wanted if reachable(cyc, x)]
+                print(f"   slots in the shuffle ({len(taught)}): {', '.join(taught)}" + (f"; out of reach, left out: {', '.join(x for x in wanted if x not in taught)}" if len(taught) < len(wanted) else ""))
                 lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
                 in_hand = lo <= c.robot.jaw() <= hi
                 have = [x for x in bench.loaded_slots(c.layout()) if x in taught]
