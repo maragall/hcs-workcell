@@ -987,6 +987,10 @@ def cmd_setup(args):
 def cmd_shuffle(args):
     """Plates moved between the taught hotel slots at random, for ever: no setup, no microscope. Stop: runs/STOP or Ctrl+C."""
     args.shuffle = True
+    try:
+        os.remove(os.path.join(RUNS, "STOP"))          # the last run's stop request does not stop this one
+    except OSError:
+        pass
     return cmd_setup(args)
 
 
