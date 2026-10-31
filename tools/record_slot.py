@@ -17,7 +17,11 @@ if slot[0] not in h["columns"] or not slot[1:].isdigit():
 robot, st = R.connect_robot_readonly(layout, lambda *a, **k: None)
 pose, joints, jaw, e2 = robot.pose(), robot.joints(), robot.jaw(), robot.ext_axis(1)
 robot.disconnect()
-rec = {"pose": [round(v, 4) for v in pose], "joints_at_teach": [round(v, 3) for v in joints[:4]],
+yaw = h.get("seat_yaw_deg")                  # the claw is square to the hotel at every seat: the hand's yaw is a slip, not a measurement
+raw_yaw = pose[5]
+if yaw is not None:
+    pose = list(pose[:5]) + [yaw]
+rec = {"raw_yaw_deg": round(raw_yaw, 3), "pose": [round(v, 4) for v in pose], "joints_at_teach": [round(v, 3) for v in joints[:4]],
        "jaw_at_teach": round(jaw, 3), "stage_axis_at_teach": round(e2, 3), "taught_at": time.strftime("%Y-%m-%d %H:%M:%S")}
 d = os.path.join(R.REFS, "teach", f"hotel_{slot}")
 os.makedirs(d, exist_ok=True)
