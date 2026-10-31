@@ -46,6 +46,8 @@ class Hotel:
             raise SafetyViolation(f"slot {slot} does not exist")
         if h.get("pose_source") == "cad":
             return self.cad_poses().hotel_pose(slot)
+        if h.get("pose_source") == "grid":              # tools/fit_hotel_grid.py: the 15 hand-taught seats, fitted to one regular grid
+            return list(h["taught"][slot])
         if slot in h["taught"]:
             return list(h["taught"][slot])
         a, b, n = h["row_vector_from"]
@@ -114,7 +116,7 @@ class Hotel:
     def _planned(self) -> bool:
         """fixtures.hotel.pose_source = "cad": the slot poses come from the CAD and the way to a slot is planned around the
         hotel's volume with the claw and the plate in it (routes/volumes.py), not replayed from the taught route A."""
-        return self.L["fixtures"]["hotel"].get("pose_source") == "cad"
+        return self.L["fixtures"]["hotel"].get("pose_source") in ("cad", "grid")
 
     def _hotel_stage(self, approach: List[float]) -> Optional[List[float]]:
         """The point STAGE_MM in front of an approach point, unless that is beside the arm's own axis (the B column's is):
