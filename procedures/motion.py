@@ -41,7 +41,7 @@ class Motion:
         if len(target_xyz) > 5:                       # a refused yaw is a refused move too (soft limit, collision)
             dyaw = abs((after[5] - target_xyz[5] + 180.0) % 360.0 - 180.0)
             if dyaw > self.lim.get("max_yaw_deviation_deg", 0.5):
-                self._fault(label, "yaw_deviation", f"{dyaw:.2f} deg")
+                self._fault(label, "yaw_deviation", f"{dyaw:.2f} deg: wrist yaw {after[5]:.2f}, target {target_xyz[5]:.2f}, joints {self.robot.joints()}")
                 raise StopSafe(f"{label}: yaw ended {dyaw:.1f} deg from target; wrist limit or contact")
         self.store.s.last_safe_pose = after
         return dev

@@ -970,10 +970,12 @@ class Bringup:
                     raise Refused("no plate to move: set the occupancy (fixtures.hotel.loaded) to the plates that are in the taught slots " + str(taught))
                 if len(have) + (1 if in_hand else 0) >= len(taught):
                     raise Refused(f"every taught slot {taught} holds a plate: the shuffle needs one empty slot to move into")
+                on_module = st.plate_at == "polar" and not in_hand      # an earlier stop left a plate on the module: it goes through the microscope first
                 st.hotel = {x: "" for x in have}                        # the ledger takes the occupancy from the positions file
                 st.contents.update({x: ("full" if x in have else "empty") for x in st.contents if x[:1] in "ABC" and x[1:].isdigit()})
-                st.contents.update({"module": "empty", "microscope": "empty", "gripper": "full" if in_hand else "empty"})
-                st.plate_at, st.grip, st.step_done = ("gripper", "long_edges", True) if in_hand else ("none", "none", True)
+                st.contents.update({"module": "full" if on_module else "empty", "microscope": "empty", "gripper": "full" if in_hand else "empty"})
+                if not on_module:
+                    st.plate_at, st.grip, st.step_done = ("gripper", "long_edges", True) if in_hand else ("none", "none", True)
                 cyc.store.save()
                 if os.path.exists(os.path.join(c.runs_dir, "STOP")):
                     os.remove(os.path.join(c.runs_dir, "STOP"))         # left by the last run: this one starts clean
@@ -1014,7 +1016,7 @@ class Bringup:
                         short_lo, short_hi = c.layout()["gripper"]["accept_band"]["short_edges"]
                         jaw = c.robot.jaw()
                         held = lo <= jaw <= hi or short_lo <= jaw <= short_hi
-                        ok = is_motion_fault(str(e)) or "did not reach" in str(e)
+                        ok = is_motion_fault(str(e)) or any(w in str(e) for w in ("did not reach", "wrist limit or contact"))
                         if not ok or step not in [n for n, _ in steps] or not (step.startswith("pick") and not held or step.startswith("place") and held):
                             raise
                         why = clear_faults(c.robot)
@@ -1055,6 +1057,20 @@ class Bringup:
                     have.append(landed(src))
                     self.edit(lambda L: bench.set_loaded(L, have))
 
+                if on_module and not stopped():
+                    holes = [x for x in taught if x not in have]
+                    want = random.choice(holes)
+                    turn = cyc.polar.read_angle()
+                    turn = turn - 360.0 if turn > 180.0 else turn
+                    if abs(turn) > 5.0:
+                        raise Refused(f"a plate is on the module, which is at {turn:.0f} deg: turn it to 0 by hand (or `python cli.py recover`) and start again")
+                    cyc.polar.angle = 0
+                    print(f"   a plate is on the module: to the microscope, then into {want}")
+                    carry(cyc._steps(want)[1][3:])                           # pick from the module by the short edges, onto the stage
+                    self._acquire()
+                    carry(cyc._steps(want)[0])
+                    have.append(landed(want))
+                    self.edit(lambda L: bench.set_loaded(L, have))
                 moved = 0
                 while not stopped() and (not limit or moved < limit):
                     if probe_every and moved % probe_every == 0:
