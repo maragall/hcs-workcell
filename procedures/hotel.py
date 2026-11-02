@@ -1,6 +1,8 @@
 """The plate hotel: slot geometry, the climb and slide in, pick and place in a slot. Part of Cycle, see procedures/cycle.py."""
 from __future__ import annotations
 
+import math
+
 from typing import List, Optional
 
 from procedures.corrector import StopSafe
@@ -31,7 +33,7 @@ def plate_order(layout: dict):
     return interleave(*([f"{col}{row}" for row in rows] for col, rows in loaded.items()))
 
 
-STAGE_MM = 45.0              # planned mode: the approach is made from a point this far in front of it, where the plate is outside the rack
+MOUTH_CLEAR_MM = 5.0         # planned mode: the claw waits this far outside the first part of the hotel before it goes in
 MIN_LIFT_MM = 4.0           # least the plate is raised above its seat: the trays are flat, nothing to clear but the surface
 
 
@@ -68,20 +70,22 @@ class Hotel:
         return self._cad
 
     def _lift_for(self, seat: List[float]) -> float:
-        """The carry lift above a seat: fixtures.hotel.lift_mm, less where the workspace ends first (the top row: its seat is at
-        416 and the box ends at 435), less where the gap between two trays ends first. The gap is the row pitch times the step
-        between the rows in use, less the tray: 30 mm in a 30-slot hotel (trays 8 mm on a 38 mm pitch), 68 in a 15-slot one; the
-        plate, with its lid, has to fit it, so the 25 mm that suits 15 slots would put the plate into the tray above in 30."""
+        """The carry lift above a seat: fixtures.hotel.lift_mm, less where the workspace ends first, less where the gap above the
+        lip ends first. The trays are 8 mm on a 38 mm pitch (STEP) and only the rows in use have one, so the gap above a tray is the pitch times the step between rows, less the tray; the
+        slot lip stands lip_mm above the tray, so the plate (with its lid) has to rise above the lip and still go under the next
+        tray: lip + clearance <= lift <= gap - plate - clearance."""
         h = self.L["fixtures"]["hotel"]
-        rows = sorted(h["rows"])
+        rows = sorted(h["rows"])                             # the trays between the rows in use are not there (a plate slid in 25 mm above a seat)
         step = min((b - a for a, b in zip(rows, rows[1:])), default=1)
         gap = h.get("tray_pitch_mm", 38.0) * step - h.get("tray_thickness_mm", 8.0)
         plate = self.L["plate"]
-        fits = gap - (plate.get("height_with_lid") or plate["height"]) - h.get("tray_clearance_mm", 1.5)
+        clear = h.get("tray_clearance_mm", 1.5)
+        least = h.get("lip_mm", 3.0) + clear
+        fits = gap - (plate.get("height_with_lid") or plate["height"]) - clear
         lift = min(h["lift_mm"], self.safety.box["z"][1] - seat[2] - 1.0, fits)
-        if lift < MIN_LIFT_MM:
+        if lift < max(least, MIN_LIFT_MM):
             raise SafetyViolation(f"the seat at z {seat[2]:.0f} leaves {lift:.0f} mm of lift (workspace top {self.safety.box['z'][1]:.0f}, "
-                                  f"gap between trays {gap:.0f} mm); the plate needs {MIN_LIFT_MM:.0f} mm to clear the tray")
+                                  f"gap between trays {gap:.0f} mm); the plate needs {max(least, MIN_LIFT_MM):.0f} mm to clear the lip")
         return lift
 
     def _hotel_geometry(self, slot: str):
@@ -118,12 +122,71 @@ class Hotel:
         hotel's volume with the claw and the plate in it (routes/volumes.py), not replayed from the taught route A."""
         return self.L["fixtures"]["hotel"].get("pose_source") in ("cad", "grid")
 
-    def _hotel_stage(self, approach: List[float]) -> Optional[List[float]]:
-        """The point STAGE_MM in front of an approach point, unless that is beside the arm's own axis (the B column's is):
-        a pose that near the axis is a singularity for the turn."""
-        from routes_opt import fk
-        stage = offset(approach, [-STAGE_MM, 0, 0])
-        return stage if ((stage[0] - fk.MODEL["x0"]) ** 2 + (stage[1] - fk.MODEL["y0"]) ** 2) ** 0.5 >= 40.0 else None
+    def stations(self, holding: Optional[str]) -> dict:
+        """The stations the cell drives between, for a claw holding `holding` (routes/graph.py): the nest, the hovers of the
+        microscopes and the module, and for each hotel slot its approach point and its mouth."""
+        st = {}
+        nest = self.L.get("routes", {}).get("nest")
+        if nest and nest.get("pose"):
+            st["nest"] = list(nest["pose"])
+        for name in self.L.get("routes", {}).get("positions", []):
+            try:
+                st[name] = self._position(name)
+            except (KeyError, SafetyViolation):
+                continue
+        h = self.L["fixtures"]["hotel"]
+        for slot in h.get("taught", {}):
+            if slot[1:].isdigit():
+                try:
+                    approach = self._hotel_geometry(slot)[1]
+                except (KeyError, SafetyViolation):
+                    continue
+                st[f"approach.{slot}"] = approach
+                st[f"mouth.{slot}"] = self._hotel_mouth(approach, holding)
+        return st
+
+    def _hotel_mouth(self, approach: List[float], holding: Optional[str] = "now") -> List[float]:
+        """Where the claw (the plate in it, or the fingers) is just outside the rack, in line with an approach point: the wrist
+        backed along the slot until the front of what the claw carries is clear of the hotel's first part. From the geometry
+        (the parts of volumes.obstacles.hotel and the footprint of the claw with what it holds), not a distance chosen by hand.
+        Never beyond the approach point itself (an empty claw is outside the rack there already)."""
+        from routes.volumes import Volumes
+        if holding == "now":
+            grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
+            holding = grip if grip and grip != "none" else None
+        v = Volumes(self.L, self.safety, holding)
+        h = v.obstacles["hotel"]
+        front = min(q["x"][0] - q.get("margin_mm", 1.0) for q in h["parts"]) if h.get("parts") else h["x"][0]
+        ahead = max(r[0][1] for r in v.footprint)
+        return [min(approach[0], front - ahead - MOUTH_CLEAR_MM)] + list(approach[1:])
+
+    def _hotel_leg(self, a: List[float], b: List[float], label: str) -> None:
+        """One leg between two poses on the slot's line: straight, or by joints where an end is beside the arm's own axis (the B
+        column's mouth is), where the controller refuses a straight move. The joints are checked against the hotel's parts and
+        the links first; if no path is found nothing moves."""
+        from routes.volumes import Volumes
+        from routes import plan as _plan
+        prof = self.safety.profile
+        grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
+        near = min(math.hypot(q[0] - _plan.fk.MODEL["x0"], q[1] - _plan.fk.MODEL["y0"]) for q in (a, b)) < _plan.SINGULAR_MM
+        if not near:
+            self._move("L", b, label, prof.approach)
+            return
+        v = Volumes(self.L, self.safety, grip if grip and grip != "none" else None)
+        jb = v.check_joint_leg(a, b, label, start_actual=True)
+        self._move_joints_to(b, label, prof.approach, joints=jb)
+
+    def _hotel_row_change(self, slot: str, step: str, approach: List[float]) -> None:
+        """Another row of the same column, from the approach point. There the plate's front is already between two trays, so a z
+        move goes through one (2026-11-01: B3 -> B1 descended 76 mm that way). The claw backs out to the mouth, changes height
+        there, and goes in again."""
+        here = self.robot.pose()
+        mouth = self._hotel_mouth(here)
+        up = [mouth[0], here[1], approach[2]] + list(here[3:])
+        self._hotel_leg(here, mouth, f"{step} back out of the rack")
+        self._move("L", up, f"{step} change row outside the rack", self.safety.profile.approach)
+        self._hotel_leg(up, approach, f"{step} in to the approach point")
+        self.resuming = False
 
     def _hotel_go_to_approach(self, slot: str, step: str):
         """Route A end -> junction -> (retreat, climb) -> approach point of the slot, all at carry height. Planned: from
@@ -134,15 +197,19 @@ class Hotel:
             if max(abs(self.robot.pose()[i] - approach[i]) for i in range(3)) <= 5.0:     # resuming at the approach point
                 self.resuming = False
                 return
-            stage = self._hotel_stage(approach)
-            if stage is None:
+            here = self.robot.pose()
+            mouth = self._hotel_mouth(approach)
+            if mouth[0] < approach[0] - 1.0 and math.hypot(here[0] - approach[0], here[1] - approach[1]) <= 8.0 and abs(here[2] - approach[2]) > 5.0:
+                self._hotel_row_change(slot, step, approach)
+                return
+            if mouth[0] >= approach[0] - 1.0:
                 self.go_to(approach, f"hotel approach {slot}")
                 return
-            # The claw turns, and the plate in it swings, at the stage point: outside the rack, at the height of the slot's
-            # approach. One gap between two trays holds one plate, so a turn at any other height with the plate's front in the
-            # rack hits a tray (the dry run found it at the module's hover height over A1). From there the slide is straight in.
-            self.go_to(stage, f"hotel stage {slot}")
-            self._move("L", approach, f"{step} approach", prof.approach)
+            # The claw turns, and the plate in it swings, outside the rack, at the height of the slot's approach: one gap between two
+            # trays holds one plate, so a turn at any other height with the plate's front in the rack hits a tray. From the
+            # mouth the way in is straight along the slot.
+            self.go_to(mouth, f"hotel mouth {slot}")
+            self._hotel_leg(mouth, approach, f"{step} approach")
             return
         foot, top = self._hotel_climb(slot)
         junction = self._hotel_junction(slot)
@@ -159,12 +226,13 @@ class Hotel:
             self._move("L", approach, f"{step} approach", prof.approach)
 
     def _hotel_leave_approach(self, slot: str, step: str):
-        """Approach point -> (descend at the climb column) -> junction, ready for route A reversed."""
+        """Approach point -> out to the mouth of the rack (planned), or the junction for route A reversed (taught)."""
         prof = self.safety.profile
         if self._planned():
-            stage = self._hotel_stage(self._hotel_geometry(slot)[1])
-            if stage is not None:                    # back out to where the plate is outside the rack; the next move plans from there
-                self._move("L", stage, f"{step} back to the stage point", prof.approach)
+            here = self.robot.pose()
+            mouth = self._hotel_mouth(here)
+            if mouth[0] < here[0] - 1.0:                     # the plate is partly inside the rack: out of it before any other move
+                self._hotel_leg(here, mouth, f"{step} back out of the rack")
             return
         foot, top = self._hotel_climb(slot)
         if foot is not None:
@@ -181,24 +249,7 @@ class Hotel:
         self.store.begin(step)
         self._health()
         self._hotel_go_to_approach(slot, step)
-        sv = self._slot_view(step, slot, "empty")
-        try:
-            ready, _ = self.vision.live_detection(self.front_cam, aruco=False, led=self.led)
-        except Exception:
-            ready = None
-        if sv is None and ready is None:                     # nobody looked: not the same as "empty"
-            raise StopSafe(f"{step}: no view of {slot}; the front camera and the live detection both failed")
-        occupied = sv is not None and sv.decision == "occupied" and self._enforce(self.slot_cfg, self.slots.ready(slot))      # the picture blocks only when the gate is enforced; the ledger above always does
-        if not occupied and (sv is None or sv.decision == "unknown") and ready:
-            occupied = not self.corr.operator_or_stop(step, f"{slot} may be occupied (vendor live detection)",
-                                                      "Slot is actually empty?")
-        if occupied:
-            why = f"empty {sv.score_empty:.3f} vs occupied {sv.score_occupied:.3f}" if sv else "vendor live detection"
-            self._fault(step, "slot_occupied", why)
-            self.store.s.hotel[slot] = self.store.s.hotel.get(slot) or "unknown plate"
-            self.store.done()                                 # nothing moved into the slot; the plate is still held
-            self._hotel_leave_approach(slot, step)
-            raise SlotOccupied(slot, why)
+        # the ledger says the slot is free (checked above); no camera looks at it (the slot occupancy check was removed 2026-11-01)
         if self.checks.before_release(self.robot.jaw(), "long_edges"):
             raise StopSafe(f"{step}: not holding a plate on its long edges")
         self._slide(carry, f"{step} slide in")
@@ -244,12 +295,6 @@ class Hotel:
                 self._move("L", foot, f"{step} retreat", prof.approach)
                 self._move("L", top, f"{step} climb", prof.approach)
                 self._move("L", approach, f"{step} approach", prof.approach)
-        sv = self._slot_view(step, slot, "occupied")
-        if sv and sv.decision == "empty":
-            self._fault(step, "slot_empty", f"empty {sv.score_empty:.3f} vs occupied {sv.score_occupied:.3f}")
-            if self._enforce(self.slot_cfg, self.slots.ready(slot)):
-                if not self.corr.operator_or_stop(step, f"{slot} looks empty", "Plate is in the slot?"):
-                    raise StopSafe(f"{slot} looks empty")
         self._jaw_open("long_edges")
         self._slide(carry, f"{step} slide in")                        # same path as the place, reversed
         self._descend(p, f"{step} lower onto plate")

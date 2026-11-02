@@ -143,7 +143,7 @@ def build(hardware: dict, taught_layout: Optional[dict] = None, registration: Op
             "host": None, "port": 9000, "down_camera": "auto_teach_camera", "front_camera": "scan_camera", "workspace": "autoteach",
             "ssh": {"user": None, "password": None, "key_path": None}, "marker_mm": 40, "max_correction_mm": 25.0, "led": 0,
             "front_led": 0,
-            "lower_check": {"min_refs": 3, "margin": 0.08, "floor": 0.55, "retries": 3, "front": {"auto_refs": 12, "enforce": "auto"}},
+            "lower_check": {"min_refs": 3, "margin": 0.08, "floor": 0.55, "retries": 3},
             "hub": {"record": False, "outbox": "hub_outbox"},
             "seated_front": {"roi": [0.0, 0.55, 1.0, 1.0], "auto_refs": 12, "enforce": "auto"},
             "slot_check": {"min_refs": 5, "auto_refs": 24, "spacing_s": 1800, "min_match": 0.75, "enforce": "auto"},

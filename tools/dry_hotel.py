@@ -30,8 +30,8 @@ def main(argv=None) -> int:
     tele = Telemetry(runs)
     robot, st = R.connect_robot_readonly(layout, tele.log)
     if st.drag:
-        sys.exit("drag mode is on; turn it off first")
-    if not st.enabled and not robot.enable():
+        robot.drag(False)                    # left loose by the teaching: it locks where it stands
+    if not robot.enable():
         sys.exit("robot could not be enabled")
     cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, StateStore(os.path.join(runs, "state.json")), "supervised", runs, R.REFS)
     cyc.safety.profile = SpeedProfile(**layout["speeds"]["supervised"])

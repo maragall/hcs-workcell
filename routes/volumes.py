@@ -39,6 +39,10 @@ class Volumes:
         # the allowance is for sliding straight into a slot: only while the plate is square to the rack (2026-10-28: turned 11 deg at the
         # approach height the plate's corner went into A2's tray)
         self.front_yaw_tol = float((v.get("held") or {}).get("hotel_front_allowance_yaw_tol_deg", 3.0))
+        # the allowance is only for a plate that is between two trays: a z move with the plate front inside the rack's footprint
+        # goes through a tray (2026-11-01: B3 -> B1 descended 76 mm at the approach point, the plate 30 mm over the trays)
+        self.trays_z = [tuple(t) for t in (self.obstacles.get("hotel") or {}).get("trays_z", [])]
+        self.held_z = tuple((((v.get("held") or {}).get(holding or "") or {}).get("z")) or (-10.7, 3.7))
         self.axis_keepout = float(v.get("axis_keepout_mm", 0.0))
         self.safety = safety
         self.box = safety.box
@@ -58,9 +62,28 @@ class Volumes:
     def _inside(self, name: str, x: float, y: float, z_lo: float, z_hi: float, m: Optional[float] = None,
                 front: float = 0.0) -> bool:
         b = self.obstacles[name]
-        m = self.margin if m is None else m
-        return (b["x"][0] - m + front <= x <= b["x"][1] + m and b["y"][0] - m <= y <= b["y"][1] + m
-                and z_hi >= b["z"][0] - m and z_lo <= b["z"][1] + m)
+        mm = self.margin if m is None else m
+        if not (b["x"][0] - mm + front <= x <= b["x"][1] + mm and b["y"][0] - mm <= y <= b["y"][1] + mm
+                and z_hi >= b["z"][0] - mm and z_lo <= b["z"][1] + mm):
+            return False
+        parts = b.get("parts")
+        if not parts:
+            return True
+        # the envelope holds a hotel, not a block: only its parts (trays with their lip, posts, roof, base) are solid. A part's own
+        # margin is small, the plate has to fit the gap between two trays; the relaxed margin (m < 0) still shrinks it.
+        for q in parts:
+            pm = q.get("margin_mm", 1.0)
+            if m is not None and m < 0:
+                pm = m
+            if (q["x"][0] - pm <= x <= q["x"][1] + pm and q["y"][0] - pm <= y <= q["y"][1] + pm
+                    and z_hi >= q["z"][0] - pm and z_lo <= q["z"][1] + pm):
+                return True
+        return False
+
+    def _on_tray_level(self, z: float) -> bool:
+        """The plate in the claw, with 3 mm to spare, overlaps a tray's height."""
+        lo, hi = z + self.held_z[0] - 3.0, z + self.held_z[1] + 3.0
+        return any(lo <= t1 and hi >= t0 for t0, t1 in self.trays_z)
 
     def _claw_samples(self, x: float, y: float, yaw: float):
         c, s = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
@@ -126,8 +149,9 @@ class Volumes:
         for px, py, held in (self._claw_samples(x, y, yaw) if near else ()):
             for name in near:
                 square = abs(((yaw + 180.0) % 360.0) - 180.0) <= self.front_yaw_tol
-                front = self.front_allow if held and name == "hotel" and square else 0.0
-                if self._inside(name, px, py, z + self.z[0], z + self.z[1], m, front):
+                front = self.front_allow if held and name == "hotel" and square and not self._on_tray_level(z) else 0.0
+                lo, hi = (z + self.held_z[0], z + self.held_z[1]) if held else (z + self.z[0], z + self.z[1])     # the plate is 14 mm tall, the claw 85
+                if self._inside(name, px, py, lo, hi, m, front):
                     raise SafetyViolation(f"{label}: the claw at x={px:.0f} y={py:.0f} would be inside the {name} "
                                           f"(wrist x={x:.0f} y={y:.0f} z={z:.0f}, yaw {yaw:.0f})")
         for branch in self.safety._branches():

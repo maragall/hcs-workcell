@@ -48,12 +48,7 @@
       "min_refs": 3,
       "margin": 0.08,
       "floor": 0.55,
-      "retries": 3,
-      "front": {
-        "auto_refs": 12,
-        "enforce": "auto",
-        "_note": "second view of the seat from the front camera before lowering: a tilted plate or something tall that the down camera misses. Trains itself per gate and state (<gate>_front), blocks once trained"
-      }
+      "retries": 3
     },
     "hub": {
       "record": false,
@@ -70,14 +65,6 @@
       "auto_refs": 12,
       "enforce": "auto",
       "_note": "front camera at release, bottom band. auto: blocks once auto_refs references are collected; true/false override"
-    },
-    "slot_check": {
-      "min_refs": 5,
-      "auto_refs": 24,
-      "spacing_s": 1800,
-      "min_match": 0.75,
-      "enforce": "auto",
-      "_note": "references are collected live by the cell (place approach = empty, pick approach = occupied); 24 at 30 min spacing cover a day's lighting. Delete reference_images/slot_<S> to relearn a slot"
     },
     "front_led": 0,
     "_front_led_note": "front camera frames (slot view, seated check, plate in gripper) are lit by the camera LED so day and night match; validated 2026-10-19 21:15",
@@ -268,12 +255,12 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        111.09,
-        296.699,
-        261.66,
+        113.218,
+        293.569,
+        263.139,
         0.0,
-        0.0,
-        92.519
+        -0.0,
+        89.8502
       ],
       "hover_mm": 66.7,
       "approach": {
@@ -291,30 +278,30 @@
       },
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
-      "taught_at": "2026-10-29 02:15:17",
-      "jaw_at_teach": 24.807,
+      "taught_at": "2026-11-01 22:02:16",
+      "jaw_at_teach": 24.604,
       "vendor_teach": {
         "name": "microscope-short",
         "pick_method": "long",
-        "id": "a2cd8e45-7f45-4dc7-8c2e-9767371057f7",
+        "id": "781791de-e23c-4723-9089-9609d5f7938f",
         "workspace": "autoteach"
       },
       "hover": {
         "pose": [
-          111.09,
-          296.699,
-          328.36,
+          113.218,
+          293.569,
+          329.839,
           0.0,
           0.0,
-          92.519
+          89.8502
         ],
-        "derived_from_seat": "2026-10-29 02:15:17"
+        "derived_from_seat": "2026-11-01 22:02:17"
       },
       "joints_at_teach": [
-        210.184,
-        74.972,
-        -149.592,
-        -195.019
+        224.54,
+        49.768,
+        -94.55,
+        134.632
       ],
       "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\microscope",
       "grasp_search": {
@@ -431,6 +418,17 @@
           0.0,
           96.698
         ]
+      },
+      "previous_pose_2026_11_01_jammed": {
+        "pose": [
+          111.09,
+          296.7,
+          261.66,
+          0.0,
+          -0.0,
+          92.519
+        ],
+        "note": "the fingers jammed on the plate here (jaw refused to open, 2026-11-01)"
       }
     },
     "polar": {
@@ -548,7 +546,7 @@
         "mm": 100.0,
         "_note": "pre-approach 100 mm in -x of the slot at slot z + lift, yaw = slot yaw; slide +x without rotating; then lower. The B column's approach point is 36 mm from the arm's axis: the planner reaches it by a joint move (routes/plan.py)."
       },
-      "lift_mm": 25.0,
+      "lift_mm": 7.0,
       "max_lift_mm": 30,
       "headroom_mm": 17,
       "grip_back_mm": {
@@ -563,44 +561,124 @@
       ],
       "taught": {
         "A1": [
-          293.341,
-          137.174,
-          74.632,
+          290.986,
+          134.022,
+          77.278,
           0.0,
           -0.0,
-          -0.9959
+          0.0
         ],
         "A9": [
-          291.06,
-          136.889,
-          379.06,
+          290.986,
+          134.022,
+          381.278,
           0.0,
           -0.0,
-          -0.6795
+          0.0
         ],
         "B1": [
-          293.987,
-          0.651,
-          72.126,
-          0,
-          0,
-          -1.0275
-        ],
-        "C1": [
-          292.98,
-          -129.531,
-          71.951,
-          0,
-          0,
-          -1.0267
-        ],
-        "C9": [
-          293.503,
-          -128.356,
-          378.99,
+          290.986,
+          -0.11,
+          77.278,
           0.0,
           -0.0,
-          -1.5653
+          0.0
+        ],
+        "C1": [
+          290.986,
+          -134.243,
+          77.278,
+          0.0,
+          -0.0,
+          0.0
+        ],
+        "C9": [
+          290.986,
+          -134.243,
+          381.278,
+          0.0,
+          -0.0,
+          0.0
+        ],
+        "A3": [
+          290.986,
+          134.022,
+          153.278,
+          0.0,
+          -0.0,
+          0.0
+        ],
+        "A5": [
+          290.986,
+          134.022,
+          229.278,
+          0.0,
+          -0.0,
+          0.0
+        ],
+        "A7": [
+          290.986,
+          134.022,
+          305.278,
+          0.0,
+          -0.0,
+          0.0
+        ],
+        "B3": [
+          290.986,
+          -0.11,
+          153.278,
+          0.0,
+          -0.0,
+          0.0
+        ],
+        "B5": [
+          290.986,
+          -0.11,
+          229.278,
+          0.0,
+          -0.0,
+          0.0
+        ],
+        "B7": [
+          290.986,
+          -0.11,
+          305.278,
+          0.0,
+          -0.0,
+          0.0
+        ],
+        "B9": [
+          290.986,
+          -0.11,
+          381.278,
+          0.0,
+          -0.0,
+          0.0
+        ],
+        "C3": [
+          290.986,
+          -134.243,
+          153.278,
+          0.0,
+          -0.0,
+          0.0
+        ],
+        "C5": [
+          290.986,
+          -134.243,
+          229.278,
+          0.0,
+          -0.0,
+          0.0
+        ],
+        "C7": [
+          290.986,
+          -134.243,
+          305.278,
+          0.0,
+          -0.0,
+          0.0
         ]
       },
       "row_vector_from": [
@@ -614,63 +692,318 @@
       "taught_detail": {
         "A1": {
           "pose": [
-            293.341,
-            137.174,
-            74.632,
+            292.57,
+            139.941,
+            78.098,
             0.0,
             -0.0,
-            -0.9959
+            0.0
           ],
           "joints_at_teach": [
-            36.033,
-            -17.91,
-            -65.496,
-            82.409
+            39.499,
+            -17.017,
+            -65.896,
+            81.111
           ],
-          "jaw_at_teach": 1.809,
-          "stage_axis_at_teach": -21.794,
-          "taught_at": "2026-10-19 21:09:45",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A1"
+          "jaw_at_teach": 3.626,
+          "stage_axis_at_teach": -8.951,
+          "taught_at": "2026-10-31 01:46:08",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A1",
+          "raw_yaw_deg": -1.8027
         },
         "A9": {
+          "raw_yaw_deg": -0.356,
           "pose": [
-            291.06,
-            136.889,
-            379.06,
+            290.983,
+            135.765,
+            381.11,
             0.0,
             -0.0,
-            -0.6795
+            0.0
           ],
           "joints_at_teach": [
-            340.461,
-            -17.912,
-            -64.836,
-            82.069
+            342.511,
+            -18.262,
+            -64.573,
+            82.479
           ],
-          "jaw_at_teach": 1.803,
-          "stage_axis_at_teach": -21.791,
-          "taught_at": "2026-10-19 21:11:01",
+          "jaw_at_teach": 3.634,
+          "stage_axis_at_teach": -8.921,
+          "taught_at": "2026-10-31 02:07:16",
           "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A9"
         },
         "C9": {
+          "raw_yaw_deg": 0.056,
           "pose": [
-            293.503,
-            -128.356,
-            378.99,
+            291.018,
+            -134.051,
+            386.67,
             0.0,
             -0.0,
-            -1.5653
+            0.0
           ],
           "joints_at_teach": [
-            340.391,
-            20.696,
-            63.683,
-            -85.944
+            348.071,
+            18.804,
+            64.215,
+            -82.963
           ],
-          "jaw_at_teach": 2.042,
-          "stage_axis_at_teach": -0.275,
-          "taught_at": "2026-10-19 21:17:53",
+          "jaw_at_teach": 2.158,
+          "stage_axis_at_teach": -8.921,
+          "taught_at": "2026-10-31 02:17:42",
           "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_C9"
+        },
+        "A3": {
+          "raw_yaw_deg": -1.583,
+          "pose": [
+            290.07,
+            139.613,
+            154.976,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            116.377,
+            -17.017,
+            -65.174,
+            80.608
+          ],
+          "jaw_at_teach": 3.573,
+          "stage_axis_at_teach": -8.935,
+          "taught_at": "2026-10-31 01:49:28",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A3"
+        },
+        "A5": {
+          "raw_yaw_deg": -1.767,
+          "pose": [
+            289.358,
+            139.515,
+            229.346,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            190.747,
+            -17.017,
+            -64.968,
+            80.218
+          ],
+          "jaw_at_teach": 3.616,
+          "stage_axis_at_teach": -8.932,
+          "taught_at": "2026-10-31 02:04:06",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A5"
+        },
+        "A7": {
+          "raw_yaw_deg": -3.132,
+          "pose": [
+            289.068,
+            144.92,
+            304.631,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            266.032,
+            -15.321,
+            -66.103,
+            78.292
+          ],
+          "jaw_at_teach": 3.687,
+          "stage_axis_at_teach": -8.921,
+          "taught_at": "2026-10-31 02:06:11",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A7"
+        },
+        "B1": {
+          "raw_yaw_deg": -5.477,
+          "pose": [
+            294.023,
+            17.693,
+            77.645,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            39.046,
+            -59.004,
+            -49.97,
+            103.497
+          ],
+          "jaw_at_teach": 3.755,
+          "stage_axis_at_teach": -8.924,
+          "taught_at": "2026-10-31 02:08:19",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_B1"
+        },
+        "B3": {
+          "raw_yaw_deg": -5.351,
+          "pose": [
+            293.104,
+            17.045,
+            153.344,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            114.745,
+            -59.346,
+            -49.66,
+            103.655
+          ],
+          "jaw_at_teach": 3.796,
+          "stage_axis_at_teach": -8.924,
+          "taught_at": "2026-10-31 02:09:08",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_B3"
+        },
+        "B5": {
+          "raw_yaw_deg": 0.31,
+          "pose": [
+            291.116,
+            -1.144,
+            230.073,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            191.474,
+            -66.016,
+            -48.762,
+            115.088
+          ],
+          "jaw_at_teach": 3.523,
+          "stage_axis_at_teach": -8.924,
+          "taught_at": "2026-10-31 02:09:55",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_B5"
+        },
+        "B7": {
+          "raw_yaw_deg": -0.133,
+          "pose": [
+            289.3,
+            -0.319,
+            303.727,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            265.128,
+            -66.017,
+            -48.19,
+            114.074
+          ],
+          "jaw_at_teach": 3.584,
+          "stage_axis_at_teach": -8.921,
+          "taught_at": "2026-10-31 02:11:55",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_B7"
+        },
+        "B9": {
+          "raw_yaw_deg": 3.24,
+          "pose": [
+            288.818,
+            -11.832,
+            378.188,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            339.59,
+            -70.07,
+            -48.173,
+            121.483
+          ],
+          "jaw_at_teach": 3.77,
+          "stage_axis_at_teach": -8.921,
+          "taught_at": "2026-10-31 02:12:36",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_B9"
+        },
+        "C1": {
+          "raw_yaw_deg": 0.517,
+          "pose": [
+            291.923,
+            -135.61,
+            74.46,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            35.861,
+            18.347,
+            64.787,
+            -82.616
+          ],
+          "jaw_at_teach": 3.624,
+          "stage_axis_at_teach": -8.921,
+          "taught_at": "2026-10-31 02:13:29",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_C1"
+        },
+        "C3": {
+          "raw_yaw_deg": 0.47,
+          "pose": [
+            292.231,
+            -135.645,
+            150.822,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            112.223,
+            18.348,
+            64.875,
+            -82.753
+          ],
+          "jaw_at_teach": 3.628,
+          "stage_axis_at_teach": -8.918,
+          "taught_at": "2026-10-31 02:13:57",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_C3"
+        },
+        "C5": {
+          "raw_yaw_deg": 0.496,
+          "pose": [
+            292.63,
+            -135.774,
+            229.74,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            191.141,
+            18.322,
+            65.008,
+            -82.833
+          ],
+          "jaw_at_teach": 3.564,
+          "stage_axis_at_teach": -8.924,
+          "taught_at": "2026-10-31 02:14:39",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_C5"
+        },
+        "C7": {
+          "raw_yaw_deg": 2.762,
+          "pose": [
+            290.147,
+            -143.31,
+            305.675,
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "joints_at_teach": [
+            267.075,
+            15.869,
+            66.016,
+            -79.123
+          ],
+          "jaw_at_teach": 3.628,
+          "stage_axis_at_teach": -8.918,
+          "taught_at": "2026-10-31 02:15:32",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_C7"
         }
       },
       "pre_slot": {
@@ -698,7 +1031,17 @@
         "A3",
         "A5",
         "A7",
-        "A9"
+        "A9",
+        "B1",
+        "B3",
+        "B5",
+        "B7",
+        "B9",
+        "C1",
+        "C3",
+        "C5",
+        "C7",
+        "C9"
       ],
       "_climb_note": "rows above 1: retreat from the junction (row-1 approach point) to x=climb_x in free air in front of the rack, climb with the column only, slide in at carry height. climb_x = the operator via point x (2026-10-19). B and C columns wait for the FK-based planner: their approach points lie close to the shoulder axis at (126,0)",
       "rows": [
@@ -722,7 +1065,7 @@
           1.08
         ]
       },
-      "pose_source": "cad",
+      "pose_source": "grid",
       "tray_pitch_mm": 38.0,
       "tray_thickness_mm": 8.0,
       "tray_clearance_mm": 1.5,
@@ -731,7 +1074,20 @@
       "_x_offset_2026_10_29": {
         "dx_mm": 31.675,
         "note": "undoes _x_offset_2026_10_22: the long edges are gripped at the middle again"
-      }
+      },
+      "seat_yaw_deg": 0.0,
+      "grid": {
+        "x": 290.986,
+        "y_B": -0.11,
+        "column_pitch": 134.132,
+        "z_row1": 77.278,
+        "row_pitch": 38.0,
+        "yaw": 0.0,
+        "pivot_mm": 189.16,
+        "overrides": {}
+      },
+      "lip_mm": 3.0,
+      "_lift_note": "2026-11-01: lift 7 mm = lip 3 + 1.5 clearance + margin; the operator: lips are 0.3 cm and 25 mm dropped in from too high. Only the trays of the rows in use are modelled (volumes.obstacles.hotel.parts): the plate slid in 25 mm above a seat for a day, which a tray 30 mm above the seat would have stopped."
     },
     "microscope_2": {
       "pose": null,
@@ -786,7 +1142,922 @@
         "z": [
           40.0,
           460.0
-        ]
+        ],
+        "parts": [
+          {
+            "x": [
+              442.1,
+              519.1
+            ],
+            "y": [
+              -142.0,
+              -129.0
+            ],
+            "z": [
+              45.6,
+              55.6
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              439.5,
+              450.1
+            ],
+            "y": [
+              -137.3,
+              -130.7
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              501.3,
+              507.9
+            ],
+            "y": [
+              -137.0,
+              -126.4
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              485.3,
+              491.9
+            ],
+            "y": [
+              -137.0,
+              -126.4
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              469.3,
+              475.9
+            ],
+            "y": [
+              -137.0,
+              -126.4
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              453.3,
+              459.9
+            ],
+            "y": [
+              -137.0,
+              -126.4
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              442.1,
+              519.1
+            ],
+            "y": [
+              -8.0,
+              5.0
+            ],
+            "z": [
+              45.6,
+              55.6
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              439.5,
+              450.1
+            ],
+            "y": [
+              -3.3,
+              3.3
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              501.3,
+              507.9
+            ],
+            "y": [
+              -3.0,
+              7.6
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              485.3,
+              491.9
+            ],
+            "y": [
+              -3.0,
+              7.6
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              469.3,
+              475.9
+            ],
+            "y": [
+              -3.0,
+              7.6
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              453.3,
+              459.9
+            ],
+            "y": [
+              -3.0,
+              7.6
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              442.1,
+              519.1
+            ],
+            "y": [
+              126.0,
+              139.0
+            ],
+            "z": [
+              45.6,
+              55.6
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              439.5,
+              450.1
+            ],
+            "y": [
+              130.7,
+              137.3
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              501.3,
+              507.9
+            ],
+            "y": [
+              131.0,
+              141.6
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              485.3,
+              491.9
+            ],
+            "y": [
+              131.0,
+              141.6
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              469.3,
+              475.9
+            ],
+            "y": [
+              131.0,
+              141.6
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              453.3,
+              459.9
+            ],
+            "y": [
+              131.0,
+              141.6
+            ],
+            "z": [
+              47.3,
+              53.9
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -179.5,
+              -88.5
+            ],
+            "z": [
+              45.6,
+              55.6
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              510.6,
+              550.6
+            ],
+            "y": [
+              -90.0,
+              -80.0
+            ],
+            "z": [
+              46.1,
+              450.6
+            ],
+            "kind": "post",
+            "margin_mm": 0.5
+          },
+          {
+            "x": [
+              510.6,
+              550.6
+            ],
+            "y": [
+              -188.0,
+              -178.0
+            ],
+            "z": [
+              46.1,
+              450.6
+            ],
+            "kind": "post",
+            "margin_mm": 0.5
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -179.5,
+              -88.5
+            ],
+            "z": [
+              58.1,
+              69.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              490.6,
+              550.6
+            ],
+            "y": [
+              -178.0,
+              -90.0
+            ],
+            "z": [
+              442.6,
+              450.6
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -179.5,
+              -88.5
+            ],
+            "z": [
+              134.1,
+              145.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -179.5,
+              -88.5
+            ],
+            "z": [
+              210.1,
+              221.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -179.5,
+              -88.5
+            ],
+            "z": [
+              286.1,
+              297.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -179.5,
+              -88.5
+            ],
+            "z": [
+              362.1,
+              373.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              -182.0,
+              -171.0
+            ],
+            "z": [
+              445.1,
+              448.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              -97.0,
+              -86.0
+            ],
+            "z": [
+              445.1,
+              448.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              -183.5,
+              -172.5
+            ],
+            "z": [
+              51.1,
+              54.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              -95.5,
+              -84.5
+            ],
+            "z": [
+              51.1,
+              54.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -45.5,
+              45.5
+            ],
+            "z": [
+              45.6,
+              55.6
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              510.6,
+              550.6
+            ],
+            "y": [
+              44.0,
+              54.0
+            ],
+            "z": [
+              46.1,
+              450.6
+            ],
+            "kind": "post",
+            "margin_mm": 0.5
+          },
+          {
+            "x": [
+              510.6,
+              550.6
+            ],
+            "y": [
+              -54.0,
+              -44.0
+            ],
+            "z": [
+              46.1,
+              450.6
+            ],
+            "kind": "post",
+            "margin_mm": 0.5
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -45.5,
+              45.5
+            ],
+            "z": [
+              58.1,
+              69.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              490.6,
+              550.6
+            ],
+            "y": [
+              -44.0,
+              44.0
+            ],
+            "z": [
+              442.6,
+              450.6
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -45.5,
+              45.5
+            ],
+            "z": [
+              134.1,
+              145.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -45.5,
+              45.5
+            ],
+            "z": [
+              210.1,
+              221.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -45.5,
+              45.5
+            ],
+            "z": [
+              286.1,
+              297.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              -45.5,
+              45.5
+            ],
+            "z": [
+              362.1,
+              373.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              -48.0,
+              -37.0
+            ],
+            "z": [
+              445.1,
+              448.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              37.0,
+              48.0
+            ],
+            "z": [
+              445.1,
+              448.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              -49.5,
+              -38.5
+            ],
+            "z": [
+              51.1,
+              54.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              38.5,
+              49.5
+            ],
+            "z": [
+              51.1,
+              54.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              88.5,
+              179.5
+            ],
+            "z": [
+              45.6,
+              55.6
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              510.6,
+              550.6
+            ],
+            "y": [
+              178.0,
+              188.0
+            ],
+            "z": [
+              46.1,
+              450.6
+            ],
+            "kind": "post",
+            "margin_mm": 0.5
+          },
+          {
+            "x": [
+              510.6,
+              550.6
+            ],
+            "y": [
+              80.0,
+              90.0
+            ],
+            "z": [
+              46.1,
+              450.6
+            ],
+            "kind": "post",
+            "margin_mm": 0.5
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              88.5,
+              179.5
+            ],
+            "z": [
+              58.1,
+              69.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              490.6,
+              550.6
+            ],
+            "y": [
+              90.0,
+              178.0
+            ],
+            "z": [
+              442.6,
+              450.6
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              88.5,
+              179.5
+            ],
+            "z": [
+              134.1,
+              145.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              88.5,
+              179.5
+            ],
+            "z": [
+              210.1,
+              221.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              88.5,
+              179.5
+            ],
+            "z": [
+              286.1,
+              297.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              412.6,
+              550.6
+            ],
+            "y": [
+              88.5,
+              179.5
+            ],
+            "z": [
+              362.1,
+              373.1
+            ],
+            "kind": "tray",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              86.0,
+              97.0
+            ],
+            "z": [
+              445.1,
+              448.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              171.0,
+              182.0
+            ],
+            "z": [
+              445.1,
+              448.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              84.5,
+              95.5
+            ],
+            "z": [
+              51.1,
+              54.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          },
+          {
+            "x": [
+              529.1,
+              532.1
+            ],
+            "y": [
+              172.5,
+              183.5
+            ],
+            "z": [
+              51.1,
+              54.1
+            ],
+            "kind": "part",
+            "margin_mm": 1.0
+          }
+        ],
+        "_parts_note": "2026-11-01: the hotel from the STEP (tools/hotel_volumes.py): each tray with a 3 mm lip, the rear posts, roof and base. Inside the envelope only the parts count; the plate may be in the gap between two trays and nowhere else."
       },
       "pillar": {
         "x": [
@@ -845,6 +2116,10 @@
         "y": [
           -42.6,
           42.6
+        ],
+        "z": [
+          -10.7,
+          6.2
         ]
       },
       "short_edges": {
@@ -857,7 +2132,7 @@
           63.7
         ]
       },
-      "hotel_front_allowance_mm": 45.0,
+      "hotel_front_allowance_mm": 0.0,
       "_note_2026_10_29": "long_edges x moved -31.675: the plate is gripped at the middle, its centre about 188 ahead of the wrist"
     },
     "axis_keepout_mm": 60.0

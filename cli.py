@@ -822,20 +822,6 @@ def cmd_marker_check(args):
     return 0 if mag <= limit else 2
 
 
-def cmd_occupancy(args):
-    """Per slot: reference counts, leave-one-out self-test, whether the detector may block a move."""
-    from perception.occupancy import Occupancy
-    cfg = load_layout()["vision"].get("slot_check", {})
-    rows = Occupancy(REFS, cfg.get("min_refs", 5), cfg.get("min_match", 0.75)).report()
-    if not rows:
-        print("no slot references yet (they are collected by the running cell)")
-        return 0
-    print(f"{'slot':6s} {'empty':>5s} {'occupied':>8s} {'tested':>6s} {'wrong':>5s} {'min_gap':>8s}  ready")
-    for r in rows:
-        print(f"{r['slot']:6s} {r['empty']:5d} {r['occupied']:8d} {r['tested']:6d} {r['wrong']:5d} {r['min_gap']:8.3f}  {r['ready']}")
-    return 0
-
-
 def cmd_calibrate(args):
     """Camera calibration with the calibration package, the marker on the practice plate as the target.
       read     the box reads the marker (and a code, if any): ok / cannot read
@@ -1161,7 +1147,6 @@ def main():
     p = sub.add_parser("marker-check", help="read the marker offset at the current pose (go there with goto first)")
     p.add_argument("fixture"); p.set_defaults(fn=cmd_marker_check)
     sub.add_parser("positions", help="every position, taught or not, and the hotel plate order").set_defaults(fn=cmd_positions)
-    sub.add_parser("occupancy", help="slot occupancy detector: references, self-test, ready").set_defaults(fn=cmd_occupancy)
     p = sub.add_parser("calibrate", help="camera calibration: read | capture | upload | check")
     p.add_argument("camera"); p.add_argument("step", choices=("read", "capture", "upload", "check"))
     p.add_argument("--out", help="working folder (default runs/calibration/<camera>)")

@@ -140,10 +140,6 @@ class Gates:
             self._observe(f"lower:{gate}:{state}", v.best)
             self._record("clear_to_lower", path, "ok" if v.safe else "not_ok", label)
             if v.safe:
-                front = self.L["vision"]["lower_check"].get("front")
-                if front:
-                    self._learned_gate(label, f"{gate}_front", state, self.front_cam, front, "lower_front",
-                                       "front camera: not clear to lower", ask="Is it clear to lower?")
                 return
             try:
                 self.corr.on_lower_blocked(gate, attempt, attempts, v)
@@ -170,28 +166,6 @@ class Gates:
         (stage_check.enforce "auto"), or as the config says."""
         self._learned_gate(step, "stage", f"to_{deg}", self.down_cam, self.L["vision"].get("stage_check", {}),
                            "stage_not_clear", "camera: stage does not look clear to rotate", ask="Is the stage clear to rotate?")
-
-    def _slot_view(self, step: str, slot: str, expect: str):
-        """Front-camera view of the slot from the approach point, with the verdict of the two-class check.
-        The cell labels its own references: before a place the slot is empty, before a pick it is occupied.
-        The first `min_refs` of each class are taken on consecutive visits; later ones every `spacing_s`, so the
-        set spans the day's lighting. A frame that confidently contradicts its label is an alarm, never a lesson."""
-        img = self._frame(self.front_cam)
-        path = self.tele.image(f"{step}_slot_view", img)
-        if img is None:
-            return None
-        sv = self.slots.verdict(slot, img)
-        other = "occupied" if expect == "empty" else "empty"
-        self._record("occupancy", path, sv.decision, step)
-        self.tele.log("vision", f"{step} slot_view", sv.reason, decision=sv.decision, confidence=round(sv.confidence, 3),
-                      score_empty=round(sv.score_empty, 3), score_occupied=round(sv.score_occupied, 3),
-                      ready=self.slots.ready(slot))
-        n, cap = self.slots.count(slot, expect), self.slot_cfg.get("auto_refs", 24)
-        spaced = n < self.slots.min_refs or self.slots.newest_age_s(slot, expect) >= self.slot_cfg.get("spacing_s", 1800)
-        if n < cap and spaced and sv.decision != other:
-            self.slots.add_reference(slot, expect, img)
-            self.tele.log("vision", f"{step} slot_ref", f"{expect} reference {n + 1} collected", slot=slot)
-        return sv
 
     def _scan_plate(self):
         try:

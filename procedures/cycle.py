@@ -20,7 +20,6 @@ from devices.stage import PolarError, PolarStage
 from devices.vision_box import VisionClient
 from perception import hub
 from perception.lower_check import LowerCheck
-from perception.occupancy import Occupancy
 from perception.predictor import DriftMonitor, PreChecks
 from procedures import plates
 from procedures.corrector import Corrector, StopSafe
@@ -60,6 +59,9 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.parked = parked or (lambda: True)
         self.supervised = mode == "supervised"
         self.safety = Safety(layout, mode, robot.joints)
+        from routes import plan as _plan_mod
+        from routes.graph import StationGraph
+        _plan_mod.GRAPH = StationGraph(self.stations)       # legs between stations are planned once and replayed (routes/graph.py)
         self.plate = plates.default(layout)      # jaw widths and seat Z offset of the plate being handled
         self.checks = PreChecks(layout, self.plate.jaw_open, self.plate.jaw_closed)
         self.drift = DriftMonitor(os.path.join(run_dir, f"drift_{scope}.json"))
@@ -67,8 +69,6 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.polar = PolarStage(layout["polar"], robot, tele.log, self.supervised, store.s.polar_angle, clock)
         lc = layout["vision"]["lower_check"]
         self.lower = LowerCheck(ref_dir, lc["min_refs"], lc["margin"], lc["floor"])
-        self.slot_cfg = layout["vision"].get("slot_check", {})
-        self.slots = Occupancy(ref_dir, self.slot_cfg.get("min_refs", 5), self.slot_cfg.get("min_match", 0.75))
         self.lim = layout["limits"]
         self.down_cam = layout["vision"]["down_camera"]
         self.front_cam = layout["vision"]["front_camera"]

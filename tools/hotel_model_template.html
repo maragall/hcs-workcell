@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hotel model</title>
+<style>
+html,body{margin:0;height:100%;background:#10151c;color:#dde3ea;font:13px system-ui,sans-serif}
+#v{position:absolute;inset:0}
+#p{position:absolute;top:8px;left:8px;width:300px;background:#18202bdd;padding:10px;border-radius:6px;max-height:96%;overflow:auto}
+#p h3{margin:6px 0 4px;font-size:13px}label{display:block;margin:4px 0 0}input[type=range]{width:100%}
+button{margin:2px 2px 0 0;background:#2a3a4f;color:#dde3ea;border:0;padding:4px 7px;border-radius:4px;cursor:pointer}
+#r{margin-top:8px;padding:6px;border-radius:4px;font-weight:600}.ok{background:#1d4d2f}.bad{background:#6b1f1f}
+small{color:#9aa7b5}
+</style></head><body><div id="v"></div>
+<div id="p"><b>Hotel and claw, robot frame (mm)</b>
+<div><small>Boxes from the STEP file (docs/cad_parts.json). x to the right = away from the arm, y across, z up. Drag to turn, wheel to zoom.</small></div>
+<h3>Slot (from the STEP)</h3>
+<div id="dim"></div>
+<h3>Wrist pose</h3>
+<label>x <span id="xv"></span><input id="x" type="range" min="100" max="320" step="0.5"></label>
+<label>y <span id="yv"></span><input id="y" type="range" min="-160" max="160" step="0.5"></label>
+<label>z <span id="zv"></span><input id="z" type="range" min="40" max="470" step="0.5"></label>
+<label>yaw <span id="aw"></span><input id="a" type="range" min="-20" max="20" step="0.1"></label>
+<div id="pre"></div>
+<div id="r"></div>
+<h3>Show</h3>
+<label><input type="checkbox" id="sh_other" checked> rest of the machine</label>
+<label><input type="checkbox" id="sh_seat" checked> taught seats (wrist)</label>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const D=__DATA__;
+const el=document.getElementById('v');
+const R=new THREE.WebGLRenderer({antialias:true});R.setSize(innerWidth,innerHeight);el.appendChild(R.domElement);
+const S=new THREE.Scene();S.background=new THREE.Color(0x10151c);
+const C=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,1,5000);C.position.set(150,500,700);
+const O=new THREE.OrbitControls(C,R.domElement);O.target.set(380,200,0);O.update();
+S.add(new THREE.AmbientLight(0xffffff,.7));const dl=new THREE.DirectionalLight(0xffffff,.6);dl.position.set(300,800,400);S.add(dl);
+const T=(x,y,z)=>new THREE.Vector3(x,z,-y);                     // robot -> three
+function box(b,col,op,wire){const g=new THREE.BoxGeometry(b.x[1]-b.x[0],b.z[1]-b.z[0],b.y[1]-b.y[0]);
+ const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:col,transparent:true,opacity:op}));
+ m.position.copy(T((b.x[0]+b.x[1])/2,(b.y[0]+b.y[1])/2,(b.z[0]+b.z[1])/2));
+ if(wire){const e=new THREE.LineSegments(new THREE.EdgesGeometry(g),new THREE.LineBasicMaterial({color:col}));m.add(e)}return m}
+const other=new THREE.Group(),hotel=new THREE.Group();S.add(other,hotel);
+const colour={tray:0x4aa3ff,post:0xffb347,hotel:0x7aa0c4,other:0x56606b};
+D.boxes.forEach(b=>{const g=b.k==='other'?other:hotel;g.add(box(b,colour[b.k],b.k==='other'?.12:b.k==='tray'?.55:.5,b.k!=='other'))});
+const trays=D.boxes.filter(b=>b.k==='tray'),posts=D.boxes.filter(b=>b.k==='post');
+const tx=[Math.min(...trays.map(b=>b.x[0])),Math.max(...trays.map(b=>b.x[1]))];
+// claw + plate
+const claw=new THREE.Group();S.add(claw);
+function part(r,z,col,op){const b={x:r.x,y:r.y,z:z};return box(b,col,op,true)}
+claw.add(part(D.claw.body,D.claw.z,0xcccccc,.35),part(D.claw.fingers,D.claw.z,0xeeeeee,.5),part(D.plate,[-10.7,3.7],0x66e08a,.8));
+claw.rotation.order='YXZ';
+// seats
+const seatG=new THREE.Group();S.add(seatG);
+Object.entries(D.seats).forEach(([s,p])=>{const m=new THREE.Mesh(new THREE.SphereGeometry(3),new THREE.MeshBasicMaterial({color:0xff5577}));m.position.copy(T(p[0],p[1],p[2]));seatG.add(m)});
+// slot length dimension on B7
+function line(a,b,col){const g=new THREE.BufferGeometry().setFromPoints([T(...a),T(...b)]);S.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:col})))}
+function label(txt,pos){const c=document.createElement('canvas');c.width=256;c.height=48;const g=c.getContext('2d');g.fillStyle='#fff';g.font='bold 26px sans-serif';g.fillText(txt,4,32);
+ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));s.scale.set(128,24,1);s.position.copy(T(...pos));S.add(s)}
+const zt=Math.max(...trays.map(b=>b.z[1]))+14;
+line([tx[0],-60,zt],[tx[1],-60,zt],0xffff00);label('slot length '+(tx[1]-tx[0]).toFixed(1)+' mm (x)',[(tx[0]+tx[1])/2-20,-60,zt+14]);
+const pl=D.plate;const px0=pl.x[1]-pl.x[0];
+const post=posts.length?[Math.min(...posts.map(b=>b.x[0])),Math.max(...posts.map(b=>b.x[1]))]:null;
+if(post){line([post[0],-72,zt-16],[post[1],-72,zt-16],0xff8844);label('rear posts '+(post[1]-post[0]).toFixed(0)+' mm',[post[0]-20,-72,zt-2])}
+document.getElementById('dim').innerHTML=`Trays: ${trays.length} (x ${tx[0].toFixed(1)} to ${tx[1].toFixed(1)}), <b>${(tx[1]-tx[0]).toFixed(1)} mm long</b>, ${(trays[0].y[1]-trays[0].y[0]).toFixed(0)} mm wide, ${(trays[0].z[1]-trays[0].z[0]).toFixed(0)} mm thick, 38 mm pitch.<br>
+Rear posts: ${post?(post[1]-post[0]).toFixed(0)+' mm deep (x '+post[0].toFixed(1)+' to '+post[1].toFixed(1)+')':'none'}; opening between posts 88 mm.<br>
+Plate ${D.plate_dims[0]} x ${D.plate_dims[1]} x ${D.plate_dims[2]}: ${(tx[1]-tx[0]-D.plate_dims[0]).toFixed(1)} mm spare along the slot, ${((88-D.plate_dims[1])/2).toFixed(1)} mm each side between the posts.<br>
+Plate in the claw: x ${pl.x[0]}..${pl.x[1]} ahead of the wrist. The planner today lets the plate front go ${D.front_allow} mm inside x ${tx[0].toFixed(1)}.`;
+// pose
+const ids=['x','y','z','a'];
+function inTray(px,py,pz0,pz1){for(const b of trays)if(px>=b.x[0]&&px<=b.x[1]&&py>=b.y[0]&&py<=b.y[1]&&pz1>=b.z[0]&&pz0<=b.z[1])return b;
+ for(const b of posts)if(px>=b.x[0]&&px<=b.x[1]&&py>=b.y[0]&&py<=b.y[1]&&pz1>=b.z[0]&&pz0<=b.z[1])return b;return null}
+function update(){const [x,y,z,a]=ids.map(i=>+document.getElementById(i).value);
+ ['xv','yv','zv','aw'].forEach((id,i)=>document.getElementById(id).textContent=[x,y,z,a][i]);
+ claw.position.copy(T(x,y,z));claw.rotation.y=THREE.MathUtils.degToRad(a);
+ const c=Math.cos(a*Math.PI/180),s=Math.sin(a*Math.PI/180);let hit=null,front=-1e9;
+ for(let i=0;i<=24&&!hit;i++)for(let j=0;j<=12&&!hit;j++){const u=pl.x[0]+(pl.x[1]-pl.x[0])*i/24,w=-42.6+85.2*j/12;
+  const X=x+u*c-w*s,Y=y+u*s+w*c;front=Math.max(front,X);hit=inTray(X,Y,z-10.7,z+3.7)}
+ for(let i=0;i<=40&&!hit;i++)for(let j=0;j<=8&&!hit;j++){const u=D.claw.fingers.x[0]+(D.claw.fingers.x[1]-D.claw.fingers.x[0])*i/40,w=-48+96*j/8;
+  const X=x+u*c-w*s,Y=y+u*s+w*c;hit=inTray(X,Y,z+D.claw.z[0],z+D.claw.z[1])}
+ const inside=front-tx[0];const r=document.getElementById('r');
+ r.className=hit?'bad':'ok';
+ r.textContent=hit?`plate or fingers INSIDE a ${hit.k} (x ${hit.x[0]}..${hit.x[1]})`:`clear. plate front at x ${front.toFixed(0)}, `+(inside>0?`${inside.toFixed(0)} mm past the rack front: no z move here`:`${(-inside).toFixed(0)} mm in front of the rack: z moves are free`)}
+ids.forEach(i=>document.getElementById(i).oninput=update);
+const pres=[['B3 approach, carry',191,-0.1,178.3,0],['B1 approach, carry',191,-0.1,102.3,0],['B1 carry, in slot',285,-0.1,102.3,0],['B1 seat',291,-0.1,77.3,0],['B7 stop 22:30 (hit pillar)',283.3,2.2,330.2,-0.26],['B7 seat',291,-0.1,305.3,0],['clear of rack, B3',150,-0.1,178.3,0]];
+document.getElementById('pre').innerHTML=pres.map((p,i)=>`<button data-i="${i}">${p[0]}</button>`).join('');
+document.querySelectorAll('#pre button').forEach(b=>b.onclick=()=>{const p=pres[+b.dataset.i];ids.forEach((id,k)=>document.getElementById(id).value=p[k+1]);update()});
+document.getElementById('sh_other').onchange=e=>other.visible=e.target.checked;
+document.getElementById('sh_seat').onchange=e=>seatG.visible=e.target.checked;
+ids.forEach((id,k)=>document.getElementById(id).value=pres[0][k+1]);update();
+(function loop(){requestAnimationFrame(loop);R.render(S,C)})();
+onresize=()=>{R.setSize(innerWidth,innerHeight);C.aspect=innerWidth/innerHeight;C.updateProjectionMatrix()};
+</script></body></html>

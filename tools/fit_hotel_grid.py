@@ -1,8 +1,11 @@
 """
 Fit the hand-taught hotel seats (fixtures.hotel.taught_detail, the raw records) to one regular grid and write it as the seat poses:
 every seat has the same x and yaw 0 (the claw is square to the hotel), columns are `pitch` apart in y (B in the middle), rows are the
-STEP's 38 mm tray pitch apart in z. The fit is robust (soft L1), so a seat taught off-centre does not drag the grid with it; the
-residual of every seat is printed. `--apply` writes fixtures.hotel.taught (the raw records stay in taught_detail), fixtures.hotel.grid
+STEP's 38 mm tray pitch apart in z. The wrist pose is not the plate: the plate sits `pivot` mm ahead of the wrist along the claw, so a
+taught yaw of a few degrees moves the plate sideways by pivot * sin(yaw) (5.5 degrees = 18 mm). Each raw record is therefore turned to
+yaw 0 about the PLATE, not about the wrist, and the pivot is fitted with the grid (2026-11-01: 189 mm, the CAD says 185; all three columns
+then land within 1 mm). Forcing the yaw to 0 and keeping the wrist y, as the first grid did, bent column B by 18 mm. The residual of
+every seat is printed. `--apply` writes fixtures.hotel.taught (the raw records stay in taught_detail), fixtures.hotel.grid
 and pose_source "grid".
 
     python tools/fit_hotel_grid.py [--apply]
@@ -18,6 +21,7 @@ sys.path.insert(0, HERE)
 import cli as R  # noqa: E402
 
 COL = {"A": 1, "B": 0, "C": -1}                  # column A is +y, as in the STEP (CAD x +134 = A)
+COL_SLOTS = ()
 ROW_PITCH = 38.0                                 # the STEP: ten trays 38 mm apart, the hotel uses every second one by the row numbers
 
 
@@ -28,22 +32,26 @@ def main(apply=False):
     slots = sorted(raw)
     cols = np.array([COL[s[0]] for s in slots])
     rows = np.array([int(s[1:]) for s in slots])
-    seen = np.array([raw[s][:3] for s in slots])
+    yaw = np.radians([h["taught_detail"][s].get("raw_yaw_deg", raw[s][5]) for s in slots])
+    xyz = np.array([raw[s][:3] for s in slots])
+
+    def seen_at(pivot):                              # the wrist pose with the claw square, the plate where it was taught
+        return np.c_[xyz[:, 0] + pivot * (np.cos(yaw) - 1), xyz[:, 1] + pivot * np.sin(yaw), xyz[:, 2]]
 
     def model(p):
-        x0, y0, pitch, z0 = p
+        x0, y0, pitch, z0 = p[:4]
         return np.c_[np.full(len(slots), x0), y0 + pitch * cols, z0 + ROW_PITCH * (rows - 1)]
 
-    fit = least_squares(lambda p: (model(p) - seen).ravel(), [291.0, 0.0, 134.0, 78.0], loss="soft_l1", f_scale=2.0)
-    x0, y0, pitch, z0 = fit.x
-    err = seen - model(fit.x)
-    print(f"{len(slots)} seats: x {x0:.1f}, B at y {y0:.1f}, column pitch {pitch:.1f}, row 1 at z {z0:.1f}, row pitch {ROW_PITCH}, yaw 0")
+    fit = least_squares(lambda p: (model(p) - seen_at(p[4])).ravel(), [291.0, 0.0, 134.0, 78.0, 185.0], loss="soft_l1", f_scale=1.0)
+    x0, y0, pitch, z0, pivot = fit.x
+    err = seen_at(pivot) - model(fit.x)
+    print(f"{len(slots)} seats: x {x0:.1f}, B at y {y0:.1f}, column pitch {pitch:.1f}, row 1 at z {z0:.1f}, row pitch {ROW_PITCH}, yaw 0, pivot {pivot:.1f}")
     for s, e in zip(slots, err):
         print(f"  {s}: taught minus grid  dx {e[0]:+5.1f}  dy {e[1]:+5.1f}  dz {e[2]:+5.1f}" + ("   <-- far from the grid" if np.abs(e).max() > 5 else ""))
     if apply:
-        grid = {"x": round(x0, 3), "y_B": round(y0, 3), "column_pitch": round(pitch, 3), "z_row1": round(z0, 3), "row_pitch": ROW_PITCH, "yaw": 0.0}
+        grid = {"x": round(x0, 3), "y_B": round(y0, 3), "column_pitch": round(pitch, 3), "z_row1": round(z0, 3), "row_pitch": ROW_PITCH, "yaw": 0.0, "pivot_mm": round(pivot, 2)}
         p = model(fit.x)
-        over = h.get("grid", {}).get("overrides", {})          # seats a person saw off the grid: [dx, dy, dz] added to the grid pose
+        over = {k: v for k, v in h.get("grid", {}).get("overrides", {}).items() if k in COL_SLOTS}   # [dx, dy, dz] a person saw off the grid
         for s, v in zip(slots, p):
             d = over.get(s, [0, 0, 0])
             h["taught"][s] = [round(float(v[0] + d[0]), 3), round(float(v[1] + d[1]), 3), round(float(v[2] + d[2]), 3), 0.0, -0.0, 0.0]

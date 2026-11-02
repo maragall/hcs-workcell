@@ -37,20 +37,6 @@ def along(cyc, route, reverse=False):
     cyc._waypoints(route, reverse=reverse)
 
 
-def probe_slots(cyc, slots, log):
-    """Approach every slot, read the detector, come back. Returns {slot: decision}."""
-    out = {}
-    for slot in slots:
-        step = f"probe:{slot}"
-        cyc._hotel_go_to_approach(slot, step)
-        sv = cyc._slot_view(step, slot, "occupied" if slot in cyc.store.s.hotel else "empty")
-        out[slot] = sv.decision if sv else "no frame"
-        cyc._hotel_leave_approach(slot, step)
-        log("exercise", step, out[slot], declared="plate" if slot in cyc.store.s.hotel else "empty",
-            ready=cyc.slots.ready(slot))
-    return out
-
-
 def probe_stage(cyc, log):
     F = cyc.L["fixtures"]["polar"]
     P0, P90 = F["pose_at_0"]["pose"], F["pose_at_90"]["pose"]
@@ -101,7 +87,7 @@ def main(argv=None) -> int:
         tele.log("exercise", "start", f"{len(order)} plates: {' '.join(order)}", scopes=list(cell.cycles))
         scope_route = layout["fixtures"][cyc.scope].get("trajectory", "microscope_to_polar")
         along(cyc, scope_route)                                       # microscope hover -> stage hover
-        verdicts = probe_slots(cyc, order, tele.log)                  # stage -> hotel slots -> hotel junction
+        verdicts = {}                                                 # the slot occupancy probe was removed 2026-11-01
         along(cyc, "polar_to_hotel", reverse=True)                   # junction -> stage hover
         probe_stage(cyc, tele.log)
         along(cyc, scope_route, reverse=True)                        # stage -> microscope hover
