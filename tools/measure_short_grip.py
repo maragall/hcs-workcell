@@ -1,5 +1,5 @@
 """
-Measure the short-edge grip on the plate that sits on the rotation module at 0 deg: the jaw opens, the hand goes to the module hover
+Measure a grip on the plate that sits on the rotation module (short edges at 0 deg, long edges at 90): the jaw opens, the hand goes to the module hover
 (stage "hover"), and with --lower it lowers to the seat, closes in steps from the open width until the jaw stops following the command
 (contact), prints every step live, opens again and rises. Nothing is stored. The loop must be stopped.
 
@@ -25,6 +25,7 @@ from procedures.telemetry import Telemetry  # noqa: E402
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--lower", action="store_true")
+    ap.add_argument("--grip", default="short_edges", choices=("short_edges", "long_edges"), help="long_edges: the plate on the module at 90 deg")
     ap.add_argument("--step", type=float, default=0.25)
     ap.add_argument("--pause", type=float, default=0.3)
     a = ap.parse_args(argv)
@@ -44,15 +45,16 @@ def main(argv=None) -> int:
     s.plate_at, s.grip, s.step_done, s.hotel = "polar", "none", True, {}
     store.save()
     F = layout["fixtures"]["polar"]
-    P0 = F["pose_at_0"]["pose"]
+    pose_name = "pose_at_90" if a.grip == "long_edges" else "pose_at_0"
+    P0 = F[pose_name]["pose"]
     g = layout["gripper"]
     try:
-        open_w = g["open"]["short_edges"]
+        open_w = g["open"][a.grip]
         print(f"jaw now {robot.jaw():.2f}; opening to {open_w}", flush=True)
         robot.jaw_to(open_w)
         time.sleep(1.0)
         if not robot.pose()[2] > P0[2] + F["hover_mm"] - 3.0 or abs(robot.pose()[0] - P0[0]) > 5 or abs(robot.pose()[1] - P0[1]) > 5:
-            cyc.move_to("polar.pose_at_0")
+            cyc.move_to("polar." + pose_name)
         img = cyc._frame(cyc.down_cam)
         print("down-camera frame:", tele.image("measure_short_hover", img), flush=True)
         if not a.lower:
@@ -82,8 +84,8 @@ def main(argv=None) -> int:
         if contact is None:
             print("RESULT: the jaw closed all the way without meeting a plate: nothing between the fingers", flush=True)
         else:
-            print(f"RESULT: contact at {contact:.2f} (command {cmd_at_contact:.2f} at that moment); stored closed width {g['closed']['short_edges']}, "
-                  f"band {g['accept_band']['short_edges']}", flush=True)
+            print(f"RESULT: contact at {contact:.2f} (command {cmd_at_contact:.2f} at that moment); stored closed width {g['closed'][a.grip]}, "
+                  f"band {g['accept_band'][a.grip]}", flush=True)
         robot.jaw_to(open_w)
         time.sleep(1.5)
         cyc._move("L", [target[0], target[1], target[2] + F["hover_mm"]] + list(target[3:]), "measure rise", cyc.safety.profile.approach)

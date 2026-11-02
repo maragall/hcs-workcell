@@ -1,8 +1,8 @@
 {
  "plate_at": "polar",
- "polar_angle": 0,
+ "polar_angle": 90,
  "grip": "none",
- "step": "place:polar",
+ "step": "place:hotel:B5",
  "step_done": true,
  "cycle": 0,
  "hotel": {},
@@ -27,519 +27,8 @@
   "module": "full",
   "gripper": "empty"
  },
- "home_slot": "B1",
+ "home_slot": "A3",
  "faults": [
-  {
-   "t": 1793346808.4953732,
-   "cycle": 0,
-   "step": "pick:hotel:A7",
-   "kind": "slot_empty",
-   "detail": "empty 0.845 vs occupied 0.779"
-  },
-  {
-   "t": 1793346853.404453,
-   "cycle": 0,
-   "step": "place:hotel:A1",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.405 below 0.550"
-  },
-  {
-   "t": 1793346909.978556,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.450 below 0.550"
-  },
-  {
-   "t": 1793346925.9072046,
-   "cycle": 0,
-   "step": "pick:hotel:A5",
-   "kind": "slot_empty",
-   "detail": "empty 0.835 vs occupied 0.550"
-  },
-  {
-   "t": 1793346968.7979677,
-   "cycle": 0,
-   "step": "place:hotel:A9",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.431 below 0.550"
-  },
-  {
-   "t": 1793346986.181295,
-   "cycle": 0,
-   "step": "pick:hotel:A3",
-   "kind": "slot_empty",
-   "detail": "empty 0.873 vs occupied 0.666"
-  },
-  {
-   "t": 1793347029.0184743,
-   "cycle": 0,
-   "step": "place:hotel:A5",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.428 below 0.550"
-  },
-  {
-   "t": 1793347044.7105064,
-   "cycle": 0,
-   "step": "pick:hotel:A5",
-   "kind": "slot_empty",
-   "detail": "empty 0.772 vs occupied 0.743"
-  },
-  {
-   "t": 1793347086.4294708,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.451 below 0.550"
-  },
-  {
-   "t": 1793347150.9067383,
-   "cycle": 0,
-   "step": "place:hotel:A1",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.385 below 0.550"
-  },
-  {
-   "t": 1793347210.5178845,
-   "cycle": 0,
-   "step": "place:hotel:A5",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.429 below 0.550"
-  },
-  {
-   "t": 1793347224.617569,
-   "cycle": 0,
-   "step": "pick:hotel:A5",
-   "kind": "slot_empty",
-   "detail": "empty 0.823 vs occupied 0.664"
-  },
-  {
-   "t": 1793347267.129352,
-   "cycle": 0,
-   "step": "place:hotel:A1",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.387 below 0.550"
-  },
-  {
-   "t": 1793347324.7706501,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.432 below 0.550"
-  },
-  {
-   "t": 1793347339.937492,
-   "cycle": 0,
-   "step": "pick:hotel:A7",
-   "kind": "slot_empty",
-   "detail": "empty 0.842 vs occupied 0.798"
-  },
-  {
-   "t": 1793347381.7695193,
-   "cycle": 0,
-   "step": "place:hotel:A5",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.427 below 0.550"
-  },
-  {
-   "t": 1793347396.024102,
-   "cycle": 0,
-   "step": "pick:hotel:A5",
-   "kind": "slot_empty",
-   "detail": "empty 0.843 vs occupied 0.565"
-  },
-  {
-   "t": 1793347437.4224916,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.445 below 0.550"
-  },
-  {
-   "t": 1793347494.0775018,
-   "cycle": 0,
-   "step": "place:hotel:A5",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.429 below 0.550"
-  },
-  {
-   "t": 1793347508.1490273,
-   "cycle": 0,
-   "step": "pick:hotel:A5",
-   "kind": "slot_empty",
-   "detail": "empty 0.839 vs occupied 0.552"
-  },
-  {
-   "t": 1793347550.0952647,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.443 below 0.550"
-  },
-  {
-   "t": 1793347606.8619163,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.433 below 0.550"
-  },
-  {
-   "t": 1793347621.851321,
-   "cycle": 0,
-   "step": "pick:hotel:A7",
-   "kind": "slot_empty",
-   "detail": "empty 0.841 vs occupied 0.775"
-  },
-  {
-   "t": 1793347664.6602685,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.445 below 0.550"
-  },
-  {
-   "t": 1793347722.660808,
-   "cycle": 0,
-   "step": "place:hotel:A5",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.430 below 0.550"
-  },
-  {
-   "t": 1793347780.8336854,
-   "cycle": 0,
-   "step": "place:hotel:A1",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.412 below 0.550"
-  },
-  {
-   "t": 1793347840.1413863,
-   "cycle": 0,
-   "step": "place:hotel:A9",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.424 below 0.550"
-  },
-  {
-   "t": 1793347856.65481,
-   "cycle": 0,
-   "step": "pick:hotel:A5",
-   "kind": "slot_empty",
-   "detail": "empty 0.833 vs occupied 0.554"
-  },
-  {
-   "t": 1793347899.9407425,
-   "cycle": 0,
-   "step": "place:hotel:A1",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.390 below 0.550"
-  },
-  {
-   "t": 1793347960.3616436,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.432 below 0.550"
-  },
-  {
-   "t": 1793348021.0688403,
-   "cycle": 0,
-   "step": "place:hotel:A5",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.428 below 0.550"
-  },
-  {
-   "t": 1793348035.7097936,
-   "cycle": 0,
-   "step": "pick:hotel:A5",
-   "kind": "slot_empty",
-   "detail": "empty 0.812 vs occupied 0.612"
-  },
-  {
-   "t": 1793348077.8061876,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.446 below 0.550"
-  },
-  {
-   "t": 1793348136.3226178,
-   "cycle": 0,
-   "step": "place:hotel:A9",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.425 below 0.550"
-  },
-  {
-   "t": 1793348197.3097203,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.431 below 0.550"
-  },
-  {
-   "t": 1793348212.3354514,
-   "cycle": 0,
-   "step": "pick:hotel:A7",
-   "kind": "slot_empty",
-   "detail": "empty 0.825 vs occupied 0.772"
-  },
-  {
-   "t": 1793348254.515894,
-   "cycle": 0,
-   "step": "place:hotel:A5",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.428 below 0.550"
-  },
-  {
-   "t": 1793348312.3079572,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.432 below 0.550"
-  },
-  {
-   "t": 1793348369.05095,
-   "cycle": 0,
-   "step": "place:hotel:A9",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.425 below 0.550"
-  },
-  {
-   "t": 1793348425.423609,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.431 below 0.550"
-  },
-  {
-   "t": 1793348482.8676417,
-   "cycle": 0,
-   "step": "place:hotel:A9",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.424 below 0.550"
-  },
-  {
-   "t": 1793348543.0498123,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.448 below 0.550"
-  },
-  {
-   "t": 1793348600.8431678,
-   "cycle": 0,
-   "step": "place:hotel:A5",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.429 below 0.550"
-  },
-  {
-   "t": 1793348615.2671778,
-   "cycle": 0,
-   "step": "pick:hotel:A5",
-   "kind": "slot_empty",
-   "detail": "empty 0.859 vs occupied 0.801"
-  },
-  {
-   "t": 1793348657.587634,
-   "cycle": 0,
-   "step": "place:hotel:A1",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.409 below 0.550"
-  },
-  {
-   "t": 1793348716.1445363,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.429 below 0.550"
-  },
-  {
-   "t": 1793348773.4350264,
-   "cycle": 0,
-   "step": "place:hotel:A5",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.429 below 0.550"
-  },
-  {
-   "t": 1793348832.6818666,
-   "cycle": 0,
-   "step": "place:hotel:A1",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.412 below 0.550"
-  },
-  {
-   "t": 1793348848.0071247,
-   "cycle": 0,
-   "step": "pick:hotel:A3",
-   "kind": "slot_empty",
-   "detail": "empty 0.853 vs occupied 0.815"
-  },
-  {
-   "t": 1793348891.2082992,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.429 below 0.550"
-  },
-  {
-   "t": 1793348948.9709463,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.447 below 0.550"
-  },
-  {
-   "t": 1793349008.1476657,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.429 below 0.550"
-  },
-  {
-   "t": 1793349064.5103695,
-   "cycle": 0,
-   "step": "place:hotel:A9",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.423 below 0.550"
-  },
-  {
-   "t": 1793349124.251453,
-   "cycle": 0,
-   "step": "place:hotel:A1",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.413 below 0.550"
-  },
-  {
-   "t": 1793349140.7201605,
-   "cycle": 0,
-   "step": "pick:hotel:A3",
-   "kind": "slot_empty",
-   "detail": "empty 0.870 vs occupied 0.673"
-  },
-  {
-   "t": 1793349184.689179,
-   "cycle": 0,
-   "step": "place:hotel:A9",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.424 below 0.550"
-  },
-  {
-   "t": 1793349242.5161521,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.428 below 0.550"
-  },
-  {
-   "t": 1793349303.4232273,
-   "cycle": 0,
-   "step": "place:hotel:A5",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.429 below 0.550"
-  },
-  {
-   "t": 1793349359.169091,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.433 below 0.550"
-  },
-  {
-   "t": 1793349419.3987346,
-   "cycle": 0,
-   "step": "place:hotel:A1",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.394 below 0.550"
-  },
-  {
-   "t": 1793349477.538655,
-   "cycle": 0,
-   "step": "place:hotel:A9",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.419 below 0.550"
-  },
-  {
-   "t": 1793349537.1709654,
-   "cycle": 0,
-   "step": "place:hotel:A5",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.430 below 0.550"
-  },
-  {
-   "t": 1793349598.8389595,
-   "cycle": 0,
-   "step": "place:hotel:A1",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.397 below 0.550"
-  },
-  {
-   "t": 1793349658.0658581,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.428 below 0.550"
-  },
-  {
-   "t": 1793349715.7620642,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.432 below 0.550"
-  },
-  {
-   "t": 1793349730.0292664,
-   "cycle": 0,
-   "step": "pick:hotel:A3",
-   "kind": "slot_empty",
-   "detail": "empty 0.864 vs occupied 0.716"
-  },
-  {
-   "t": 1793349772.3377848,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.429 below 0.550"
-  },
-  {
-   "t": 1793349830.643672,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.431 below 0.550"
-  },
-  {
-   "t": 1793349888.915859,
-   "cycle": 0,
-   "step": "place:hotel:A9",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.419 below 0.550"
-  },
-  {
-   "t": 1793349945.8784676,
-   "cycle": 0,
-   "step": "place:hotel:A7",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.430 below 0.550"
-  },
-  {
-   "t": 1793350002.9755878,
-   "cycle": 0,
-   "step": "place:hotel:A9",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.419 below 0.550"
-  },
-  {
-   "t": 1793350063.3107753,
-   "cycle": 0,
-   "step": "place:hotel:A3",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.444 below 0.550"
-  },
-  {
-   "t": 1793350119.890746,
-   "cycle": 0,
-   "step": "place:hotel:A1",
-   "kind": "not_seated_front",
-   "detail": "best correlation 0.403 below 0.550"
-  },
   {
    "t": 1793350181.1305118,
    "cycle": 0,
@@ -1428,15 +917,526 @@
    "step": "place:microscope",
    "kind": "not_seated_front",
    "detail": "best correlation 0.066 below 0.645"
+  },
+  {
+   "t": 1793613742.5862944,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.026 below 0.645"
+  },
+  {
+   "t": 1793613760.2579665,
+   "cycle": 0,
+   "step": "pick:microscope",
+   "kind": "not_held",
+   "detail": "best correlation 0.537 below 0.550"
+  },
+  {
+   "t": 1793613835.3451788,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.032 below 0.583"
+  },
+  {
+   "t": 1793613841.1598387,
+   "cycle": 0,
+   "step": "polar:90",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.226 below 0.550"
+  },
+  {
+   "t": 1793613910.3048737,
+   "cycle": 0,
+   "step": "place:hotel:A7",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.149 below 0.550"
+  },
+  {
+   "t": 1793613935.1757374,
+   "cycle": 0,
+   "step": "pick:hotel:A7",
+   "kind": "not_held",
+   "detail": "best correlation 0.319 below 0.550"
+  },
+  {
+   "t": 1793613990.0651307,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.080 below 0.550"
+  },
+  {
+   "t": 1793613996.1373045,
+   "cycle": 0,
+   "step": "polar:0",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.225 below 0.550"
+  },
+  {
+   "t": 1793614061.4583457,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.032 below 0.645"
+  },
+  {
+   "t": 1793614119.6833706,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.030 below 0.583"
+  },
+  {
+   "t": 1793614125.5869954,
+   "cycle": 0,
+   "step": "polar:90",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.230 below 0.550"
+  },
+  {
+   "t": 1793614195.6196117,
+   "cycle": 0,
+   "step": "place:hotel:A3",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.207 below 0.550"
+  },
+  {
+   "t": 1793614220.3542109,
+   "cycle": 0,
+   "step": "pick:hotel:A3",
+   "kind": "not_held",
+   "detail": "best correlation 0.413 below 0.550"
+  },
+  {
+   "t": 1793614273.6156566,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.081 below 0.550"
+  },
+  {
+   "t": 1793614279.5715725,
+   "cycle": 0,
+   "step": "polar:0",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.222 below 0.550"
+  },
+  {
+   "t": 1793614343.5043263,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.025 below 0.645"
+  },
+  {
+   "t": 1793614401.9338958,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.032 below 0.583"
+  },
+  {
+   "t": 1793614404.2257388,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.486 below 0.550"
+  },
+  {
+   "t": 1793614407.808165,
+   "cycle": 0,
+   "step": "polar:90",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.216 below 0.550"
+  },
+  {
+   "t": 1793614585.3696427,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.087 below 0.550"
+  },
+  {
+   "t": 1793614587.659792,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.309 below 0.550"
+  },
+  {
+   "t": 1793614591.2473705,
+   "cycle": 0,
+   "step": "polar:0",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.216 below 0.550"
+  },
+  {
+   "t": 1793614655.9293048,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.034 below 0.645"
+  },
+  {
+   "t": 1793614712.8747122,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.033 below 0.583"
+  },
+  {
+   "t": 1793614718.7017908,
+   "cycle": 0,
+   "step": "polar:90",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.254 below 0.550"
+  },
+  {
+   "t": 1793614788.1236074,
+   "cycle": 0,
+   "step": "place:hotel:A5",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.177 below 0.550"
+  },
+  {
+   "t": 1793614812.323869,
+   "cycle": 0,
+   "step": "pick:hotel:A5",
+   "kind": "not_held",
+   "detail": "best correlation 0.417 below 0.550"
+  },
+  {
+   "t": 1793614865.9045894,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.086 below 0.550"
+  },
+  {
+   "t": 1793614868.2576203,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.359 below 0.550"
+  },
+  {
+   "t": 1793614871.8744714,
+   "cycle": 0,
+   "step": "polar:0",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.224 below 0.550"
+  },
+  {
+   "t": 1793614937.039084,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation -0.004 below 0.645"
+  },
+  {
+   "t": 1793614940.9789157,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated",
+   "detail": "best correlation 0.522 below 0.550"
+  },
+  {
+   "t": 1793614995.0371425,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.034 below 0.583"
+  },
+  {
+   "t": 1793615000.860031,
+   "cycle": 0,
+   "step": "polar:90",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.242 below 0.550"
+  },
+  {
+   "t": 1793615074.934452,
+   "cycle": 0,
+   "step": "place:hotel:A9",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.123 below 0.550"
+  },
+  {
+   "t": 1793615099.1523547,
+   "cycle": 0,
+   "step": "pick:hotel:A9",
+   "kind": "not_held",
+   "detail": "best correlation 0.400 below 0.550"
+  },
+  {
+   "t": 1793615160.9598384,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.090 below 0.550"
+  },
+  {
+   "t": 1793615166.8860087,
+   "cycle": 0,
+   "step": "polar:0",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.229 below 0.550"
+  },
+  {
+   "t": 1793615232.1024332,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.018 below 0.645"
+  },
+  {
+   "t": 1793615289.8074136,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.034 below 0.583"
+  },
+  {
+   "t": 1793615292.1023178,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.402 below 0.550"
+  },
+  {
+   "t": 1793615295.723235,
+   "cycle": 0,
+   "step": "polar:90",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.253 below 0.550"
+  },
+  {
+   "t": 1793615345.6011922,
+   "cycle": 0,
+   "step": "place:hotel:A3",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.212 below 0.550"
+  },
+  {
+   "t": 1793615399.3489335,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.089 below 0.550"
+  },
+  {
+   "t": 1793615401.704988,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.424 below 0.550"
+  },
+  {
+   "t": 1793615405.3436975,
+   "cycle": 0,
+   "step": "polar:0",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.226 below 0.550"
+  },
+  {
+   "t": 1793615469.1878133,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.015 below 0.645"
+  },
+  {
+   "t": 1793615526.8221223,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.034 below 0.583"
+  },
+  {
+   "t": 1793615529.108068,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.421 below 0.550"
+  },
+  {
+   "t": 1793615532.7797713,
+   "cycle": 0,
+   "step": "polar:90",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.251 below 0.550"
+  },
+  {
+   "t": 1793615682.960288,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.089 below 0.550"
+  },
+  {
+   "t": 1793615688.8896708,
+   "cycle": 0,
+   "step": "polar:0",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.229 below 0.550"
+  },
+  {
+   "t": 1793615753.5792506,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.017 below 0.645"
+  },
+  {
+   "t": 1793615811.203441,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.033 below 0.583"
+  },
+  {
+   "t": 1793615813.4597435,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.457 below 0.550"
+  },
+  {
+   "t": 1793615817.0794203,
+   "cycle": 0,
+   "step": "polar:90",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.254 below 0.550"
+  },
+  {
+   "t": 1793615885.5462515,
+   "cycle": 0,
+   "step": "place:hotel:A1",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.146 below 0.550"
+  },
+  {
+   "t": 1793615909.821564,
+   "cycle": 0,
+   "step": "pick:hotel:A1",
+   "kind": "not_held",
+   "detail": "best correlation 0.485 below 0.550"
+  },
+  {
+   "t": 1793615963.0942633,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.087 below 0.550"
+  },
+  {
+   "t": 1793615969.0291371,
+   "cycle": 0,
+   "step": "polar:0",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.240 below 0.550"
+  },
+  {
+   "t": 1793616033.1340654,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.014 below 0.645"
+  },
+  {
+   "t": 1793616091.694372,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.032 below 0.583"
+  },
+  {
+   "t": 1793616093.9467394,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.445 below 0.550"
+  },
+  {
+   "t": 1793616097.5395927,
+   "cycle": 0,
+   "step": "polar:90",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.252 below 0.550"
+  },
+  {
+   "t": 1793616147.628548,
+   "cycle": 0,
+   "step": "place:hotel:A3",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.212 below 0.550"
+  },
+  {
+   "t": 1793616201.8391628,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.085 below 0.550"
+  },
+  {
+   "t": 1793616204.1942005,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated",
+   "detail": "best correlation 0.345 below 0.550"
+  },
+  {
+   "t": 1793616207.7730417,
+   "cycle": 0,
+   "step": "polar:0",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.222 below 0.550"
+  },
+  {
+   "t": 1793616271.7770944,
+   "cycle": 0,
+   "step": "place:microscope",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.014 below 0.645"
+  },
+  {
+   "t": 1793616329.3376255,
+   "cycle": 0,
+   "step": "place:polar",
+   "kind": "not_seated_front",
+   "detail": "best correlation 0.032 below 0.583"
+  },
+  {
+   "t": 1793616335.1632032,
+   "cycle": 0,
+   "step": "polar:90",
+   "kind": "stage_not_clear",
+   "detail": "best correlation 0.252 below 0.550"
+  },
+  {
+   "t": 1793616425.5767732,
+   "cycle": 0,
+   "step": "place:hotel:B5 slide in (fast part)",
+   "kind": "controller_error",
+   "detail": "[{'errCode': 3873, 'errMsg': '2026-11-02 02:47:03.173 Motion error: axis 4 collision detected'}, {'errCode': 3873, 'errMsg': '2026-11-02 02:47:03.181 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-11-02 02:47:03.189 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-11-02 02:47:03.189 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-11-02 02:47:03.189 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-11-02 02:47:03.189 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-11-02 02:47:03.189 Motion error: external axis 2 servo enable failed'}] after: linear move did not reach [286.0, -0.1, 236.3]; at [270.4, -0.2, 236.3]"
+  },
+  {
+   "t": 1793616481.2051551,
+   "cycle": 0,
+   "step": "place:hotel:B5 slide in (fast part)",
+   "kind": "controller_error",
+   "detail": "[{'errCode': 3873, 'errMsg': '2026-11-02 02:47:58.822 Motion error: axis 4 collision detected'}, {'errCode': 3960, 'errMsg': '2026-11-02 02:47:58.837 Motion error: failed to enable axis 2 servo'}, {'errCode': 3960, 'errMsg': '2026-11-02 02:47:58.837 Motion error: failed to enable axis 3 servo'}, {'errCode': 3960, 'errMsg': '2026-11-02 02:47:58.837 Motion error: failed to enable axis 4 servo'}, {'errCode': 3929, 'errMsg': '2026-11-02 02:47:58.837 Motion error: external axis 1 servo enable failed'}, {'errCode': 3929, 'errMsg': '2026-11-02 02:47:58.837 Motion error: external axis 2 servo enable failed'}] after: linear move did not reach [286.0, -0.1, 236.3]; at [273.1, -0.1, 236.3]"
   }
  ],
  "last_safe_pose": [
-  113.218,
-  293.569,
-  329.846,
+  191.991,
+  -0.125,
+  236.28,
   0.0,
   -0.0,
-  89.8501
+  0.0001
  ],
- "updated": 1793612822.3632693
+ "updated": 1793616481.2051551
 }
