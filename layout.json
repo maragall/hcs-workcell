@@ -74,7 +74,7 @@
       "enforce": "auto",
       "_note": "down camera at the clear pose above the stage, before it rotates: the plate must look seated and nothing else in view. References collected by the cell per direction (to_0, to_90); auto: blocks once auto_refs are collected"
     },
-    "_marker_note": "the marker tab (aruco\u6807\u5b9a\u677f drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
+    "_marker_note": "the marker tab (aruco标定板 drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
     "calibration": {
       "auto_teach_camera": {
         "marker": "ok",
@@ -534,7 +534,8 @@
       "grasp_width": {
         "short_edges": 24.88
       },
-      "_grasp_note_2026_10_22": "new plate, plate hand-centered on the stage at 0 then regripped 4x by the arm: 24.87/24.88/24.87/24.88 (flat, square); equals the hand reading 24.87"
+      "_grasp_note_2026_10_22": "new plate, plate hand-centered on the stage at 0 then regripped 4x by the arm: 24.87/24.88/24.87/24.88 (flat, square); equals the hand reading 24.87",
+      "plate_on_module": true
     },
     "hotel": {
       "approach": {
@@ -1036,12 +1037,7 @@
         "B3",
         "B5",
         "B7",
-        "B9",
-        "C1",
-        "C3",
-        "C5",
-        "C7",
-        "C9"
+        "B9"
       ],
       "_climb_note": "rows above 1: retreat from the junction (row-1 approach point) to x=climb_x in free air in front of the rack, climb with the column only, slide in at carry height. climb_x = the operator via point x (2026-10-19). B and C columns wait for the FK-based planner: their approach points lie close to the shoulder axis at (126,0)",
       "rows": [
@@ -1087,7 +1083,8 @@
         "overrides": {}
       },
       "lip_mm": 3.0,
-      "_lift_note": "2026-11-01: lift 7 mm = lip 3 + 1.5 clearance + margin; the operator: lips are 0.3 cm and 25 mm dropped in from too high. Only the trays of the rows in use are modelled (volumes.obstacles.hotel.parts): the plate slid in 25 mm above a seat for a day, which a tray 30 mm above the seat would have stopped."
+      "_lift_note": "2026-11-01: lift 7 mm = lip 3 + 1.5 clearance + margin; the operator: lips are 0.3 cm and 25 mm dropped in from too high. Only the trays of the rows in use are modelled (volumes.obstacles.hotel.parts): the plate slid in 25 mm above a seat for a day, which a tray 30 mm above the seat would have stopped.",
+      "_active_note": "2026-11-02: columns A and B only. The module and the microscope are taught on the elbow branch j3 < 0, A and B too; column C is on the other branch (j3 > 0). Coming back from C the arm reaches the module on that branch and the planner has no route to the microscope from there (it stopped the shuffle 00:21). C comes back when the arm is swung to the taught branch while it is empty."
     },
     "microscope_2": {
       "pose": null,

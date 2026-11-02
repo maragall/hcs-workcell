@@ -951,6 +951,22 @@ class Bringup:
         def stopped():
             return c.stop_event.is_set() or os.path.exists(os.path.join(c.runs_dir, "STOP"))
 
+        def holding_plate():
+            self.ready()                                  # the arm's state is read; the jaw and the ledger below are current
+            band, jaw = c.layout()["gripper"]["accept_band"], c.robot.jaw()
+            return (any(band[k][0] <= jaw <= band[k][1] for k in ("long_edges", "short_edges"))
+                    or self.cyc().store.s.grip in ("long_edges", "short_edges"))
+
+        def unless_holding(step):
+            """A stop can leave a plate in the claw: the nest is for an empty claw and the module is turned empty. The run below puts
+            the plate down first."""
+            def go():
+                if holding_plate():
+                    print("   the claw holds a plate: not going to the nest, the plate goes down first")
+                    return {"skipped": "the claw holds a plate"}
+                return step.run()
+            return Step(step.actor, step.text, go, moves=step.moves)
+
         def run():
             self.unattended = True                      # no question may wait for a person: camera doubts are logged and carried on
             try:
@@ -965,6 +981,15 @@ class Bringup:
                 print(f"   slots in the shuffle ({len(taught)}): {', '.join(taught)}" + (f"; out of reach, left out: {', '.join(x for x in wanted if x not in taught)}" if len(taught) < len(wanted) else ""))
                 lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
                 in_hand = lo <= c.robot.jaw() <= hi
+                slo, shi = c.layout()["gripper"]["accept_band"]["short_edges"]
+                if not in_hand and slo <= c.robot.jaw() <= shi:
+                    # a stop between the microscope and the module (or the module and the microscope) left the plate in the claw by the
+                    # short edges, the module at 0 deg: it goes down on the module, which is where the loop picks it up again
+                    print("   a plate is in the hand by the short edges: onto the module first")
+                    P0_ = F["polar"]["pose_at_0"]["pose"]
+                    self.guard(lambda: cyc.move_to("polar.pose_at_0"))
+                    self.guard(lambda: cyc._place("polar", P0_, F["polar"], "polar", None, gate="polar@0"))
+                    self.guard(cyc.go_nest)             # the claw is empty now: through the folded pose, which puts the arm on the branch the module and the microscope were taught on
                 have = [x for x in bench.loaded_slots(c.layout()) if x in taught]
                 on_module = (st.plate_at == "polar" or bool(F["polar"].get("plate_on_module"))) and not in_hand   # a plate on the module (left there by a stop, or set by hand in layout.json) goes through the microscope first
                 on_scope = bool(F[self.scope].get("plate_on_stage")) and not in_hand and not on_module      # set by hand in layout.json: a plate is on the stage
@@ -1116,7 +1141,7 @@ class Bringup:
             finally:
                 self.unattended = False
 
-        return Section("shuffle", [connect[0], connect[2], connect[3],
+        return Section("shuffle", [connect[0], unless_holding(connect[2]), unless_holding(connect[3]),
                                    Step("polar", "a random plate from a taught slot through the microscope into a random empty taught slot, for ever", run, moves=True)])
 
     # ---- test
