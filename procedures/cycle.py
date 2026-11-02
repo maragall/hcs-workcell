@@ -181,6 +181,11 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         corr = self._vision_correction(fixture, step)
         target = self._seat(pose, corr)
         hover = offset(target, [0, 0, fixture["hover_mm"]])
+        # a place stops this far above the height a pick lowers to: the plate is let go just over its seat and drops the last millimetres.
+        # Lowered to the pick height the plate bottoms out in the clips and the jaw cannot open (module, 2026-11-02: 24.66 against 24.84)
+        lift = float((fixture.get("place_lift_mm") or {}).get(self.store.s.grip, 0.0)) if isinstance(fixture.get("place_lift_mm"), dict) else float(fixture.get("place_lift_mm") or 0.0)
+        if lift:
+            target = [target[0], target[1], target[2] + lift] + list(target[3:])
         if any(abs(v) > 0.05 for v in corr[:3]):
             self._move("L", hover, f"{step} hover(corrected)", prof.approach)
         problems = self.checks.before_release(self.robot.jaw(), self.store.s.grip)

@@ -535,7 +535,11 @@
         "short_edges": 24.88
       },
       "_grasp_note_2026_10_22": "new plate, plate hand-centered on the stage at 0 then regripped 4x by the arm: 24.87/24.88/24.87/24.88 (flat, square); equals the hand reading 24.87",
-      "plate_on_module": true
+      "place_lift_mm": {
+        "short_edges": 1.5,
+        "long_edges": 1.5
+      },
+      "_place_lift_note": "2026-11-02 (operator saw it lower too hard from the short-edge grip into the module): a place releases 1.5 mm above the height a pick lowers to"
     },
     "hotel": {
       "approach": {
