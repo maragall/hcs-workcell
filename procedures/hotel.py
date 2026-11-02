@@ -240,6 +240,22 @@ class Hotel:
             self._move("L", foot, f"{step} descend", prof.approach)
             self._move("L", self._hotel_junction(slot), f"{step} junction", prof.approach)
 
+    def _square_up(self, target: List[float], label: str) -> None:
+        """Before a slide into a rack: the claw square to it and on its line. A joint move into the approach point leaves a yaw error
+        (-0.49 deg at B7, 2026-11-02 01:10) that nothing checked, and the plate is 85.1 mm in an 88 mm opening between the posts: 0.49 deg
+        swings its far corner 2.2 mm, against 1.4 mm to spare. One slow straight move to the exact pose; refuse the slide if it is still off."""
+        for _ in range(2):
+            here = self.robot.pose()
+            dyaw = abs((here[5] - target[5] + 180.0) % 360.0 - 180.0)
+            dxy = max(abs(here[0] - target[0]), abs(here[1] - target[1]))
+            if dyaw <= 0.1 and dxy <= 0.5:
+                return
+            self._move("L", list(target), f"{label} square up (yaw off {dyaw:.2f} deg, {dxy:.1f} mm)", self.safety.profile.contact)
+        here = self.robot.pose()
+        dyaw = abs((here[5] - target[5] + 180.0) % 360.0 - 180.0)
+        if dyaw > 0.25:
+            raise StopSafe(f"{label}: the claw is {dyaw:.2f} deg off square to the rack after squaring up; the plate would meet a post")
+
     def _hotel_place(self, slot: str):
         prof = self.safety.profile
         p, approach, _, carry = self._hotel_geometry(slot)
@@ -249,6 +265,7 @@ class Hotel:
         self.store.begin(step)
         self._health()
         self._hotel_go_to_approach(slot, step)
+        self._square_up(approach, step)
         # the ledger says the slot is free (checked above); no camera looks at it (the slot occupancy check was removed 2026-11-01)
         if self.checks.before_release(self.robot.jaw(), "long_edges"):
             raise StopSafe(f"{step}: not holding a plate on its long edges")
@@ -295,6 +312,7 @@ class Hotel:
                 self._move("L", foot, f"{step} retreat", prof.approach)
                 self._move("L", top, f"{step} climb", prof.approach)
                 self._move("L", approach, f"{step} approach", prof.approach)
+        self._square_up(approach, step)
         self._jaw_open("long_edges")
         self._slide(carry, f"{step} slide in")                        # same path as the place, reversed
         self._descend(p, f"{step} lower onto plate")

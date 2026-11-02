@@ -53,6 +53,7 @@ def main(argv=None) -> int:
         if here[0] > 230 and abs(here[1]) < 150:                 # stopped inside a slot: straight back out to the approach point
             print(f"claw is inside the rack at x {here[0]:.1f}; backing straight out", flush=True)
             cyc._move("L", [191.0, here[1], here[2]] + list(here[3:]), "back out of the rack", cyc.safety.profile.approach)
+            cyc._hotel_leave_approach("B1", "recover")          # on out to the mouth of the rack, as the loop does
         if a.to_module:
             F = layout["fixtures"]
             cyc.move_to("polar.pose_at_90")
