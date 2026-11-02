@@ -34,8 +34,11 @@ def reason_of(path: str) -> str:
         text = open(path, encoding="utf-8", errors="replace").read().splitlines()
     except OSError:
         return "no output"
+    for line in reversed(text):                # the refusal first: the SDK may crash with a .NET trace after it, which says nothing
+        if "REFUSED" in line:
+            return re.sub(r"\d\d:\d\d:\d\d", "", line).strip()[:200]
     for line in reversed(text[-60:]):
-        if "REFUSED" in line or "Traceback" in line or "Error" in line or "error" in line.split(" ")[0:3]:
+        if "Traceback" in line or "Error" in line or "Exception" in line:
             return re.sub(r"\d\d:\d\d:\d\d", "", line).strip()[:200]
     for line in reversed(text):
         if line.strip():

@@ -24,7 +24,15 @@ class Grasp:
         29 for the short edges since 2026-10-20: the plate's position at 0 after a robot place at 90 and the turn is
         not known to better than the old 1.8 mm per side, see docs/INCIDENTS.md; the jaw's end stop is 29.3)."""
         want = (fixture or {}).get("open_width", {}).get(grip) or self.plate.jaw_open[grip]
-        self._jaw(want, "jaw open")
+        try:
+            self._jaw(want, "jaw open")
+        except StopSafe:
+            # The fingers stalled against the plate that sits in the clips of the seat (24.66 at the module, 2026-11-02, a jaw that
+            # had opened hundreds of times). The plate is lifted 3 mm off the seat's clips, then the jaw is asked again, once.
+            here = self.robot.pose()
+            self.tele.log("jaw", "open refused", "lifting 3 mm off the seat and asking again")
+            self._move("L", [here[0], here[1], here[2] + 3.0] + list(here[3:]), "lift off the clips before opening", self.safety.profile.contact)
+            self._jaw(want, "jaw open")
         self._wait_still("jaw open")
         self.clock.sleep(0.5)
         jaw = self.robot.jaw()

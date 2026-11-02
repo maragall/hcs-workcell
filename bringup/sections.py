@@ -73,6 +73,8 @@ def _stamp() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
+JAW_SLACK_MM = 0.6          # a jaw that stalled against a plate reads a little outside its accept band (24.66 against 24.73 at the module, 2026-11-02)
+
 class Bringup:
     def __init__(self, cell, squid, ask: Callable[[str], str], scope: str = "microscope", confirm_stage: bool = False):
         self.cell, self.squid, self.ask, self.scope = cell, squid, ask, scope
@@ -954,7 +956,7 @@ class Bringup:
         def holding_plate():
             self.ready()                                  # the arm's state is read; the jaw and the ledger below are current
             band, jaw = c.layout()["gripper"]["accept_band"], c.robot.jaw()
-            return (any(band[k][0] <= jaw <= band[k][1] for k in ("long_edges", "short_edges"))
+            return (any(band[k][0] - JAW_SLACK_MM <= jaw <= band[k][1] + JAW_SLACK_MM for k in ("long_edges", "short_edges"))
                     or self.cyc().store.s.grip in ("long_edges", "short_edges"))
 
         def unless_holding(step):
@@ -980,9 +982,10 @@ class Bringup:
                 taught = [x for x in wanted if reachable(cyc, x)]
                 print(f"   slots in the shuffle ({len(taught)}): {', '.join(taught)}" + (f"; out of reach, left out: {', '.join(x for x in wanted if x not in taught)}" if len(taught) < len(wanted) else ""))
                 lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
+                lo, hi = lo - JAW_SLACK_MM, hi + JAW_SLACK_MM
                 in_hand = lo <= c.robot.jaw() <= hi
                 slo, shi = c.layout()["gripper"]["accept_band"]["short_edges"]
-                if not in_hand and slo <= c.robot.jaw() <= shi:
+                if not in_hand and slo - JAW_SLACK_MM <= c.robot.jaw() <= shi + JAW_SLACK_MM:
                     # a stop between the microscope and the module (or the module and the microscope) left the plate in the claw by the
                     # short edges, the module at 0 deg: it goes down on the module, which is where the loop picks it up again
                     print("   a plate is in the hand by the short edges: onto the module first")
@@ -1040,8 +1043,8 @@ class Bringup:
                         step = cyc.store.s.step
                         short_lo, short_hi = c.layout()["gripper"]["accept_band"]["short_edges"]
                         jaw = c.robot.jaw()
-                        held = lo <= jaw <= hi or short_lo <= jaw <= short_hi
-                        ok = is_motion_fault(str(e)) or any(w in str(e) for w in ("did not reach", "wrist limit or contact"))
+                        held = lo <= jaw <= hi or short_lo - JAW_SLACK_MM <= jaw <= short_hi + JAW_SLACK_MM
+                        ok = is_motion_fault(str(e)) or any(w in str(e) for w in ("did not reach", "wrist limit or contact", "jaw open: external axis", "jaw_refused"))
                         if not ok or step not in [n for n, _ in steps] or not (step.startswith("pick") and not held or step.startswith("place") and held):
                             raise
                         why = clear_faults(c.robot)
