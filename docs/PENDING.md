@@ -27,6 +27,7 @@
   4. a test with a loaded hotel: every pair of mouths, the plate carried, neighbours occupied.
 
 ## Still to do
+0. Force latch on the grasp (operator idea, 2026-11-02): the controller's Lua torque probe (`lua/torque_probe/TorqueProbe.bin`, PC side `tools/torque_probe.py`) reads the gripper torque and the vendor's GripperEmptyDet verdict. It is NOT loaded now (prog_state stopped, lua_ready false) and the Python loop does not read torque. To use it: load the probe in BioyondWorks, check that SDK moves still work while it runs, measure the holding torque of a clamped plate against an empty close (`tools/torque_probe.py close ... ` and `burst`), threshold between them, read it after every close next to the width latch.
 1. Tilt detection after seating, front camera.
 2. Vision offset correction: `get_pose_offset` fails with box error 1002; every pick uses the taught pose.
 3. Seated-front references are stale on the new hotel; the plate-in-gripper check says "not held" while the jaw says held. Auto-confirmed doubts also
