@@ -537,9 +537,9 @@
       "_grasp_note_2026_10_22": "new plate, plate hand-centered on the stage at 0 then regripped 4x by the arm: 24.87/24.88/24.87/24.88 (flat, square); equals the hand reading 24.87",
       "place_lift_mm": {
         "short_edges": 1.5,
-        "long_edges": 1.5
+        "long_edges": 0.0
       },
-      "_place_lift_note": "2026-11-02 (operator saw it lower too hard from the short-edge grip into the module): a place releases 1.5 mm above the height a pick lowers to"
+      "_place_lift_note": "2026-11-02: short-edge place into the module releases 1.5 mm above the pick height (operator saw it lower too hard). Long edges 0: I had applied the 1.5 to both grips without evidence for the long-edge place; reverted when the operator found the long-edge grip too loose."
     },
     "hotel": {
       "approach": {
@@ -2728,7 +2728,7 @@
       "short_closed": 24.83,
       "long_closed": 3.71,
       "grip_offset": 0.0,
-      "measured_at": "2026-10-29 02:18:37"
+      "measured_at": "2026-11-02 01:24:32"
     },
     "microscope": {
       "seat_pose": [
