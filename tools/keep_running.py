@@ -16,9 +16,9 @@ import time
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUNS = os.path.join(HERE, "runs")
 LOG = os.path.join(RUNS, "keep_running.log")
-GIVE_UP = 4
+GIVE_UP = 4                # the same reason this many times in a row
 GOOD_RUN_S = 900.0
-BACKOFF_S = (20, 60, 180, 300)
+BACKOFF_S = (10, 20, 30, 45)     # short: a stopped arm that holds a plate lost it within 5 minutes of the last command (2026-11-02, the cause is probably the controller dropping the servos); every restart is a new command
 
 
 def log(msg: str) -> None:
