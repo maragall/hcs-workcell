@@ -56,6 +56,11 @@ def main(argv=None) -> int:
             cyc._hotel_leave_approach("B1", "recover")          # on out to the mouth of the rack, as the loop does
         if a.to_module:
             F = layout["fixtures"]
+            real = cyc.polar.read_angle()
+            real = real - 360.0 * round(real / 360.0)
+            if abs(real - 90.0) > 1.0:
+                sys.exit(f"the module axis reads {real:.2f} deg, not 90: a plate put down at the 90 deg pose would sit wrong on it. "
+                         "Turn it empty first (python tools/rotate_module.py 90), then run this again")
             cyc.move_to("polar.pose_at_90")
             cyc._place("polar", F["polar"]["pose_at_90"]["pose"], F["polar"], "polar", None, gate="polar@90")
             print("plate is on the module", flush=True)

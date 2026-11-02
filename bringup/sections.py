@@ -425,9 +425,13 @@ class Bringup:
             self.ready()
             c = self.cyc()
             self.guard(lambda: c.move_to("polar.pose_at_0"))
-            if c.polar.angle != 0:
+            # the axis reading, never the assumed angle: a stop or a hand left the module at 15.56 deg (2026-11-02 02:54), the assumed 0 skipped the
+            # turn and the short-edge pads closed on a plate turned 15 degrees
+            real = c.polar.read_angle()
+            real = real - 360.0 * round(real / 360.0)
+            if abs(real) > 1.0 or c.polar.angle != 0:
                 self.guard(lambda: c._polar_rotate(0, self.cell.layout()["fixtures"]["polar"]["pose_at_90"]["pose"]))
-            return {"module": "0 deg"}
+            return {"module": "0 deg", "was": round(real, 2)}
 
         def hover():
             self.ready()
