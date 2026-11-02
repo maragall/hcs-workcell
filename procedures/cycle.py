@@ -140,7 +140,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
                 jaw = self._jaw_close(grip)
             expected = fixture.get("grasp_width", {}).get(grip)
             err = self.checks.grasp_ok(jaw, grip, expected)
-            if err and jaw > self.plate.jaw_closed[grip]:          # wider than the plate: pads off-centre, not an empty grasp
+            if err and jaw > self.checks.width_of(grip):          # wider than the plate: pads off-centre, not an empty grasp
                 found = self._center_search(step, fixture_name, fixture, target, grip)
                 if found:
                     jaw, target = found
@@ -153,6 +153,16 @@ class Cycle(Motion, Grasp, Gates, Hotel):
                         self._move("L", target, f"{step} back to seat", self.safety.profile.contact, allow_floor=(fixture_name,))
                         jaw = self._jaw_close(grip)
                         err = self.checks.grasp_ok(jaw, grip, adopted)
+            if err and jaw < self.checks.width_of(grip) - self.checks.jaw_tol:
+                # Nothing between the fingers: the close went through to the command. Either the plate is not at the seat or the stored
+                # width is off (2026-11-02: 0.9 mm wide, nothing was clamped and the close read back its own command). Measure the
+                # contact again here, from open, and adopt it when it differs; no contact at all means no plate.
+                contact = self._remeasure_grip(grip, fixture)
+                if contact is not None and abs(contact - self.checks.width_of(grip)) > 0.15:
+                    self._adopt_measured_width(grip, contact, step)
+                    self._jaw_open(grip, fixture)
+                    jaw = self._jaw_close(grip)
+                    err = self.checks.grasp_ok(jaw, grip, expected)
             if not err:
                 break
             self._fault(step, "grasp", err)
@@ -164,6 +174,10 @@ class Cycle(Motion, Grasp, Gates, Hotel):
             self._move("L", hover, f"{step} hover(recorrected)", prof.approach)
 
         self._move("L", hover, f"{step} lift", prof.approach)
+        late = self.checks.grasp_ok(self.robot.jaw(), grip, expected)       # the latch: the plate is still between the fingers after the lift
+        if late:
+            self._fault(step, "plate_lost", late)
+            raise StopSafe(f"{step}: lifted without the plate: {late}")
         self._check_plate_in_gripper(step, grip)
         self.store.done(plate_at="gripper", grip=grip)
 

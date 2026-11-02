@@ -41,6 +41,40 @@ class Grasp:
             raise StopSafe(f"jaw did not open to {want} for {grip} ({jaw:.2f})")
         return jaw
 
+    def _remeasure_grip(self, grip: str, fixture: Optional[dict] = None) -> Optional[float]:
+        """With the hand at the seat: open, then close in 0.25 mm steps until the jaw stops following the command. The width the pads read
+        on the plate, or None when the jaw closes all the way (no plate between the fingers). Nothing is stored here."""
+        g = self.L["gripper"]
+        self._jaw_open(grip, fixture)
+        v, floor = self.robot.jaw(), self.checks.width_of(grip) - 3.0
+        while v > floor:
+            v = round(v - 0.25, 3)
+            try:
+                self.robot.jaw_to(v)
+            except MotionRefused:
+                contact = self.robot.jaw()
+                self.tele.log("jaw", "remeasure", f"{grip}: contact at {contact:.2f}", jaw=round(contact, 2), grip=grip)
+                return contact
+            self.clock.sleep(0.3)
+            read = self.robot.jaw()
+            if read - v > g.get("stall_lag", 0.3):
+                self.tele.log("jaw", "remeasure", f"{grip}: contact at {read:.2f}", jaw=round(read, 2), grip=grip)
+                return read
+        self.tele.log("jaw", "remeasure", f"{grip}: no contact down to {floor:.2f}: no plate between the fingers")
+        return None
+
+    def _adopt_measured_width(self, grip: str, contact: float, step: str) -> None:
+        """The width the pads read on the plate is `contact`; the command goes 0.9 mm under it and the accept band is contact -0.2/+0.5."""
+        g = self.L["gripper"]
+        g.setdefault("plate_width", {})[grip] = round(contact, 2)
+        g["closed"][grip] = round(contact - 0.9, 2)
+        g["accept_band"][grip] = [round(contact - 0.2, 2), round(contact + 0.5, 2)]
+        self.plate.jaw_closed[grip] = g["closed"][grip]
+        self.checks.closed[grip] = g["closed"][grip]
+        self.checks.width[grip] = g["plate_width"][grip]
+        self.tele.log("correct", f"{step} grip width", f"{grip}: the pads meet the plate at {contact:.2f}; command {g['closed'][grip]}, band {g['accept_band'][grip]}")
+        positions.save(self.L)
+
     def _jaw_close(self, grip: str) -> float:
         """One close command from open to the taught value, as the vendor's own software does (2026-10-20).
 
@@ -77,7 +111,7 @@ class Grasp:
             return None
         # Judge against the fixture's learned signature when it has one (microscope 22.50), not the free-plate width:
         # on 2026-10-20 17:07 y+0.2 read 22.54 twice and was rejected against 22.40, then the attempt failed.
-        closed = fixture.get("grasp_width", {}).get(grip) or self.plate.jaw_closed[grip]
+        closed = fixture.get("grasp_width", {}).get(grip) or self.checks.width_of(grip)
         tol = self.checks.jaw_tol
         s, m = float(cfg.get("step_mm", 0.2)), float(cfg.get("max_mm", 0.6))
         sd, md = float(cfg.get("step_deg", 0.3)), float(cfg.get("max_deg", 0.6))
@@ -131,7 +165,7 @@ class Grasp:
         after the lift remains the guard against a false grasp."""
         cfg = fixture.get("grasp_search", {})
         ws = sorted(self._search_widths)
-        closed = self.plate.jaw_closed[grip]
+        closed = self.checks.width_of(grip)
         if len(ws) < 6:
             return None
         med = ws[len(ws) // 2]

@@ -74,7 +74,7 @@
       "enforce": "auto",
       "_note": "down camera at the clear pose above the stage, before it rotates: the plate must look seated and nothing else in view. References collected by the cell per direction (to_0, to_90); auto: blocks once auto_refs are collected"
     },
-    "_marker_note": "the marker tab (aruco\u6807\u5b9a\u677f drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
+    "_marker_note": "the marker tab (aruco标定板 drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
     "calibration": {
       "auto_teach_camera": {
         "marker": "ok",
@@ -107,7 +107,7 @@
       "long_edges": 8.2
     },
     "closed": {
-      "short_edges": 24.83,
+      "short_edges": 22.9,
       "long_edges": 3.71
     },
     "tolerance": 0.1,
@@ -139,14 +139,18 @@
     "_tolerances": "grasp 0.08 (fresh grasp, measured sd 0.007); release 0.3 (0.6 mm, a carried plate may settle)",
     "accept_band": {
       "short_edges": [
-        24.73,
-        25.33
+        23.7,
+        24.4
       ],
       "long_edges": [
         3.61,
         4.76
       ],
       "_note": "2026-10-22 new plate, grips read by hand in drag mode (operator): short 24.87, long 3.68; band = closed -0.1/+0.5 (short) and -0.1/+1.05 (long) as for the production plate. Opens widened by the same 2.5 / 2.2 so the clearance per side stays the same. Fixture signatures (microscope grasp_width) cleared: learned again by the first picks."
+    },
+    "_short_grip_2026_11_02": "measured with tools/measure_short_grip.py: the jaw follows the command to 24.01 and meets the plate at 23.91 (refuses 23.75). The old closed width 24.83 (a hand reading) was 0.92 mm wider than the plate: nothing was clamped, every close read back its own command, empty or loaded. plate_width is what the pads read on the plate (what a grasp is judged against); closed is the command, 1.0 mm under it (the holding torque is capped, so the depth does not change the force); band = width -0.2/+0.5. An empty close reads 22.9, far outside.",
+    "plate_width": {
+      "short_edges": 23.9
     }
   },
   "speeds": {
@@ -539,7 +543,8 @@
         "short_edges": 1.5,
         "long_edges": 0.0
       },
-      "_place_lift_note": "2026-11-02: short-edge place into the module releases 1.5 mm above the pick height (operator saw it lower too hard). Long edges 0: I had applied the 1.5 to both grips without evidence for the long-edge place; reverted when the operator found the long-edge grip too loose."
+      "_place_lift_note": "2026-11-02: short-edge place into the module releases 1.5 mm above the pick height (operator saw it lower too hard). Long edges 0: I had applied the 1.5 to both grips without evidence for the long-edge place; reverted when the operator found the long-edge grip too loose.",
+      "plate_on_module": true
     },
     "hotel": {
       "approach": {

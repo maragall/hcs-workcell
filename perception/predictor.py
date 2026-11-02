@@ -77,9 +77,15 @@ class PreChecks:
         """jaw_open / jaw_closed: the plate type's widths per grip; default the cell's gripper.open/closed."""
         self.layout = layout
         self.closed = jaw_closed or layout["gripper"]["closed"]
+        self.width = layout["gripper"].setdefault("plate_width", {})      # where the pads meet the plate; `closed` is the command, below it
         self.jaw_tol = layout["gripper"]["tolerance"]
         self.release_tol = layout["gripper"].get("release_tolerance", 0.3)
         self.jaw_open = jaw_open or layout["gripper"]["open"]
+
+    def width_of(self, grip: str) -> float:
+        """The width the pads read on the plate: what a grasp is judged against. The commanded closed width is under it (the servo
+        presses), so an empty close reads the command, far outside. Without an entry the command is the width (the old behaviour)."""
+        return self.width.get(grip, self.closed[grip])
 
     def before_grasp(self, jaw: float, robot_state) -> List[str]:
         p = []
@@ -94,11 +100,11 @@ class PreChecks:
     def grasp_ok(self, jaw: float, grip: str, expected: Optional[float] = None) -> Optional[str]:
         """`expected` overrides the nominal width: a fixture may present the plate a few tenths wider than the
         hand-measured grip (a clamped holder), learned by the centering search and stored per fixture."""
-        want = self.closed[grip] if expected is None else expected
+        want = self.width_of(grip) if expected is None else expected
         jaw = round(jaw, 2)                 # the readout is quoted to 0.01; 22.58 vs 22.50 +- 0.08 must pass
         if abs(jaw - want) <= self.jaw_tol + 1e-6:
             return None
-        if expected is not None and self.closed[grip] - self.jaw_tol - 1e-6 <= jaw <= want + self.jaw_tol + 1e-6:
+        if expected is not None and self.width_of(grip) - self.jaw_tol - 1e-6 <= jaw <= want + self.jaw_tol + 1e-6:
             return None                     # tighter than the fixture's signature but not below the plate's own width:
                                             # the pads are in the groove (microscope 22.42 vs signature 22.50, 10-20 17:24)
         band = self.layout["gripper"].get("accept_band", {}).get(grip)
@@ -110,7 +116,7 @@ class PreChecks:
 
     def before_release(self, jaw: float, grip: str) -> List[str]:
         """Looser than the grasp check: a plate carried for minutes may sit a few tenths of a unit wider."""
-        want = self.closed[grip]
+        want = self.width_of(grip)
         band = self.layout["gripper"].get("accept_band", {}).get(grip)
         if abs(jaw - want) <= self.release_tol:
             return []
