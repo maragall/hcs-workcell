@@ -297,8 +297,22 @@ class Motion:
             self.move_to("polar.pose_at_0")
         self.go_to(list(nest["pose"]), "nest")
 
+    def _lift_off_seat(self) -> None:
+        """A hand that is at a seat (the microscope's or the module's, within 6 mm in x and y and at most 6 mm above the seat height)
+        goes straight up to the hover first. The planner's first leg from there may be a joint move that turns the wrist with the
+        fingers still around the plate (axis 4 collision, 2026-11-01)."""
+        F, here = self.L["fixtures"], self.robot.pose()
+        scope = getattr(self, "scope", None)
+        seats = [(F[scope]["pose"], F[scope].get("hover_mm", 0))] if scope in F and "pose" in F[scope] else []
+        seats += [(F["polar"][k]["pose"], F["polar"].get("hover_mm", 0)) for k in ("pose_at_0", "pose_at_90") if k in F["polar"]]
+        for seat, hover in seats:
+            if max(abs(here[0] - seat[0]), abs(here[1] - seat[1])) <= 6.0 and -2.0 <= here[2] - seat[2] <= 6.0 and hover:
+                self._move("L", [here[0], here[1], seat[2] + hover] + list(here[3:]), "lift off the seat", self.safety.profile.approach)
+                return
+
     def go_to(self, target: List[float], name: str) -> None:
         """move_to for a pose that is not a taught position (the setup script's computed views)."""
+        self._lift_off_seat()
         grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
         self.tele.log("move", f"move_to {name}", "planning a new route")
         route = plan(self.L, self.safety, self.robot.pose(), target, self._position_here(), name,
