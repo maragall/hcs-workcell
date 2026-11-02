@@ -52,10 +52,15 @@ def main(apply=False):
         grid = {"x": round(x0, 3), "y_B": round(y0, 3), "column_pitch": round(pitch, 3), "z_row1": round(z0, 3), "row_pitch": ROW_PITCH, "yaw": 0.0, "pivot_mm": round(pivot, 2)}
         p = model(fit.x)
         over = {k: v for k, v in h.get("grid", {}).get("overrides", {}).items() if k in COL_SLOTS}   # [dx, dy, dz] a person saw off the grid
+        trim = float(h.get("grid", {}).get("x_trim_mm", 0.0))                  # along the slot, seen by a person: added to every seat's x
+        trim_note = h.get("grid", {}).get("_x_trim_note")
         for s, v in zip(slots, p):
             d = over.get(s, [0, 0, 0])
-            h["taught"][s] = [round(float(v[0] + d[0]), 3), round(float(v[1] + d[1]), 3), round(float(v[2] + d[2]), 3), 0.0, -0.0, 0.0]
+            h["taught"][s] = [round(float(v[0] + d[0] + trim), 3), round(float(v[1] + d[1]), 3), round(float(v[2] + d[2]), 3), 0.0, -0.0, 0.0]
         grid["overrides"] = over
+        grid["x_trim_mm"] = trim
+        if trim_note:
+            grid["_x_trim_note"] = trim_note
         h["grid"] = grid
         h["pose_source"] = "grid"
         R.save_layout(layout)

@@ -74,7 +74,7 @@
       "enforce": "auto",
       "_note": "down camera at the clear pose above the stage, before it rotates: the plate must look seated and nothing else in view. References collected by the cell per direction (to_0, to_90); auto: blocks once auto_refs are collected"
     },
-    "_marker_note": "the marker tab (aruco标定板 drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
+    "_marker_note": "the marker tab (aruco\u6807\u5b9a\u677f drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
     "calibration": {
       "auto_teach_camera": {
         "marker": "ok",
@@ -566,7 +566,7 @@
       ],
       "taught": {
         "A1": [
-          290.986,
+          291.986,
           134.022,
           77.278,
           0.0,
@@ -574,7 +574,7 @@
           0.0
         ],
         "A9": [
-          290.986,
+          291.986,
           134.022,
           381.278,
           0.0,
@@ -582,7 +582,7 @@
           0.0
         ],
         "B1": [
-          290.986,
+          291.986,
           -0.11,
           77.278,
           0.0,
@@ -590,7 +590,7 @@
           0.0
         ],
         "C1": [
-          290.986,
+          291.986,
           -134.243,
           77.278,
           0.0,
@@ -598,7 +598,7 @@
           0.0
         ],
         "C9": [
-          290.986,
+          291.986,
           -134.243,
           381.278,
           0.0,
@@ -606,7 +606,7 @@
           0.0
         ],
         "A3": [
-          290.986,
+          291.986,
           134.022,
           153.278,
           0.0,
@@ -614,7 +614,7 @@
           0.0
         ],
         "A5": [
-          290.986,
+          291.986,
           134.022,
           229.278,
           0.0,
@@ -622,7 +622,7 @@
           0.0
         ],
         "A7": [
-          290.986,
+          291.986,
           134.022,
           305.278,
           0.0,
@@ -630,7 +630,7 @@
           0.0
         ],
         "B3": [
-          290.986,
+          291.986,
           -0.11,
           153.278,
           0.0,
@@ -638,7 +638,7 @@
           0.0
         ],
         "B5": [
-          290.986,
+          291.986,
           -0.11,
           229.278,
           0.0,
@@ -646,7 +646,7 @@
           0.0
         ],
         "B7": [
-          290.986,
+          291.986,
           -0.11,
           305.278,
           0.0,
@@ -654,7 +654,7 @@
           0.0
         ],
         "B9": [
-          290.986,
+          291.986,
           -0.11,
           381.278,
           0.0,
@@ -662,7 +662,7 @@
           0.0
         ],
         "C3": [
-          290.986,
+          291.986,
           -134.243,
           153.278,
           0.0,
@@ -670,7 +670,7 @@
           0.0
         ],
         "C5": [
-          290.986,
+          291.986,
           -134.243,
           229.278,
           0.0,
@@ -678,7 +678,7 @@
           0.0
         ],
         "C7": [
-          290.986,
+          291.986,
           -134.243,
           305.278,
           0.0,
@@ -1084,7 +1084,9 @@
         "row_pitch": 38.0,
         "yaw": 0.0,
         "pivot_mm": 189.16,
-        "overrides": {}
+        "overrides": {},
+        "x_trim_mm": 1.0,
+        "_x_trim_note": "2026-11-02 operator: plates were dropped into slots 1 mm too close to the x origin; every seat moves +1.0 mm along the slot"
       },
       "lip_mm": 3.0,
       "_lift_note": "2026-11-01: lift 7 mm = lip 3 + 1.5 clearance + margin; the operator: lips are 0.3 cm and 25 mm dropped in from too high. Only the trays of the rows in use are modelled (volumes.obstacles.hotel.parts): the plate slid in 25 mm above a seat for a day, which a tray 30 mm above the seat would have stopped.",
