@@ -15,6 +15,17 @@
 - `dedup-2026-10-26`, `proven-2026-10-22`: the two old worktrees, removed from disk; their history is on these branches.
 - Loose files from the parent folder are in `removed_loose_files_2026-11-02.zip`.
 
+## Must not be forgotten (operator, 2026-11-02)
+- The carried plate passes in the plane of the other slots and could rotate into a plate sitting in a neighbouring slot. Not a risk today
+  (one plate in the whole cell), a certain collision once the hotel holds several. Cause on my side: since the hotel went from one solid
+  box to its real parts (trays, posts, roof, base), the planner treats the space BETWEEN trays as free, and a plate standing in an occupied
+  slot is not an obstacle at all. A planned route may cross the rack interior, or turn the claw, at plate height. Fix, in this order:
+  1. the planner keeps the whole rack envelope solid (its mouth targets stay outside it, margin 3 mm); only the explicit hotel moves (mouth to
+     approach, slide in, lower, row change) use the permissive part model;
+  2. every slot the ledger says is occupied is an obstacle (plate box, with its lid, in its tray) for those explicit moves too;
+  3. no claw turn while the plate is within reach of the rack front (the turn happens at the module, never at a mouth);
+  4. a test with a loaded hotel: every pair of mouths, the plate carried, neighbours occupied.
+
 ## Still to do
 1. Tilt detection after seating, front camera.
 2. Vision offset correction: `get_pose_offset` fails with box error 1002; every pick uses the taught pose.
