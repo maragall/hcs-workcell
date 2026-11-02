@@ -1068,6 +1068,7 @@ class Bringup:
                     cyc.polar.angle = 0
                     print(f"   a plate is on the microscope stage: imaged, then into {want}")
                     self._acquire()
+                    self.guard(lambda: cyc.move_to(self.scope))              # the pick starts at the hover: from the nest the planner takes the way in over the microscope
                     carry(cyc._steps(want)[0])
                     have.append(landed(want))
                     self.edit(lambda L: bench.set_loaded(L, have))
