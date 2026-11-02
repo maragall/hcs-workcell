@@ -43,8 +43,11 @@ def main(apply=False):
     if apply:
         grid = {"x": round(x0, 3), "y_B": round(y0, 3), "column_pitch": round(pitch, 3), "z_row1": round(z0, 3), "row_pitch": ROW_PITCH, "yaw": 0.0}
         p = model(fit.x)
+        over = h.get("grid", {}).get("overrides", {})          # seats a person saw off the grid: [dx, dy, dz] added to the grid pose
         for s, v in zip(slots, p):
-            h["taught"][s] = [round(float(v[0]), 3), round(float(v[1]), 3), round(float(v[2]), 3), 0.0, -0.0, 0.0]
+            d = over.get(s, [0, 0, 0])
+            h["taught"][s] = [round(float(v[0] + d[0]), 3), round(float(v[1] + d[1]), 3), round(float(v[2] + d[2]), 3), 0.0, -0.0, 0.0]
+        grid["overrides"] = over
         h["grid"] = grid
         h["pose_source"] = "grid"
         R.save_layout(layout)

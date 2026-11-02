@@ -966,16 +966,15 @@ class Bringup:
                 lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
                 in_hand = lo <= c.robot.jaw() <= hi
                 have = [x for x in bench.loaded_slots(c.layout()) if x in taught]
-                if len(have) + (1 if in_hand else 0) < 1:
+                on_module = (st.plate_at == "polar" or bool(F["polar"].get("plate_on_module"))) and not in_hand   # a plate on the module (left there by a stop, or set by hand in layout.json) goes through the microscope first
+                if len(have) + (1 if in_hand or on_module else 0) < 1:
                     raise Refused("no plate to move: set the occupancy (fixtures.hotel.loaded) to the plates that are in the taught slots " + str(taught))
-                if len(have) + (1 if in_hand else 0) >= len(taught):
+                if len(have) + (1 if in_hand or on_module else 0) >= len(taught):
                     raise Refused(f"every taught slot {taught} holds a plate: the shuffle needs one empty slot to move into")
-                on_module = st.plate_at == "polar" and not in_hand      # an earlier stop left a plate on the module: it goes through the microscope first
                 st.hotel = {x: "" for x in have}                        # the ledger takes the occupancy from the positions file
                 st.contents.update({x: ("full" if x in have else "empty") for x in st.contents if x[:1] in "ABC" and x[1:].isdigit()})
                 st.contents.update({"module": "full" if on_module else "empty", "microscope": "empty", "gripper": "full" if in_hand else "empty"})
-                if not on_module:
-                    st.plate_at, st.grip, st.step_done = ("gripper", "long_edges", True) if in_hand else ("none", "none", True)
+                st.plate_at, st.grip, st.step_done = ("gripper", "long_edges", True) if in_hand else ("polar", "none", True) if on_module else ("none", "none", True)
                 cyc.store.save()
                 if os.path.exists(os.path.join(c.runs_dir, "STOP")):
                     os.remove(os.path.join(c.runs_dir, "STOP"))         # left by the last run: this one starts clean
@@ -1062,8 +1061,10 @@ class Bringup:
                     want = random.choice(holes)
                     turn = cyc.polar.read_angle()
                     turn = turn - 360.0 if turn > 180.0 else turn
-                    if abs(turn) > 5.0:
-                        raise Refused(f"a plate is on the module, which is at {turn:.0f} deg: turn it to 0 by hand (or `python cli.py recover`) and start again")
+                    if abs(turn) > 5.0:                                      # the plate turns with the module: bring it to the pick angle, hand above it
+                        print(f"   the module is at {turn:.0f} deg: turning it to 0 before the plate comes off")
+                        self.guard(lambda: cyc.move_to("polar.pose_at_0"))
+                        self.guard(lambda: cyc._polar_rotate(0, P0))
                     cyc.polar.angle = 0
                     print(f"   a plate is on the module: to the microscope, then into {want}")
                     carry(cyc._steps(want)[1][3:])                           # pick from the module by the short edges, onto the stage
@@ -1071,6 +1072,7 @@ class Bringup:
                     carry(cyc._steps(want)[0])
                     have.append(landed(want))
                     self.edit(lambda L: bench.set_loaded(L, have))
+                    self.edit(lambda L: L["fixtures"]["polar"].pop("plate_on_module", None))
                 moved = 0
                 while not stopped() and (not limit or moved < limit):
                     if probe_every and moved % probe_every == 0:
