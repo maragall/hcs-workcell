@@ -47,6 +47,13 @@ teaching (default today is distance-based), route planner, error recovery.
   3. no claw turn while the plate is within reach of the rack front (the turn happens at the module, never at a mouth);
   4. a test with a loaded hotel: every pair of mouths, the plate carried, neighbours occupied.
 
+## Throughput (2026-11-03)
+A cycle (slot -> microscope -> slot) measured 260-330 s, median 290 s, at the supervised profile: 38% sub-stepped joint legs (median 15.5 s a leg; the
+stepping is gone), 39% straight moves (~41 a cycle at approach/contact speed), 12% planning (the route store removes it after the first pass), 7% jaw
+(the force clamp's probe start/stop, ~3 s each). Dedicated plate movers do a transfer in 8-10 s (BenchCel, BioStack3); HCS imaging takes 2-4.5 min a
+plate on the fastest systems, 17-75 min on common ones. Target: a cycle under 90 s. Steps: `--speed fast` (default now), then `stress` after a clean
+pass; measure the per-axis joint speeds from the AJ `axes` log and set per-axis fractions; cut the probe overhead to ~1 s per read.
+
 ## Still to do
 0. Force latch on the grasp (operator idea, 2026-11-02): the controller's Lua torque probe (`lua/torque_probe/TorqueProbe.bin`, PC side `tools/torque_probe.py`) reads the gripper torque and the vendor's GripperEmptyDet verdict. It is NOT loaded now (prog_state stopped, lua_ready false) and the Python loop does not read torque. To use it: load the probe in BioyondWorks, check that SDK moves still work while it runs, measure the holding torque of a clamped plate against an empty close (`tools/torque_probe.py close ... ` and `burst`), threshold between them, read it after every close next to the width latch.
 1. Tilt detection after seating, front camera.
