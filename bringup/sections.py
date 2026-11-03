@@ -73,9 +73,10 @@ def _stamp() -> str:
 JAW_SLACK_MM = 0.6          # a jaw that stalled against a plate reads a little outside its accept band (24.66 against 24.73 at the module, 2026-11-02)
 
 class Bringup:
-    def __init__(self, cell, squid, ask: Callable[[str], str], scope: str = "microscope", confirm_stage: bool = False):
+    def __init__(self, cell, squid, ask: Callable[[str], str], scope: str = "microscope", confirm_stage: bool = False, speed: str = "fast"):
         self.cell, self.squid, self.ask, self.scope = cell, squid, ask, scope
         self.confirm_stage = confirm_stage     # the operator has said, for this run, that lowering at the stage is safe
+        self.speed = speed                     # the speed profile (layout speeds) the test runs at; the setup steps keep the supervised one
         self._cyc: Optional[Cycle] = None
         self.unattended = False               # set while the rotation runs for ever: a question that would wait for a person is answered no
         self.found: dict = {}                 # what this run learned: size, plate_offset, marker poses ...
@@ -572,6 +573,7 @@ class Bringup:
         def rotate():
             self.ready()
             cyc = self.cyc()
+            cyc.safety.profile = SpeedProfile(**c.layout()["speeds"][self.speed])     # --speed: fast by default (travel 0.4); the lowers, slides and clamps keep their slow last millimetres
             F = c.layout()["fixtures"]
             st = cyc.store.s
             taught = [x for x in F["hotel"].get("active_slots", []) if reachable(cyc, x)]

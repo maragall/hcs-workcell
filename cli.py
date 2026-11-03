@@ -259,7 +259,7 @@ def cmd_setup(args):
     answers = {"slot in front of the camera": "yes" if args.hotel_size == 30 else "no" if args.hotel_size == 15 else ""}   # what a driver knows; the hands-clear Enter is the user's go
     runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else prompt_mod.ask,
                     stop=cell.stop_event, on_section_done=save_known_good)
-    bring = Bringup(cell, squid, runner.ask, confirm_stage=args.confirm_stage)
+    bring = Bringup(cell, squid, runner.ask, confirm_stage=args.confirm_stage, speed=getattr(args, "speed", "fast"))
     todo = [bring.shuffle(args.moves, getattr(args, "speed", "stress"), getattr(args, "probe", 0))] if getattr(args, "shuffle", False) else bring.sections()
     stopped = runner.run(todo, args.start, args.step, pause_at_user=args.auto, skip=args.skip.split(",") if args.skip else None,
                          stop_after=args.stop_after)
@@ -373,6 +373,7 @@ def main():
     p.add_argument("--skip", help="sections to leave out, comma separated, e.g. cameras.toml")
     p.add_argument("--step", type=int, default=0, help="with --from: the first step of that section to run")
     p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the hotel you have, answers 'is there a slot here' for every row")
+    p.add_argument("--speed", default="fast", choices=("supervised", "fast", "stress"), help="speed profile (layout.json speeds) of the test section; the setup steps stay at supervised")
     p.set_defaults(fn=cmd_setup, moves=0)
     p = sub.add_parser("shuffle", help="random plates through the microscope into random empty taught slots, for ever (occupancy = fixtures.hotel.loaded)")
     p.add_argument("--sim", action="store_true"); p.add_argument("--moves", type=int, default=0, help="stop after this many moves (default: for ever)")
