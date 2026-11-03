@@ -1,5 +1,25 @@
 # Pending (2026-11-02)
 
+## Deadline: Nov 6, ship the tool to Ashoka (operator, 2026-11-02)
+Bioyond has not finished its ArUco calibration tool, so ours ships. Setup as built: (1) arm and microscope connected, ArUco plate on the module;
+(2) ArUco imaged at several yaws/heights, scipy least_squares (`calibration/solve.py`); (3) ArUco plate swapped for a real one, microscope seat
+taught; (4) grips taught on the real plate. Complementary: correlation before lowering into slots and the microscope seat, Lua force-based grip
+teaching (default today is distance-based), route planner, error recovery.
+- To develop: tilt detection, route planner UI, error-recovery procedure.
+- Blockers: Bioyond vision drift / offset correction. Probed 2026-11-02 (read-only): `get_pose_offset` returns 1300 Calibration Not Found for
+  auto_teach_camera and scan_camera, any workspace or reference name; `get_aruco_pose` returns 1002 with no tag in view. `set_reference_aruco_pose`
+  is never called by the cell code (only tests), so the references `microscope_ref` / `stage-wide` may never have been stored. Factory file for
+  auto_teach_camera (2025-06-12): intrinsic reprojection error 0.59 px, hand-eye `calibration_error` 827.76 (unit unknown). No ssh: debug through the
+  protocol (store a reference with the tag in view, then get_pose_offset).
+- Immediate (operator: UNCONDITIONAL): replace distance-based grip teaching with force-based. The vendor has it built in (controller manual
+  B.1): gripper.conf `trq_thr`/`pos_thr`/`default_trq`, `SetGripperTorqueLimit`, `GripperEmptyDet`, and `EnableGripperDet(1)` after the close /
+  `DisableGripperDet(1)` before the open, which watches the whole carry and raises an error on a drop. `lua/torque_probe` already wraps these.
+  Needs the probe loaded on the controller (BioyondWorks download; today prog_state stopped, lua_ready false).
+- Reuse check (operator): vendor `StackConfiguration(Row, Col, P1..P4)` + `GetStackTargetPoint` gives rack poses from 4 corner points (poses only,
+  no collision model); factory intrinsic is good (0.59 px): solve only the hand-eye. Nova Vision Tool folder not yet inspected.
+- Optional: store default routes; pictures for the user manual; setup shortcut; even out speeds between joints, lift and module; test
+  good-to-lower on the incubator.
+
 ## Running
 - `python tools/keep_running.py --speed supervised` keeps `cli.py shuffle` going: random plates, microscope <-> slots A1..A9, B1..B9.
   It logs to `runs/keep_running.log`, restarts after a stop with a growing wait, and gives up (leaves the arm, writes
