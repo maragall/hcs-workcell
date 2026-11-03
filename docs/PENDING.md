@@ -32,6 +32,7 @@ teaching (default today is distance-based), route planner, error recovery.
 ## Branches (nova_cell)
 - `hotel-2026-11-02`: today's work (the branch the loop runs from).
 - `cleanup-2026-11-02`: deletions, not merged: offline route optimizer, learning-loop tooling, manual and placement builders. Run the tests on it, then merge.
+- `delete-dupes-2026-11-02`: nuke stage 1 (calibration solver, route replay, station graph, learned classifiers, 22 CLI commands; -4,900 lines), untested on the arm, 33 tests failing. Saved only; main will take the same deletions later. Pre-nuke state: tag `pre-nuke-2026-11-02`.
 - `dedup-2026-10-26`, `proven-2026-10-22`: the two old worktrees, removed from disk; their history is on these branches.
 - Loose files from the parent folder are in `removed_loose_files_2026-11-02.zip`.
 
