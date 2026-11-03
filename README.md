@@ -50,7 +50,7 @@ prediction models train on.
 
 | section | what happens | where the result goes |
 |---|---|---|
-| connect | ports found, Squid homed (a Squid with no motors stays where it is), arm to the nest, module to 0 deg | the nest is `routes.nest` |
+| connect | ports found, Squid homed (a Squid with no motors stays where it is); the arm does not move | |
 | microscope seat | **you** take the plate off the module, set it in the microscope's holder and drag the arm so the open fingers straddle it; that pose is the seat; the arm lets go, rises, and proves the seat by picking the plate from it (the force clamp; its first holding clamp teaches the grip's width), lifting, setting it back and releasing | `fixtures.<name>.pose`, `gripper.plate_width` |
 | microscope.toml | stage limits and park position from Squid (skipped for a Squid with no motors) | `squid.<name>` |
 | test | the plate through the microscope into a free hotel slot, then random plates between the slots and the microscope for ever (stop with `runs/STOP`) | |

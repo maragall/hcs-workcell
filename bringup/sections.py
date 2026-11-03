@@ -41,6 +41,7 @@ TAG_VIEW_MARGIN_MM = 5.0         # headroom under the workspace top for the stag
 SEAT_MOVED_DROP_ROUTE_MM = 8.0       # a hover this far from the taught seat: the taught route belongs to another place
 STAGE_SEARCH_MM = ((0, 0), (35, 0), (-35, 0), (0, 35), (0, -35), (35, 35), (-35, 35), (35, -35), (-35, -35),
                    (70, 0), (-70, 0), (0, 70), (0, -70))        # where the arm looks for the tag around the hover, x and y
+WRIST_WOUND_DEG = 180.0           # joint 4 beyond this has the same orientation one turn the other way, inside the soft limits
 MIN_STAGE_FROM_ARM_MM = 200.0     # the microscope at least this far from the arm's base (operator, 2026-11-03); measured at the seat's reach from the axis
 TAG_AHEAD_MM = 71.5              # both tag views are this far ahead of the grip pose along the claw: the tag centre is the plate centre (186.5 ahead of the wrist) and the camera looks 115 ahead of it; measured 2026-10-28 (the old 40 left the tag cut off at the top of the picture)
 SIZE_ROWS = (2, 4)                # rows where a 15-slot hotel has no shelf and a 30-slot one has
@@ -165,6 +166,11 @@ class Bringup:
         L = self.cell.layout()
         f = L["fixtures"][self.scope]
         here = [float(v) for v in self.cell.robot.pose()]
+        j4 = float(self.cell.robot.joints()[3])
+        if abs(j4) > WRIST_WOUND_DEG:
+            # 2026-11-03 01:30: a seat dragged with the wrist at -220 deg; the first commanded move to it hit the controller's soft limit (3571)
+            raise Refused(f"the wrist is wound: joint 4 is at {j4:.0f} deg. Lift the claw off the plate, turn it one full turn the other way "
+                          f"(the same orientation, the wrist near the middle of its range), set it back around the plate, and run this section again")
         hover_mm = 0.0 if hand_is_seat else float(f.get("hover_mm", 67.0))      # taught by hand at the grip: the pose is the seat itself
         yaw = round(here[5], 3) if hand_is_seat else min((90.0 * k for k in (-2, -1, 0, 1, 2)), key=lambda a: abs(geometry.wrap(here[5] - a)))      # a plate in the fingers sets the yaw: it is the holder's, not a square number
         z = float(f["holder_z"]) if hand_is_seat and f.get("holder_z") else here[2] - hover_mm      # a hand cannot find the height: the fingers are tall; the holder's is fixed
@@ -269,29 +275,9 @@ class Bringup:
             self.squid.home()
             return {"stage": "homed"}
 
-        def module_to_0():
-            self.ready()
-            c = self.cyc()
-            self.guard(lambda: c.move_to("polar.pose_at_0"))
-            # the axis reading, never the assumed angle: a stop or a hand left the module at 15.56 deg (2026-11-02 02:54), the assumed 0 skipped the
-            # turn and the short-edge pads closed on a plate turned 15 degrees
-            real = c.polar.read_angle()
-            real = real - 360.0 * round(real / 360.0)
-            if abs(real) > 1.0 or c.polar.angle != 0:
-                self.guard(lambda: c._polar_rotate(0, self.cell.layout()["fixtures"]["polar"]["pose_at_90"]["pose"]))
-            return {"module": "0 deg", "was": round(real, 2)}
-
-
-        def to_nest():
-            self.ready()
-            self.guard(self.cyc().go_nest)
-
         return Section("connect", [
             Step("computer", "search ports", search_ports),
-            Step("squid", "home stage", home, moves=True),
-            Step("polar", "arm to the nest (a pose in the clear in front of the hotel; also where it goes after any fault)", to_nest, moves=True),
-            Step("polar", "rotation module to 0 deg", module_to_0, moves=True),
-            ])
+            Step("squid", "home stage", home, moves=True)])
 
 
 
@@ -576,7 +562,13 @@ class Bringup:
         def rotate():
             self.ready()
             cyc = self.cyc()
-            cyc.safety.profile = SpeedProfile(**c.layout()["speeds"][self.speed])     # --speed: stress by default (travel 0.5, approach 0.25, contact 0.1; the profile the overnight runs of October used); the lowers, slides and clamps keep their slow last millimetres
+            cyc.safety.profile = SpeedProfile(**c.layout()["speeds"][self.speed])
+            real = cyc.polar.read_angle()                                # the axis, never the assumed angle (a hand or a stop may have turned it)
+            real = real - 360.0 * round(real / 360.0)
+            if abs(real) > 1.0 or cyc.polar.angle != 0:
+                print(f"   the module reads {real:.1f} deg: turning it to 0 before any plate goes to it")
+                self.guard(lambda: cyc.move_to("polar.pose_at_0"))
+                self.guard(lambda: cyc._polar_rotate(0, c.layout()["fixtures"]["polar"]["pose_at_90"]["pose"]))     # --speed: stress by default (travel 0.5, approach 0.25, contact 0.1; the profile the overnight runs of October used); the lowers, slides and clamps keep their slow last millimetres
             F = c.layout()["fixtures"]
             st = cyc.store.s
             taught = [x for x in F["hotel"].get("active_slots", []) if reachable(cyc, x)]
