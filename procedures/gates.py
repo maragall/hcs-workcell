@@ -44,27 +44,5 @@ class Gates:
             return None
 
     def _vision_correction(self, fixture: dict, label: str) -> List[float]:
-        ref = fixture.get("aruco_reference")
-        if not ref or self.commission["no_vision_correction"]:
-            if ref:
-                self.tele.log("vision", f"{label} offset", "COMMISSIONING: vision correction disabled")
-            return [0.0] * 6
-        try:
-            off = self.vision.pose_offset(self.down_cam, ref, self.L["vision"]["workspace"],
-                                          fixture.get("aruco_marker_id", 1), None, self.led)
-        except (VisionError, OSError) as e:
-            self.tele.image(f"{label}_vision_error", self._frame(self.down_cam))
-            if self.corr.on_vision_error(label, e):
-                return [0.0] * 6
-            raise StopSafe(f"{label}: no vision correction available")
-        self.tele.image(f"{label}_aruco", off.image)
-        mag = math.sqrt(off.d[0] ** 2 + off.d[1] ** 2 + off.d[2] ** 2)
-        self.tele.log("vision", f"{label} offset", d=[round(v, 2) for v in off.d], mag=round(mag, 2), frame=off.frame)
-        self._observe(f"vision_mag:{label}", mag)
-        if mag > self.safety.vision_jump_mm:
-            self.corr.on_vision_too_far(label, mag)
-        return [off.d[0], off.d[1], 0.0, 0.0, 0.0, 0.0]
-
-    def _vision_correction(self, fixture: dict, label: str) -> List[float]:
         """Vision offset correction is off: every move goes to the taught pose (the box answers 1300 Calibration Not Found)."""
         return [0.0] * 6

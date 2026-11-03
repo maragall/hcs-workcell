@@ -22,7 +22,7 @@ import numpy as np
 import exercise
 from bringup import geometry
 from bringup.runner import Refused, Section, Step
-from bringup import bench, colour, hand, servo
+from bringup import bench, colour, hand
 from procedures import cad_poses
 from procedures.corrector import StopSafe
 from procedures.cycle import Cycle
@@ -224,169 +224,13 @@ class Bringup:
         self.guard(lambda: cyc._place(self.scope, F[self.scope]["pose"], F[self.scope], self.scope, None))
         return {"gripped at": held, "put back and released": f"jaw {round(c.robot.jaw(), 2)}"}
 
-    def tag_height(self) -> float:
-        """Where the module's tag reference is taken from: straight above the module's grip pose, as high as the same view over
-        the stage still fits under the workspace top (the stage seat is higher than the module's by SEAT_RISE). Both pictures
-        are then taken from straight above a grip pose at the same height over the plate, which the microscope zone allows
-        (only vertical moves there), and the tag, 71 mm ahead of the camera's axis at the seat, is in the picture."""
-        L = self.cell.layout()
-        rise = L["fixtures"][self.scope]["pose"][2] - L["fixtures"]["polar"]["pose_at_0"]["pose"][2]
-        return round(L["workspace_box"]["z"][1] - rise - TAG_VIEW_MARGIN_MM, 1)
 
-    @staticmethod
-    def tag_view_xy(pose: List[float]) -> List[float]:
-        """Where the camera is taken to see the tag: TAG_AHEAD_MM ahead of a grip pose along the claw."""
-        a = math.radians(pose[5])
-        return [pose[0] + TAG_AHEAD_MM * math.cos(a), pose[1] + TAG_AHEAD_MM * math.sin(a)]
 
-    def _servo(self) -> "servo.Servo":
-        """The aruco servo (bringup/servo.py): the down camera's picture of the plate tag and small checked moves of the wrist. It
-        needs no camera calibration: the tag's place is the arm's pose when the tag looks as it did at the reference."""
-        c, v = self.cell, self.cell.layout()["vision"]
-        cyc = self.cyc()
-        def keep(frame, corners):                              # every picture the servo looks at, for the page that shows them
-            d = os.path.join(c.runs_dir, "servo_last")
-            os.makedirs(d, exist_ok=True)
-            n = len(os.listdir(d)) // 2
-            open(os.path.join(d, f"{n:03d}.jpg"), "wb").write(frame)
-            json.dump(None if corners is None else [[float(a), float(b)] for a, b in corners], open(os.path.join(d, f"{n:03d}.json"), "w"))
-        read = servo.corner_reader(lambda: c.vision.frame_full(v["down_camera"], v["led"]), keep=keep)
 
-        def move(dx, dy, dyaw):
-            h = c.robot.pose()
-            self.guard(lambda: cyc.go_to([h[0] + dx, h[1] + dy, h[2], h[3], h[4], h[5] + dyaw], "servo"))
-            p = c.robot.pose()
-            return (p[0], p[1], p[5])
-        return servo.Servo(read, move, get_pose=lambda: (lambda p: (p[0], p[1], p[5]))(c.robot.pose()))
 
-    def module_view_pose(self, along: float = 0.0, across: float = 0.0, lift: float = 0.0) -> List[float]:
-        """The wrist pose that puts the down camera over the module's plate: the taught seat's wrist pose moved along
-        the claw. The camera looks `camera_ahead_of_wrist_mm` ahead of the wrist, the plate centre is
-        `module_wrist_to_plate_mm` ahead of it at the seat (both in hardware.json, from the CAD)."""
-        claw = cad_poses.load_hardware()["claw"]
-        taught = self.cyc()._position("polar.pose_at_0")
-        yaw = math.radians(taught[5])
-        d, n = (math.cos(yaw), math.sin(yaw)), (-math.sin(yaw), math.cos(yaw))
-        shift = claw["module_wrist_to_plate_mm"] - claw["camera_ahead_of_wrist_mm"] + along
-        return [taught[0] + shift * d[0] + across * n[0], taught[1] + shift * d[1] + across * n[1], taught[2] + lift, 0.0, 0.0, taught[5]]
 
-    def centre_on_tag(self, tries: int = 4, tol_px: int = 150, max_move_mm: float = 12.0):
-        """Put the down camera right over the plate tag before a capture plan, which is a grid around where the arm is: two small
-        probe moves give how the tag moves in the picture per mm, then the wrist goes where the tag is in the middle. No camera
-        calibration is needed (it is what is being solved for)."""
-        import cv2
-        import numpy as np
-        c, v = self.cell, self.cell.layout()["vision"]
-        cyc = self.cyc()
 
-        def tag():
-            data = c.vision.frame_full(v["down_camera"], v["led"])
-            gray = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_GRAYSCALE) if data else None
-            if gray is None:
-                return None
-            try:
-                from calibration import marker
-                corners = marker.detect(gray, None)
-            except Exception:
-                return None
-            h, w = gray.shape
-            return corners.mean(axis=0), np.array([w / 2.0, h / 2.0]), corners
 
-        start = list(c.robot.pose())
-
-        def nudge(dx, dy):
-            h = c.robot.pose()
-            self.guard(lambda: cyc.go_to([h[0] + dx, h[1] + dy, h[2], h[3], h[4], h[5]], "centre on tag"))
-
-        def drift():
-            h = c.robot.pose()
-            return math.hypot(h[0] - start[0], h[1] - start[1])
-
-        for _ in range(tries):
-            got = tag()
-            if got is None:
-                raise Refused("the down camera does not see the whole tag to centre on it: is the aruco plate on the module, tag up?")
-            at, mid = got[0], got[1]
-            if np.linalg.norm(at - mid) <= tol_px:
-                return got[2]
-            cols = []
-            for ux, uy in ((1.0, 0.0), (0.0, 1.0)):
-                for sign in (1.0, -1.0):                  # the other way when the tag is near the picture's edge and leaves it
-                    dx, dy = 5.0 * sign * ux, 5.0 * sign * uy
-                    nudge(dx, dy)
-                    moved = tag()
-                    nudge(-dx, -dy)
-                    if moved is not None:
-                        cols.append((moved[0] - at) / (5.0 * sign))
-                        break
-                else:
-                    raise Refused("the tag left the picture on a small test move both ways: centre the hand over the plate by hand "
-                                  "and run again")
-            J = np.array(cols).T                       # pixels per mm: columns are x and y of the wrist
-            if abs(np.linalg.det(J)) < 1e-6:
-                raise Refused("the tag did not move in the picture on test moves: is the camera reading a live picture?")
-            step = np.linalg.solve(J, mid - at)
-            if drift() + float(np.hypot(*step)) > max_move_mm:           # the tag is whole in the picture: good enough, and the claw
-                return got[2]                                              # is near the hotel on this side
-            try:
-                nudge(float(np.clip(step[0], -40, 40)), float(np.clip(step[1], -40, 40)))
-            except Refused:
-                return got[2]
-        got = tag()
-        if got is None or np.linalg.norm(got[0] - got[1]) > 3 * tol_px:
-            raise Refused("could not centre the camera over the tag in 4 tries")
-        return got[2]
-
-    def view_for_capture(self) -> dict:
-        """Centre over the tag, go straight up until the camera is VIEW_DISTANCE_MM above it (so the whole tag stays in the picture over
-        the capture grid), centre again, and say where the tag is: {"tag_xy", "dist_mm"} for the capture plan's visibility check."""
-        import numpy as np
-        c, cyc = self.cell, self.cyc()
-        f_px = 2632.0                                         # the vendor lens: a tag's side in pixels gives its distance
-        corners = self.centre_on_tag()
-        side = float(np.mean([np.linalg.norm(corners[i] - corners[(i + 1) % 4]) for i in range(4)]))
-        dist = f_px * 40.0 / side
-        if abs(dist - VIEW_DISTANCE_MM) > 3.0:
-            h = c.robot.pose()
-            self.guard(lambda: cyc.go_to([h[0], h[1], h[2] + (VIEW_DISTANCE_MM - dist), h[3], h[4], h[5]], "capture height"))
-            corners = self.centre_on_tag()
-            side = float(np.mean([np.linalg.norm(corners[i] - corners[(i + 1) % 4]) for i in range(4)]))
-            dist = f_px * 40.0 / side
-        p, yaw = c.robot.pose(), math.radians(c.robot.pose()[5])
-        ahead = cad_poses.load_hardware()["claw"]["camera_ahead_of_wrist_mm"]
-        return {"tag_xy": [p[0] + ahead * math.cos(yaw), p[1] + ahead * math.sin(yaw)], "dist_mm": dist}
-
-    @staticmethod
-    def _tag_orientation(corners) -> str:
-        """Which way round the plate sits, as the nearest quarter turn of the tag's first edge in the picture ("0", "90", "180", "270").
-        The plate turned half a turn on the module is its twin: a different reference."""
-        d = np.asarray(corners, float)[1] - np.asarray(corners, float)[0]
-        return str(int(round(math.degrees(math.atan2(d[1], d[0])) / 90.0)) * 90 % 360)
-
-    def view_module(self) -> List[float]:
-        """Take the camera over the module's plate and read the marker: the CAD pose first, then a small cross of
-        offsets (the camera's sideways offset from the claw is not known). Remembers where it read."""
-        c, v = self.cell, self.cell.layout()["vision"]
-        cyc = self.cyc()
-        stored = self.setup_node(c.layout()).get("module_view")
-        tries = [self.found["module_view"]] if self.found.get("module_view") else ([stored] if stored else [])
-        tries += [self.module_view_pose(a, b, z) for z in VIEW_LIFTS_MM for a, b in VIEW_SEARCH_MM]
-        last = "no pose tried"
-        for pose in tries:
-            try:
-                self.guard(lambda pose=pose: cyc.go_to(pose, "module view"))
-            except Refused as e:                  # a candidate the safety check refuses is skipped, not fatal
-                last = str(e)
-                continue
-            try:
-                if any(c.vision.aruco_pose(v["down_camera"], 1, None, v["led"]).pixel):
-                    self.found["module_view"] = pose
-                    self.edit(lambda L, pose=pose: self.setup_node(L).update(module_view=[round(float(x), 3) for x in pose]))
-                    return pose
-            except Exception:
-                pass
-        raise Refused("the down camera cannot read the aruco plate over the module: is the practice plate on the module, "
-                      f"marker up, and the lens clean? (last refusal: {last})")
 
     @staticmethod
     def guard(fn):
@@ -431,9 +275,6 @@ class Bringup:
                 self.guard(lambda: c._polar_rotate(0, self.cell.layout()["fixtures"]["polar"]["pose_at_90"]["pose"]))
             return {"module": "0 deg", "was": round(real, 2)}
 
-        def hover():
-            self.ready()
-            self.view_module()
 
         def to_nest():
             self.ready()
@@ -444,107 +285,14 @@ class Bringup:
             Step("squid", "home stage", home, moves=True),
             Step("polar", "arm to the nest (a pose in the clear in front of the hotel; also where it goes after any fault)", to_nest, moves=True),
             Step("polar", "rotation module to 0 deg", module_to_0, moves=True),
-            Step("polar", "hover hand onto rotation module centroid", hover, moves=True)])
+            ])
 
 
-    # ---- hotel.toml
-    def hotel(self) -> Section:
-        c = self.cell
-
-        def to_nest():
-            self.ready()
-            self.guard(self.cyc().go_nest)
-
-        def look():
-            cyc = self.cyc()
-            img = cyc._frame(cyc.front_cam)
-            if img is None:
-                raise Refused("the front camera gave no picture")
-            cyc.tele.image("hotel_view", img)
-            return {"front camera": "1 picture from the nest, for the log"}
-
-        def rows():
-            """15 or 30 slots: the operator says which hotel is on the cell (the shelf in the even rows is there or not)."""
-            said = self.ask("      how many slots does the hotel have, 15 or 30: ").strip()
-            if said not in ("15", "30"):
-                raise Refused(f"{said!r} is neither 15 nor 30")
-            size = int(said)
-            present = {row: size == 30 for row in SIZE_ROWS}
-            at = _stamp()
-            self.found["hotel_size"] = size
-            self.edit(lambda L: (bench.set_hotel_size(L, size),
-                                 self.setup_node(L).update(hotel={"size": size, "rows_seen": {str(k): v for k, v in present.items()},
-                                                                  "detected_at": at})))
-            return {"size": size, "rows with a slot": ", ".join(str(r) for r, v in present.items() if v) or "none", "detected_at": at}
-
-        return Section("hotel.toml", [
-            Step("polar", "arm to the nest, the hotel view", to_nest, moves=True),
-            Step("nova", "image the hotel with the front camera", look),
-            Step("computer", "how many slots the hotel has, 15 or 30", rows)])
 
     # ---- swap the plates
     def swap(self) -> Section:
         c = self.cell
 
-        def read_plate():
-            """The aruco plate on the module, by servo: its tag as the camera sees it at the view pose is the reference for the
-            stage; on a later run the servo finds the tag again and the difference is how far the plate moved."""
-            self.ready()
-            L = c.layout()
-            P0 = L["fixtures"]["polar"]["pose_at_0"]["pose"]
-            grip = (P0[0], P0[1], P0[5])
-            self.view_module()                                           # finds the plate; then straight above its grip pose, high
-            cyc = self.cyc()
-            for turned in (False, True):
-                vx, vy = self.tag_view_xy(P0)
-                self.guard(lambda: cyc.go_to([vx, vy, self.tag_height(), P0[3], P0[4], P0[5]], "tag view"))
-                s = self._servo()
-                try:
-                    corners, view = s.observe()
-                    break
-                except servo.ServoError as e:
-                    if turned:
-                        raise Refused(f"the tag is not whole in the picture from straight above the module's grip pose, in either "
-                                      f"orientation of the plate: {e}")
-                    # the tab with the tag is at the far end of the plate: the module turns the plate half a turn (the arm clears it)
-                    self.guard(lambda: cyc._polar_rotate(180, P0))
-            node = self.setup_node(L)
-            refs = dict(node.get("module_tags") or {})
-            if node.get("module_tag"):                                                   # the single reference of earlier runs
-                refs.setdefault(self._tag_orientation(np.array(node["module_tag"]["corners"], float)), node["module_tag"])
-            bucket = self._tag_orientation(corners)           # which way round the plate sits, from how the tag looks (0/90/180/270)
-            prev = refs.get(bucket)
-            if prev:                                    # a reference taken from another view can never be matched: take a new one
-                pv, now_z = prev.get("view") or [0, 0, 0], float(c.robot.pose()[2])
-                if (math.hypot(pv[0] - view[0], pv[1] - view[1]) > 15.0 or abs(((pv[2] - view[2] + 180) % 360) - 180) > 8.0
-                        or abs(float(prev.get("view_z", now_z)) - now_z) > 3.0):
-                    c.note("the stored tag reference was taken from a different view: taking a new one")
-                    prev = None
-            try:
-                if prev:
-                    got = s.align(np.array(prev["corners"], float), start_pose=view)
-                    offset_ = [round(v, 3) for v in servo.plate_offset(tuple(prev["view"]), got.pose, grip)]
-                    ref, ref_view = np.array(prev["corners"], float), tuple(prev["view"])
-                else:
-                    offset_, ref, ref_view = [0.0, 0.0, 0.0], corners, view
-            except servo.ServoError as e:
-                raise Refused(f"the servo could not find the plate tag again on the module: {e}")
-            tag = {"corners": ref.tolist(), "view": list(ref_view), "grip": list(grip),
-                   "view_z": round(float(c.robot.pose()[2]), 3), "grip_z": float(P0[2])}
-            self.found.update(module_tag=tag, plate_offset=offset_)
-
-            def write(L):
-                n = self.setup_node(L)
-                n.update(plate_offset=offset_, plate_offset_at=_stamp())
-                held = dict(n.get("module_tags") or {})
-                for k, v in refs.items():
-                    held.setdefault(k, v)                      # every orientation seen keeps its own reference
-                if not prev:
-                    held[bucket] = dict(tag, taken_at=_stamp())
-                n["module_tags"] = held
-                n["module_tag"] = held[bucket]                 # the one the stage steps carry over
-            self.edit(write)
-            return {"plate_offset": offset_, "tag": "reference taken" if not prev else "found again"}
 
         return Section("swap", [
             Step("user", "take the plate off the rotation module and set it flat in the microscope's plate holder (a real plate); then drag the arm "
@@ -696,203 +444,15 @@ class Bringup:
             return {"stage_limits": lim, "park_xy": park, "park_tolerance": tol,
                     "stage_sweep_box": "not set: needs the Squid-to-arm axis mapping"}
 
-        def find_marker():
-            """The stage tag, by the servo's measure-only mode: from the taught hover the arm goes straight up or down (the only
-            moves the microscope zone allows) to the height where the camera sees the tag at the scale it had at the module,
-            reads it, and the offset from the module's picture says where the plate stands, to a fraction of a millimetre."""
-            self.ready()
-            L = c.layout()
-            tag = self.found.get("module_tag") or self.setup_node(L).get("module_tag")
-            if not tag:
-                raise Refused("needs the aruco tag taken on the module first (the swap section)")
-            cyc = self.cyc()
-            if not self._parked():
-                raise Refused("the stage is not parked: home Squid first")
-            self.guard(lambda: cyc.move_to("polar.pose_at_0"))          # the taught route starts at the module hover
-            self.guard(lambda: cyc.move_to(self.scope))
-            hx, hy, hz, rx, ry, hyaw = cyc._position(self.scope)
-            seat = L["fixtures"][self.scope]["pose"]
-            z_same = seat[2] + (tag["view_z"] - tag["grip_z"])        # the module view's height above the plate, over the stage plate
-            top = L["workspace_box"]["z"][1]
-            heights = [z_same] if hz - 1 <= z_same <= top else []     # the same height over the plate as at the module: the same picture scale
-            if not heights:
-                raise Refused(f"the module view's height over the plate would be z {z_same:.0f} over the stage, outside {hz:.0f}..{top:.0f}")
-            s = self._servo()
-            ref = np.array(tag["corners"], float)
-            got, last = None, "the tag is not in the picture"
-            self.guard(lambda: cyc._move("L", [hx, hy, heights[0], rx, ry, hyaw], f"setup:up to z{heights[0]:.0f}", cyc.safety.profile.approach))
-            a = math.radians(hyaw)                                    # forward is the way the camera looks: along the claw, as at the module
-            ahead, side = (math.cos(a), math.sin(a)), (-math.sin(a), math.cos(a))
-            bx, by = seat[0] + TAG_AHEAD_MM * ahead[0], seat[1] + TAG_AHEAD_MM * ahead[1]     # where the camera sees the plate centre, as at the module
-            for dx, dy in STAGE_SEARCH_MM:                            # dx along the claw, dy across it
-                x, y = bx + dx * ahead[0] + dy * side[0], by + dx * ahead[1] + dy * side[1]
-                if L.get("volumes") and not 100.0 <= math.hypot(x - 126.0, y) <= 395.0:
-                    continue                                          # out of the arm's reach: not a place to look
-                wb = L["workspace_box"]
-                if not (wb["x"][0] <= x <= wb["x"][1] and wb["y"][0] <= y <= wb["y"][1]):
-                    continue                                          # outside the workspace box: the arm refuses it
-                self.guard(lambda x=x, y=y: cyc._move("L", [x, y, heights[0], rx, ry, hyaw], f"setup:search {dx:+.0f} along {dy:+.0f} across", cyc.safety.profile.approach))
-                try:
-                    corners, view = s.observe()
-                except servo.ServoError as e:
-                    last = str(e)
-                    continue
-                try:
-                    aligned = s.align(ref, start_pose=view)           # sideways moves are free this high above the instrument
-                except servo.ServoError as e:
-                    last = str(e)
-                    print(f"      tag seen at {dx:+.0f} along {dy:+.0f} across, not aligned: {last}")
-                    continue
-                got = (heights[0], aligned)
-                break
-            self.guard(lambda: cyc._move("L", [hx, hy, heights[0], rx, ry, hyaw], "setup:back over the hover", cyc.safety.profile.approach))
-            self.guard(lambda: cyc._move("L", [hx, hy, hz, rx, ry, hyaw], "setup:back down to the hover", cyc.safety.profile.approach))
-            if got is None:
-                raise Refused(f"no aruco tag seen over the stage ({last}): check the aruco plate is in the holder and the "
-                              "microscope stands on the marked area (a microscope far from the taught place needs a new route)")
-            z, res = got
-            self.found["stage_view"] = tuple(res.pose)
-            self.found["stage_estimate"] = {"view": [round(v, 3) for v in res.pose], "residual_px": round(res.residual_px, 2),
-                                            "moves": res.moves, "seen_from_z": round(z)}
-            return {"tag found, wrist over it at": [round(v, 2) for v in res.pose], "residual px": round(res.residual_px, 2), "moves": res.moves}
 
-        def seat():
-            tag = self.found.get("module_tag") or c.layout().get("setup", {}).get("module_tag")
-            view = self.found.get("stage_view")
-            if view is None or tag is None:
-                raise Refused("needs the aruco tag taken on the module (swap section) and measured on the stage")
-            old = c.layout()["fixtures"][self.scope]["pose"]
-            x, y, yaw = servo.transfer_grip(tuple(tag["view"]), view, tuple(tag["grip"]))
-            yaw = old[5] + geometry.wrap(yaw - old[5]) if abs(geometry.wrap(yaw - old[5])) <= 90 else old[5] + geometry.wrap(yaw - old[5] + 180.0)
-            new = [round(x, 3), round(y, 3), old[2], old[3], old[4], round(yaw, 3)]
-            moved = round(geometry.moved_mm(old, new), 2)
-            reach = c.layout()["regions"]["microscope"].get("max_lateral_mm", 2.0)      # the taught route must still end at the hover
-            if moved > reach:
-                raise Refused(f"the seat found is {moved} mm from the taught one, beyond the taught route's reach "
-                              f"({reach} mm); a route to a moved microscope is not planned yet. Nothing changed")
-            keep = moved <= SEAT_MOVED_KEEP_MM
 
-            def write(L):
-                f = L["fixtures"][self.scope]
-                if not keep:
-                    if f.get("pose"):
-                        f[f"previous_pose_{time.strftime('%Y_%m_%d')}"] = {"pose": f["pose"]}
-                    f["pose"], f["taught_at"] = new, _stamp()
-                self.setup_node(L).update(microscope={"seat_pose": f["pose"], "moved_mm": moved, "found_at": _stamp(),
-                                                      "estimate": self.found.get("stage_estimate")})
-            self.edit(write)
-            return {"seat_pose": old if keep else new, "moved_mm": moved, "found_at": _stamp()}
 
-        def route():
-            cyc = self.cyc()
-            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-            return {"route": c.layout()["fixtures"][self.scope].get("trajectory", "microscope_to_polar")}
-
-        def drive():
-            self.ready()
-            cyc = self.cyc()
-            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-            self.guard(lambda: cyc.move_to(self.scope))
-            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-            return {"driven": "module -> microscope -> module, empty hand"}
 
         return Section("microscope.toml", [
             Step("computer", "read the stage travel limits from squid", limits),
             ])
 
-    # ---- clear the stage
-    def clear_stage(self) -> Section:
-        c = self.cell
 
-        def look():
-            """After the user took the plate off: look down at the stage from the hover; the aruco must be gone."""
-            self.ready()
-            v = c.layout()["vision"]
-            cyc = self.cyc()
-            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-            self.guard(lambda: cyc.move_to(self.scope))
-            try:
-                seen = any(c.vision.aruco_pose(v["down_camera"], 1, None, v["led"]).pixel)
-            except Exception:
-                seen = False
-            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-            if seen:
-                raise Refused("the aruco plate is still on the microscope stage: take it off, then run again from \"clear the stage\"")
-            self.found["stage_clear"] = True
-            return {"stage": "clear"}
-
-        return Section("clear the stage", [
-            Step("user", "remove the aruco plate from the microscope stage", before=self.loosen),
-            Step("computer", "note the stage as empty", lambda: self.found.update(stage_clear=True) or {"stage": "empty (the user took the plate off)"})])
-
-    # ---- system_state.json
-    def system_state(self) -> Section:
-        c = self.cell
-        seen: dict = {}
-
-        def slots():
-            self.ready()
-            cyc = self.cyc()
-            L = c.layout()
-            names = [s for s in bench.slots(L) if s[0] in bench.state(L)["taught_columns"]]
-            if L.get("setup", {}).get("hotel", {}).get("occupancy") == "by hand":      # the operator's list (layout fixtures.hotel.loaded) is the truth
-                loaded = set(bench.loaded_slots(L))
-                seen.update({s: "full" if s in loaded else "empty" for s in names})
-                return {"slots": f"{len(loaded)} full, {len(names) - len(loaded)} empty (by hand, not looked at)"}
-            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-            self.guard(cyc._to_hotel)
-            for s in names:
-                try:
-                    v = exercise.probe_slots(cyc, [s], cyc.tele.log)[s]
-                except SafetyViolation as e:                 # a slot the arm cannot reach is unknown, not a stop
-                    cyc.tele.log("setup", f"probe:{s}", f"{s} is out of reach: {e}")
-                    v = "unreachable"
-                seen[s] = {"occupied": "full", "empty": "empty"}.get(v, "unknown")
-            self.guard(lambda: exercise.along(cyc, "polar_to_hotel", reverse=True))
-            return {"slots": ", ".join(f"{sum(v == k for v in seen.values())} {k}" for k in ("full", "empty", "unknown"))}
-
-        def looks():
-            cyc = self.cyc()
-            spots = [("module", "polar@0", "polar.pose_at_0")]
-            if self.found.get("stage_clear"):
-                seen[self.scope] = "empty"                  # the stage was looked at a moment ago (clear the stage): no second trip over the microscope
-            else:
-                spots.append((self.scope, self.scope, self.scope))
-            for loc, gate, pos in spots:
-                self.guard(lambda: cyc.move_to(pos))
-                img = cyc._frame(cyc.down_cam)
-                full = cyc.lower.verdict(gate, "plate_present", img) if img else None
-                empty = cyc.lower.verdict(gate, "empty", img) if img else None
-                enough = full is not None and min(full.n_refs, empty.n_refs) >= cyc.lower.min_refs
-                seen[loc] = ("unknown" if not enough else "full" if full.safe and not empty.safe
-                             else "empty" if empty.safe and not full.safe else "unknown")
-            jaw, g = c.robot.jaw(), c.layout()["gripper"]
-            seen["gripper"] = "empty" if jaw > g["closed"]["short_edges"] + 2.0 or jaw < g["readings"]["empty_closed"] + 0.5 else "full"
-            return {k: seen[k] for k in ("module", self.scope, "gripper")}
-
-        def choose():
-            cyc = self.cyc()
-            cyc.store.s.contents = dict(seen)
-            for s, v in seen.items():
-                if s[:1] in "ABC" and s[1:].isdigit():
-                    if v == "full":
-                        cyc.store.s.hotel.setdefault(s, "")
-                    elif v == "empty":
-                        cyc.store.s.hotel.pop(s, None)
-            cyc.store.save()
-            if seen.get("gripper") == "full":
-                task = "a plate is in the gripper: place it before anything else"
-            elif seen.get("module") == "full":
-                task = "plate on the module: run the test from there"
-            else:
-                task = "no plate on the module: put one there to run the test"
-            places = {k: v for k, v in seen.items() if not (k[:1] in "ABC" and k[1:].isdigit())}
-            return {"contents": places, "first task": task}
-
-        return Section("system_state.json", [
-            Step("polar", "look into every hotel slot", slots, moves=True),
-            Step("polar", "look at microscope, module and gripper", looks, moves=True),
-            Step("computer", "detect plate or empty at each, then choose the first task", choose)])
 
     # ---- shuffle
     def shuffle(self, limit: int = 0, speed: str = "stress", probe_every: int = 0) -> Section:
