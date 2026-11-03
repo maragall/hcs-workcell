@@ -14,12 +14,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
-from rig import GATES, SAFE, FakeClock, FakeVision, jpeg, layout  # noqa: E402
+from rig import FakeClock, FakeVision, layout  # noqa: E402
 
 import run  # noqa: E402
 from devices.fake_arm import SimFaults, SimRobot  # noqa: E402
 from devices.fake_squid import FakeSquid  # noqa: E402
-from perception.lower_check import LowerCheck  # noqa: E402
 from procedures.corrector import StopSafe  # noqa: E402
 from procedures.telemetry import Telemetry  # noqa: E402
 
@@ -32,10 +31,6 @@ def make_cell(acquisition_s=0.2):
     L = layout()
     run.borrow_fixture(L, B)
     ref_dir = os.path.join(tmp, "refs")
-    lc = LowerCheck(ref_dir)
-    for gate, state in GATES + [(B, "plate_present"), (B, "empty")]:
-        for _ in range(3):
-            lc.add_reference(gate, state, jpeg(SAFE))
     tele = Telemetry(os.path.join(tmp, "run"))
     start = list(L["fixtures"][A]["pose"])
     start[2] += L["fixtures"][A]["hover_mm"]
@@ -90,7 +85,7 @@ def reopen(cell, tmp):
     a = cell.cycles[A]
     cell.close()
     return run.Workcell(a.L, a.robot, a.vision, cell.scopes, cell.tele, "unsupervised", os.path.join(tmp, "run"),
-                        a.lower.ref_root, tmp, poll_s=0.01)
+                        os.path.join(tmp, "refs"), tmp, poll_s=0.01)
 
 
 def test_resume_gives_the_arm_first_to_the_microscope_whose_plate_is_in_the_gripper():

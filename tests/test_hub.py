@@ -55,7 +55,7 @@ def test_an_unwritable_outbox_never_stops_the_arm():
     outbox = os.path.join(r.tmp, "outbox")
     open(outbox, "w").close()                                     # a file where the directory should be
     r.L["vision"]["hub"] = {"record": True, "outbox": outbox}
-    r.cyc = Cycle(r.L, r.robot, r.vis, r.tele, r.store, "unsupervised", r.cyc.run_dir, r.cyc.lower.ref_root)
+    r.cyc = Cycle(r.L, r.robot, r.vis, r.tele, r.store, "unsupervised", r.cyc.run_dir, os.path.join(r.tmp, "refs"))
     try:
         r.run()
         assert r.store.s.plate_at == "microscope" and r.store.s.step_done
