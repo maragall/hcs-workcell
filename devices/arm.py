@@ -192,7 +192,7 @@ class VendorRobot:
                 break
         now = self.joints()[:4]
         short = max(abs(a - b) for a, b in zip(now, target))
-        if _retry and short <= 12.0 and self._sdk_stopped_us():
+        if _retry and self._sdk_stopped_us():          # the SDK's own stop (enable intact, no fault): once more, whatever the distance left
             self._log("robot", "sdk_motionstop", f"abs joint move stopped {short:.1f} deg short with enable intact; re-issuing once")
             self.sdk_stops += 1
             return self.move_abs_joints(j, tol, timeout, _retry=False)

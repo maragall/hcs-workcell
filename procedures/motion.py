@@ -197,8 +197,9 @@ class Motion:
             prev = list(j[:4])
             ext = self.robot.joints()[4:]
             t0 = time.time()
+            start = self.robot.joints()[:4]
             try:
-                self.robot.move_abs_joints_stepped(list(j[:4]) + list(ext))     # external axes are never driven here
+                self.robot.move_abs_joints(list(j[:4]) + list(ext))     # external axes are never driven here; one move, verified by readback
             except MotionRefused as e:
                 self._refused(label, e)
             self._wait_still(label)
@@ -208,7 +209,8 @@ class Motion:
                 self._fault(label, "pose_deviation", f"{dev:.2f} mm")
                 raise StopSafe(f"{label}: arm {dev:.1f} mm from the demo pose (limit {tol}); joints reached target, check the route")
             self.store.s.last_safe_pose = after
-            self.tele.log("move", label, "AJ", dt=round(time.time() - t0, 2), dev=round(dev, 2))
+            self.tele.log("move", label, "AJ", dt=round(time.time() - t0, 2), dev=round(dev, 2), speed=self.safety.profile.travel,
+                          axes=[round(t - s, 2) for s, t in zip(start, j[:4])])
 
     def _seat(self, pose: List[float], corr: List[float]) -> List[float]:
         """The pose the jaw acts at: taught seat + vision correction + the plate type's grab height
@@ -262,14 +264,17 @@ class Motion:
         self.robot.set_speed(speed)
         t0 = time.time()
         try:
-            self.robot.move_abs_joints_stepped(list(jt[:4]) + list(ja[4:]))
+            # one move: the 24-unit sub-stepping (2026-10-15, for the SDK's unreliable completion flag) cost about 0.9 s a piece and chopped
+            # a 230 mm lift into ten stops; the joint readback below verifies a move of any size
+            self.robot.move_abs_joints(list(jt[:4]) + list(ja[4:]))
         except MotionRefused as e:
             self._refused(label, e)
         self._wait_still(label)
         after = self.robot.pose()
         dev = max(abs(after[k] - target[k]) for k in range(3))
         self.tele.log("move", label, "AJ", target=[round(v, 2) for v in target], actual=[round(v, 2) for v in after],
-                      dt=round(time.time() - t0, 2), dev=round(dev, 2))
+                      dt=round(time.time() - t0, 2), dev=round(dev, 2), speed=speed,
+                      axes=[round(t - s, 2) for s, t in zip(ja[:4], jt[:4])])       # per-axis travel (lift mm, j2 j3 j4 deg): what limits the leg
         if dev > 3.0:
             raise StopSafe(f"{label}: arm {dev:.1f} mm from the target after a joint move")
         self.store.s.last_safe_pose = after
