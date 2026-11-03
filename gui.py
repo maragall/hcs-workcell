@@ -127,7 +127,8 @@ class App:
         self.log.tag_configure("step", foreground=FG)
         self.log.tag_configure("good", foreground=GOOD)
         self.follow = True                            # the newest line stays in view; off while the reader has scrolled up
-        for ev in ("<MouseWheel>", "<ButtonRelease-1>", "<Key>"):
+        self.root.bind_all("<MouseWheel>", self.on_wheel, add="+")          # Windows sends the wheel to the focused widget, not the one under the pointer
+        for ev in ("<ButtonRelease-1>", "<Key>"):
             self.log.bind(ev, lambda e: self.root.after(60, self.check_follow))
         # the bar
         bar = tk.Frame(r, bg=BG)
@@ -159,7 +160,15 @@ class App:
             self.log.see("end")
 
     def check_follow(self):
-        self.follow = self.log.yview()[1] >= 0.999
+        self.follow = self.log.yview()[1] >= 0.999          # back at the bottom: following again
+
+    def on_wheel(self, e):
+        """A wheel turn anywhere over the log scrolls it and stops the following until the reader is back at the bottom."""
+        x, y = self.log.winfo_rootx(), self.log.winfo_rooty()
+        if x <= e.x_root <= x + self.log.winfo_width() and y <= e.y_root <= y + self.log.winfo_height():
+            self.log.yview_scroll(-1 if e.delta > 0 else 1, "units")
+            self.follow = self.log.yview()[1] >= 0.999
+            return "break"
 
     # ------------------------------------------------------------------ the child
     def start(self, extra=None):

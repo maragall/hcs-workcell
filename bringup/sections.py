@@ -217,6 +217,10 @@ class Bringup:
         F = c.layout()["fixtures"]
         cyc.store.s.plate_at, cyc.store.s.grip, cyc.store.s.step_done = self.scope, "none", True
         cyc.store.save()
+        # a setup teaches the grips afresh: this clamp (short edges, at the microscope) learns its width, the first long-edge clamp at the
+        # module learns the other one before the first slot. Nothing stale from an earlier plate or earlier fingers can block them.
+        self.edit(lambda L: L["gripper"].get("plate_width", {}).clear())
+        cyc.checks.width.clear()
         self.guard(lambda: cyc._pick(self.scope, F[self.scope]["pose"], F[self.scope], "short_edges", None))
         held = round(c.robot.jaw(), 2)
         self.guard(lambda: cyc._place(self.scope, F[self.scope]["pose"], F[self.scope], self.scope, None))

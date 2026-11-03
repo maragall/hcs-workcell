@@ -108,7 +108,7 @@
     },
     "closed": {
       "short_edges": 22.9,
-      "long_edges": -0.69
+      "long_edges": 2.1
     },
     "tolerance": 0.1,
     "stall_lag": 0.3,
@@ -143,15 +143,14 @@
         24.4
       ],
       "long_edges": [
-        0.01,
-        0.71
+        2.8,
+        3.5
       ],
       "_note": "2026-10-22 new plate, grips read by hand in drag mode (operator): short 24.87, long 3.68; band = closed -0.1/+0.5 (short) and -0.1/+1.05 (long) as for the production plate. Opens widened by the same 2.5 / 2.2 so the clearance per side stays the same. Fixture signatures (microscope grasp_width) cleared: learned again by the first picks."
     },
     "_short_grip_2026_11_02": "measured with tools/measure_short_grip.py: the jaw follows the command to 24.01 and meets the plate at 23.91 (refuses 23.75). The old closed width 24.83 (a hand reading) was 0.92 mm wider than the plate: nothing was clamped, every close read back its own command, empty or loaded. plate_width is what the pads read on the plate (what a grasp is judged against); closed is the command, 1.0 mm under it (the holding torque is capped, so the depth does not change the force); band = width -0.2/+0.5. An empty close reads 22.9, far outside.",
     "plate_width": {
-      "short_edges": 23.9,
-      "long_edges": 0.21
+      "short_edges": 23.9
     },
     "_long_grip_2026_11_02": "measured with tools/measure_short_grip.py --grip long_edges on the plate on the module at 90: the jaw follows the command to 3.20 and meets the plate at 2.99 (refuses 2.70). The old closed width 3.71 (hand reading 3.68) was 0.7 mm wider: the plate was never clamped, it floated 0.35 mm per side in the claw, which with 1.4 mm to spare between the B-column posts gave the intermittent slide-in collisions. plate_width 3.0, command 2.1, band width -0.2/+0.5; an empty close reads 2.1.",
     "clamp_limit": 0.5,
@@ -265,12 +264,12 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        112.705,
-        299.44,
-        264.527,
+        106.175,
+        298.354,
+        260.261,
         0.0,
         0.0,
-        92.721
+        90.715
       ],
       "hover_mm": 66.7,
       "approach": {
@@ -288,7 +287,7 @@
       },
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
-      "taught_at": "2026-11-03 00:34:08",
+      "taught_at": "2026-11-03 01:10:19",
       "jaw_at_teach": 24.604,
       "vendor_teach": {
         "name": "microscope-short",
@@ -298,14 +297,14 @@
       },
       "hover": {
         "pose": [
-          112.705,
-          299.44,
-          331.227,
+          106.175,
+          298.354,
+          326.961,
           0.0,
           0.0,
-          92.721
+          90.715
         ],
-        "derived_from_seat": "2026-11-03 00:34:08"
+        "derived_from_seat": "2026-11-03 01:10:19"
       },
       "joints_at_teach": [
         224.54,
@@ -442,12 +441,12 @@
       },
       "previous_pose_2026_11_03": {
         "pose": [
-          113.218,
-          293.569,
-          263.139,
+          105.56,
+          297.487,
+          260.107,
           0.0,
-          -0.0,
-          89.8502
+          0.0,
+          90.279
         ]
       }
     },
@@ -2686,23 +2685,23 @@
     },
     "microscope_hover": {
       "hand_pose": [
-        112.705,
-        299.44,
-        264.527,
+        106.175,
+        298.354,
+        260.261,
         0.0,
         -0.0,
-        92.7207
+        90.7148
       ],
       "seat": [
-        112.705,
-        299.44,
-        264.527,
+        106.175,
+        298.354,
+        260.261,
         0.0,
         0.0,
-        92.721
+        90.715
       ],
-      "from_taught_mm": 6.1,
-      "at": "2026-11-03 00:34:08"
+      "from_taught_mm": 1.1,
+      "at": "2026-11-03 01:10:19"
     },
     "module_view": [
       310.937,
