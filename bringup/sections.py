@@ -293,7 +293,7 @@ class Bringup:
 
 
         return Section("microscope seat", [
-            Step("user", "take the plate off the rotation module and set it flat in the microscope's plate holder; then drag the arm so the open fingers straddle the plate as they would to grip it, the claw square to the instrument, and press Enter", before=self.loosen),
+            Step("user", "the microscope must stand at least 20 cm from the arm's base (its plate holder no more than 39 cm from the axis). Take the plate off the rotation module and set it flat in the microscope's plate holder; then drag the arm so the open fingers straddle the plate as they would to grip it, the claw square to the instrument, and press Enter", before=self.loosen),
             Step("computer", "take that pose as the microscope seat", lambda: self.stage_hover(hand_is_seat=True)),
             Step("polar", "let go of the plate and rise straight out of the holder", lambda: self.leave_holder(release=True), moves=True),
             Step("polar", "prove the seat: pick the plate from it, lift, set it back, release (clamped by force, the jaw opening all the way)", self.check_seat, moves=True)])
