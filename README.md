@@ -43,25 +43,21 @@ prediction models train on.
 3. **Check** the PC and the cell any time with `python tools/doctor.py` (also `python cli.py doctor`; `--sim` for the PC and
    the files only). It reads only: it moves nothing, connects no second arm client and never prints the passwords. Every
    FAIL comes with the line that fixes it. Run the setup when it says READY.
-4. **Connect** Squid, the arm and the vision box, and put the aruco practice plate on the rotation module, marker up.
+4. **Connect** Squid, the arm and the vision box, and put the real plate on the rotation module. The camera calibration is the factory's: nothing here calibrates or reads a tag.
 5. **Run** `python cli.py setup` (add `--sim` to try it on the simulator). It prints every step with who does it: `computer`,
    `polar` (the arm), `nova` (the vision box), `squid`, and `user`. You do only the `user` steps, and press Enter when a
    step of yours is done. Before a section that moves the arm it asks "Hands clear?"; Enter to go, `q` to quit.
 
 | section | what happens | where the result goes |
 |---|---|---|
-| connect | ports found, Squid homed (a Squid with no motors stays where it is), arm to the nest, module to 0 deg, camera over the module plate | the nest is `routes.nest` |
-| cameras.toml | down camera: aruco read, lens and camera-to-gripper solved together, refused above 5 px / 2 mm, uploaded, checked from two poses | `vision.calibration` |
-| hotel.toml | arm to the nest (the hotel view), front camera picture; then the camera goes to the slot position of rows 2 and 4, one at a time, and the cell is asked "is there a slot here, yes or no" until it knows by itself: slots there mean 30, none 15 | `setup.hotel`, `fixtures.hotel.rows` |
-| swap | the aruco plate's tag, as seen from straight above the module, is the reference; **you** move the aruco plate to the microscope stage and put a real plate on the rotation module | `setup.module_tag`, `setup.plate_offset` |
-| grips.toml | short and long grip closed on the real plate, accept bands, three carry-seat-regrip cycles | `gripper.closed`, `gripper.accept_band`, `setup.grips` |
-| microscope.toml | stage limits and park position from Squid (skipped for a Squid with no motors); the arm goes straight above the stage and measures the tag against the module's; seat re-seated if it moved less than the zone allows | `squid.<name>`, `fixtures.<name>.pose`, `setup.microscope` |
-| clear the stage | **you** take the aruco plate off the stage; the arm looks down and checks it is gone | |
-| system_state.json | every hotel slot, module, microscope and gripper looked at | `contents` in `state_microscope.json` |
-| test | module to stage, acquire, back, long-edge grip, to a free hotel slot | |
+| connect | ports found, Squid homed (a Squid with no motors stays where it is), arm to the nest, module to 0 deg | the nest is `routes.nest` |
+| microscope seat | **you** take the plate off the module, set it in the microscope's holder and drag the arm so the open fingers straddle it; that pose is the seat; the arm lets go, rises, and proves the seat by picking the plate from it, lifting, setting it back and releasing | `fixtures.<name>.pose` |
+| grips.toml | the plate is carried to the module; short and long grip closed on it under the controller's force limit (0.5), the width the pads reach kept as the plate width, three carry-seat-regrip cycles, the plate carried back to the microscope | `gripper.plate_width`, `gripper.closed`, `gripper.accept_band`, `gripper.clamp_limit` |
+| microscope.toml | stage limits and park position from Squid (skipped for a Squid with no motors) | `squid.<name>` |
+| test | the plate through the microscope into a free hotel slot, then random plates between the slots and the microscope for ever (stop with `runs/STOP`) | |
 
 A refused check stops the run, prints what to fix and leaves that section's values as they were. Continue with
-`python cli.py setup --from "grips.toml"` (`--skip cameras.toml` leaves a section out). The Squid it drives is the practice
+`python cli.py setup --from "grips.toml"`. The Squid it drives is the practice
 one (no motors, nothing imaged) until `devices/squid.py` is wired in.
 Not yet automatic: a route to a microscope that stands more than the zone's 2 mm from the taught seat, and the 15-slot
 grip offset (`fixtures.hotel.grip_back_mm`).

@@ -246,7 +246,7 @@ class Bringup:
 
     # ------------------------------------------------------------------ the sections
     def sections(self) -> List[Section]:
-        return [self.connect(), self.swap(), self.grips(), self.microscope(), self.test()]       # the stage and slot look-arounds were camera checks: out
+        return [self.connect(), self.seat(), self.grips(), self.microscope(), self.test()]       # the stage and slot look-arounds were camera checks: out
 
     # ---- Connect system modules
     def connect(self) -> Section:
@@ -289,14 +289,13 @@ class Bringup:
 
 
 
-    # ---- swap the plates
-    def swap(self) -> Section:
+    # ---- the microscope seat
+    def seat(self) -> Section:
         c = self.cell
 
 
-        return Section("swap", [
-            Step("user", "take the plate off the rotation module and set it flat in the microscope's plate holder (a real plate); then drag the arm "
-                         "so the open fingers straddle the plate as they would to grip it, the claw square to the instrument, and press Enter", before=self.loosen),
+        return Section("microscope seat", [
+            Step("user", "take the plate off the rotation module and set it flat in the microscope's plate holder; then drag the arm so the open fingers straddle the plate as they would to grip it, the claw square to the instrument, and press Enter", before=self.loosen),
             Step("computer", "take that pose as the microscope seat", lambda: self.stage_hover(hand_is_seat=True)),
             Step("polar", "let go of the plate and rise straight out of the holder", lambda: self.leave_holder(release=True), moves=True),
             Step("polar", "prove the seat: pick the plate from it, lift, set it back, release (clamped by force, the jaw opening all the way)", self.check_seat, moves=True)])

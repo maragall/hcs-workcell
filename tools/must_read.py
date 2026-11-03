@@ -25,7 +25,7 @@ ENTRIES = [
     ("6. THE ROUTE STORE: what a stored leg is keyed by (geometry only) and where the planner reads and writes it.",
      "routes/plan.py", ["layout_sig", "plan"]),
     ("7. THE SETUP in the order you run it: sections and their steps.",
-     "bringup/sections.py", ["sections", "swap", "grips"]),
+     "bringup/sections.py", ["sections", "seat", "grips"]),
     ("8. THE UNATTENDED RUN: what restarts the loop and when it gives up.",
      "tools/keep_running.py", None),
 ]
