@@ -240,6 +240,7 @@ def cmd_setup(args):
     log_path = _tee_console("setup")
     print(f"this run is logged to {log_path} (and runs/setup_*/events.jsonl)")
 
+    from bringup import prompt as prompt_mod
     from bringup.runner import Runner
     from bringup.sections import Bringup
     from devices.fake_squid import FakeSquid
@@ -256,7 +257,7 @@ def cmd_setup(args):
     if not args.sim and cell.arm_error:
         sys.exit(f"the arm is not reachable: {cell.arm_error}. Close the GUI and RobStudio (one client at a time) and run again")
     answers = {"slot in front of the camera": "yes" if args.hotel_size == 30 else "no" if args.hotel_size == 15 else ""}   # what a driver knows; the hands-clear Enter is the user's go
-    runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else input,
+    runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else prompt_mod.ask,
                     stop=cell.stop_event, on_section_done=save_known_good)
     bring = Bringup(cell, squid, runner.ask, confirm_stage=args.confirm_stage)
     todo = [bring.shuffle(args.moves, getattr(args, "speed", "stress"), getattr(args, "probe", 0))] if getattr(args, "shuffle", False) else bring.sections()

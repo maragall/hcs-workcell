@@ -28,13 +28,14 @@ def ask_with_timeout(question: str, timeout_s: float) -> str:
     """Operator question on the terminal; 'n' when nobody answers or stdin is not a terminal."""
     import sys
     import threading
-    if not sys.stdin or not sys.stdin.isatty():
+    from bringup import prompt
+    if not prompt.under_gui() and (not sys.stdin or not sys.stdin.isatty()):
         return "n"
     answer = []
 
     def _read():
         try:
-            answer.append(input(paint(f"  >>> {question} [y/N]: ")).strip().lower())
+            answer.append(prompt.ask(paint(f"  >>> {question} [y/N]: ")).strip().lower())
         except EOFError:
             answer.append("n")
 
