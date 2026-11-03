@@ -133,7 +133,11 @@ class Model:
         v0, v1 = min(q[1] for q in us), max(q[1] for q in us)
         self.scale = 0.92 * min(w / (u1 - u0), h / (v1 - v0))
         self.ox, self.oy = w / 2 - self.scale * (u0 + u1) / 2, h / 2 + self.scale * (v0 + v1) / 2
+        self.route, self.planning = None, None
         self.draw_static()
+
+    def set_route(self, r):
+        self.route, self.planning = r, None
 
     def _rot(self, x, y, z):
         ca, sa, ce, se = math.cos(self.AZ), math.sin(self.AZ), math.cos(self.EL), math.sin(self.EL)
@@ -212,6 +216,22 @@ class Model:
         if grip and grip in self.held:
             h = self.held[grip]
             self.solid(self._tool_box(pose, {"x": h["x"], "y": h["y"]}, h.get("z", [-10.7, 3.7])), "#d8c76a", "#fff2a8", "dyn")
+        if self.route and self.route.get("poses"):
+            pts = [self.P(q[0], q[1], q[2]) for q in self.route["poses"]]
+            start = self.P(pose[0], pose[1], pose[2])
+            prev = start
+            for k, q in enumerate(pts):
+                col = "#ffb347" if k in self.route.get("joint_legs", []) else "#4c8dff"
+                self.canvas.create_line(prev[0], prev[1], q[0], q[1], fill=col, width=2, tags="dyn")
+                self.canvas.create_oval(q[0] - 3, q[1] - 3, q[0] + 3, q[1] + 3, outline=col, fill="#000000", tags="dyn")
+                prev = q
+            self.canvas.create_oval(prev[0] - 6, prev[1] - 6, prev[0] + 6, prev[1] + 6, outline="#ffffff", tags="dyn")
+            r = self.route
+            how = "taught route" if r.get("taught") else ("stored leg" if r.get("planned_s", 9) < 1.0 else f"planned in {r.get('planned_s')} s")
+            self.canvas.create_text(self.w - 8, 8, anchor="ne", fill="#9fb3c8", font=("Consolas", 9), tags="dyn",
+                                    text=f"route to {r.get('to')}: {len(r['poses'])} legs, {how}   (orange = joint leg)")
+        elif self.planning:
+            self.canvas.create_text(self.w - 8, 8, anchor="ne", fill="#ffb347", font=("Consolas", 9), tags="dyn", text=f"planning a route to {self.planning} ...")
         age = time.time() - poll.at
         txt = f"x {pose[0]:.1f}  y {pose[1]:.1f}  z {pose[2]:.1f}  yaw {pose[3]:.1f}   jaw {jaw:.2f}" if jaw is not None else f"x {pose[0]:.1f}  y {pose[1]:.1f}  z {pose[2]:.1f}"
         if poll.module is not None:
@@ -409,11 +429,20 @@ class App:
         if line.startswith("@@ASK "):
             self.set_prompt(line[6:])
             return
+        if line.startswith("@@ROUTE "):
+            try:
+                self.model.set_route(json.loads(line[8:]))
+            except ValueError:
+                pass
+            return
         clean = ANSI.sub("", line)
         if not clean.strip():
             return
         self.tail = (self.tail + [clean])[-30:]
         m = STEP.match(clean)
+        pm = re.search(r"move_to (.+?)\s+planning a new route", clean)
+        if pm:
+            self.model.planning = pm.group(1).strip()
         if clean.startswith("== "):
             self.show_log(clean, "step")
             self.now.configure(text=clean[3:])
