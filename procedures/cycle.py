@@ -59,9 +59,6 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.parked = parked or (lambda: True)
         self.supervised = mode == "supervised"
         self.safety = Safety(layout, mode, robot.joints)
-        from routes import plan as _plan_mod
-        from routes.graph import StationGraph
-        _plan_mod.GRAPH = StationGraph(self.stations)       # legs between stations are planned once and replayed (routes/graph.py)
         self.plate = plates.default(layout)      # jaw widths and seat Z offset of the plate being handled
         self.checks = PreChecks(layout, self.plate.jaw_open, self.plate.jaw_closed)
         self.drift = DriftMonitor(os.path.join(run_dir, f"drift_{scope}.json"))

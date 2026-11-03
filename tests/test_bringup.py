@@ -16,7 +16,6 @@ from bringup.sections import Bringup  # noqa: E402
 from devices.fake_squid import FakeSquid  # noqa: E402
 from bringup import sim  # noqa: E402
 from bringup.cell import Cell  # noqa: E402
-from perception.hotel_rows import HotelRows  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -123,14 +122,6 @@ def test_geometry_carries_the_grip_pose_with_the_marker():
     assert abs(geometry.wrap(flipped[5] - 120)) <= 90
 
 
-def test_a_row_is_learned_from_a_yes_then_recognised(tmp_path):
-    from tests import rig
-    rows = HotelRows(str(tmp_path))
-    assert rows.verdict(2, rig.jpeg(1)) is None
-    rows.learn(2, rig.jpeg(1), True)
-    assert rows.verdict(2, rig.jpeg(1)) is True
-    rows.learn(2, rig.jpeg(99), False)
-    assert rows.verdict(2, rig.jpeg(99)) is False and rows.verdict(2, rig.jpeg(1)) is True
 
 
 def test_the_whole_setup_runs_on_the_simulator():
@@ -169,20 +160,6 @@ def test_a_bad_hotel_answer_stops_the_run_and_names_the_section():
     cell.frames.stop()
 
 
-def test_a_calibration_above_the_limit_is_refused_and_nothing_is_uploaded():
-    cell, todo, runner, said, asked = make()
-    sections = todo.sections()
-    todo.found["camera"] = None
-    from bringup import cameras
-    real = cameras.solve
-    cameras.solve = lambda cell, camera=None: {"auto_teach_camera": {"px": 0.9, "mm": 2.0, "pictures": 7, "ok": False}}
-    try:
-        assert runner.run(sections[:2]) == "cameras.toml"
-    finally:
-        cameras.solve = real
-    assert any("above" in line for line in said)
-    assert "uploaded_at" not in cell.layout()["vision"]["calibration"].get(cell.layout()["vision"]["down_camera"], {})
-    cell.frames.stop()
 
 
 def test_a_hotel_with_no_grip_offset_is_refused_with_what_to_measure():

@@ -292,19 +292,6 @@ def plan(layout: dict, safety: Safety, here: List[float], target: List[float],
         for i, p in enumerate(route.poses, 1):
             safety.check_target(p, f"{route.name}[{i}/{len(route.poses)}]")
         return route
-    leg = None
-    if GRAPH is not None and safety.joints:
-        try:
-            sig, branch = layout_sig(layout), fk.elbow_sign(list(safety.joints())[:4])
-            a, b = GRAPH.name_of(sig, holding, here), GRAPH.name_of(sig, holding, target)
-            if a and b and a != b:
-                leg = GRAPH.key(sig, a, b, holding, branch)
-                hit = GRAPH.get(leg)
-                if hit is not None:                      # a leg between two stations, planned and checked before: no search
-                    return Route(hit["name"], [list(q) for q in hit["poses"]],
-                                 joint_targets={int(i): list(j) for i, j in hit["joint_targets"].items()})
-        except Exception:
-            leg = None
     key = _route_key(layout, safety, here, target, holding)
     if key in _ROUTES:                        # the same leg from the same place, planned and checked before in this run
         return copy.deepcopy(_ROUTES[key])
@@ -316,13 +303,10 @@ def plan(layout: dict, safety: Safety, here: List[float], target: List[float],
         _CACHE = None
     if key is not None:
         _ROUTES[key] = copy.deepcopy(route)
-    if leg is not None and not route.taught:
-        GRAPH.put(leg, route.poses, route.joint_targets, route.name)
     return route
 
 
 _ROUTES: dict = {}
-GRAPH = None                # routes.graph.StationGraph, set by the Cycle: legs between named stations are stored and replayed
 
 
 def layout_sig(layout: dict) -> str:

@@ -22,8 +22,7 @@ import numpy as np
 import exercise
 from bringup import geometry
 from bringup.runner import Refused, Section, Step
-from bringup import bench, cameras, colour, hand, servo
-from perception.hotel_rows import HotelRows
+from bringup import bench, colour, hand, servo
 from procedures import cad_poses
 from procedures.corrector import StopSafe
 from procedures.cycle import Cycle
@@ -380,7 +379,7 @@ class Bringup:
                 last = str(e)
                 continue
             try:
-                if any(c.vision.aruco_pose(v["down_camera"], 1, None, v["led"]).pixel) or cameras._local_reads(c, v["down_camera"], v["led"]):
+                if any(c.vision.aruco_pose(v["down_camera"], 1, None, v["led"]).pixel):
                     self.found["module_view"] = pose
                     self.edit(lambda L, pose=pose: self.setup_node(L).update(module_view=[round(float(x), 3) for x in pose]))
                     return pose
@@ -403,7 +402,7 @@ class Bringup:
 
     # ------------------------------------------------------------------ the sections
     def sections(self) -> List[Section]:
-        return [self.connect(), self.cameras(), self.swap(), self.grips(), self.microscope(),
+        return [self.connect(), self.swap(), self.grips(), self.microscope(),
                 self.clear_stage(), self.system_state(), self.test()]
 
     # ---- Connect system modules
@@ -448,67 +447,6 @@ class Bringup:
             Step("polar", "rotation module to 0 deg", module_to_0, moves=True),
             Step("polar", "hover hand onto rotation module centroid", hover, moves=True)])
 
-    # ---- cameras.toml
-    def cameras(self) -> Section:
-        c = self.cell
-
-        def node():
-            L = c.layout()
-            return L["vision"].get("calibration", {}).get(L["vision"]["down_camera"], {})
-
-        def detect():
-            cameras.read_marker(c, "down")
-            if node().get("marker") != "ok":
-                raise Refused("the down camera cannot read the aruco plate: clean the lens, check the plate is flat under the hand")
-            self.view_module()                                # start from the module view, not wherever the last run left the wrist
-            view = self.view_for_capture()
-            got = self.guard(lambda: cameras.pictures(c, False, "down", view))
-            return {"pictures": sum(got.values()), "captured_at": _stamp()}
-
-        def solve():
-            res = cameras.solve(c, "down")
-            r = next(iter(res.values()))
-            self.found["camera"] = r
-            return {"error_px": r["px"], "error_mm": r["mm"]}
-
-        def limits():
-            r = self.found.get("camera")
-            if not r or not r["ok"]:
-                lim = c.layout()["vision"].get("calibration_limits") or {}
-                raise Refused(f"calibration error {r and r['px']} px / {r and r['mm']} mm is above "
-                              f"{lim.get('px', cameras.LIMIT_PX)} px / {lim.get('mm', cameras.LIMIT_MM)} mm: nothing uploaded, run again")
-
-        def upload():
-            try:
-                cameras.upload(c, "down")
-            except Exception as e:                            # no login, no route to the box, a refused file: the box keeps the calibration it has (the aruco servo needs none)
-                c.note(f"not uploaded ({type(e).__name__}): {e}")
-                self.found["upload_skipped"] = True
-                return {"uploaded_at": "skipped, no box login"}
-            at = node().get("uploaded_at")
-            if not at:
-                raise Refused("the box did not take the files")
-            return {"uploaded_at": at}
-
-        def validate():
-            if self.found.get("upload_skipped") or str(node().get("uploaded_at", "")).startswith("skipped"):      # the box never got the calibration: nothing for it to check
-                c.note("validate skipped: the calibration was not uploaded (no box login)")
-                return {"check_mm": "skipped, not uploaded", "checked_at": _stamp()}
-            self.ready()
-            self.guard(lambda: cameras.check(c, "down"))
-            mm = node().get("checked_mm")
-            if mm is None:
-                c.note("validate: the box could not read the aruco from two poses; carrying on (the arm does not use the box's calibration)")
-                return {"check_mm": "not read", "checked_at": _stamp()}
-            if mm > cameras.limit_mm(c.layout()):
-                c.note(f"validate WARNING: the aruco moved {mm} mm between two poses 20 mm apart (limit {cameras.limit_mm(c.layout())}); carrying on, check the calibration after the demo")
-            return {"check_mm": mm, "checked_at": node().get("checked_at")}
-
-        return Section("cameras.toml", [
-            Step("nova", "detect aruco with the down camera", detect, moves=True),
-            Step("computer", "solve intrinsic (lens) and extrinsic (camera-to-gripper) calibration together", solve),
-            Step("computer", "refuse if px > 5.0 or mm > 2.0", limits),
-            Step("computer", "re-upload to nova, which restarts", upload)])
 
     # ---- hotel.toml
     def hotel(self) -> Section:
@@ -527,34 +465,12 @@ class Bringup:
             return {"front camera": "1 picture from the nest, for the log"}
 
         def rows():
-            """15 or 30 slots by looking, one row at a time: the camera is taken to the slot position of an even row (a 15-slot
-            hotel has no shelf there) and the cell is asked 'is there a slot here, yes or no' until it has seen enough to tell
-            by itself. One picture of the whole hotel cannot tell."""
-            cyc = self.cyc()
-            seen = HotelRows(os.path.join(c.ref_dir, "hotel_rows"))
-            present = {}
-            for row in SIZE_ROWS:
-                slot = f"B{row}"
-                self.ready()
-                self.guard(lambda slot=slot: cyc._hotel_go_to_approach(slot, "setup:hotel size"))
-                img = cyc._frame(cyc.front_cam)
-                if img is None:
-                    raise Refused("the front camera gave no picture")
-                cyc.tele.image(f"hotel_row_{row}", img)
-                verdict = seen.verdict(row, img)
-                if verdict is None:
-                    said = self.ask(f"      row {row}: is there a slot in front of the camera? yes or no: ").strip().lower()
-                    if said not in ("yes", "no"):
-                        raise Refused(f"row {row}: {said!r} is neither yes nor no")
-                    seen.learn(row, img, said == "yes")
-                    verdict = said == "yes"
-                present[row] = verdict
-            if all(present.values()):
-                size = 30
-            elif not any(present.values()):
-                size = 15
-            else:
-                raise Refused(f"the rows disagree ({present}): the hotel has slots in some even rows and not in others")
+            """15 or 30 slots: the operator says which hotel is on the cell (the shelf in the even rows is there or not)."""
+            said = self.ask("      how many slots does the hotel have, 15 or 30: ").strip()
+            if said not in ("15", "30"):
+                raise Refused(f"{said!r} is neither 15 nor 30")
+            size = int(said)
+            present = {row: size == 30 for row in SIZE_ROWS}
             at = _stamp()
             self.found["hotel_size"] = size
             self.edit(lambda L: (bench.set_hotel_size(L, size),
@@ -565,7 +481,7 @@ class Bringup:
         return Section("hotel.toml", [
             Step("polar", "arm to the nest, the hotel view", to_nest, moves=True),
             Step("nova", "image the hotel with the front camera", look),
-            Step("polar", "camera to the slot position of each even row, one at a time; is there a slot here, yes or no", rows, moves=True)])
+            Step("computer", "how many slots the hotel has, 15 or 30", rows)])
 
     # ---- swap the plates
     def swap(self) -> Section:
