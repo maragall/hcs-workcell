@@ -88,27 +88,27 @@ class PosePoll(threading.Thread):
         self.pose, self.jaw, self.module, self.at, self.error = None, None, None, 0.0, ""
 
     def run(self):
+        """One short connection per reading (connect, two reads, close, about 60 ms): the port takes one client at a time, and the setup's
+        own readings, error checks and force clamps need it in between. While the setup holds it (a clamp, up to 15 s) the view goes stale."""
         while True:
-            b = None
+            t0 = time.time()
+            b = Brcapi(self.ip, 56788, timeout=2.0, log=None)
             try:
-                b = Brcapi(self.ip, 56788, log=None)
                 b.connect()
-                while True:
-                    p = b.pose_mm_rad()
-                    j = b.joints()
-                    ext = list(j[1]) if isinstance(j, (tuple, list)) and len(j) == 2 and isinstance(j[0], (list, tuple)) else list(j)[4:]
-                    self.pose = [p[0], p[1], p[2], math.degrees(p[5])]
-                    self.jaw, self.module = (ext[0] if ext else None), (ext[1] if len(ext) > 1 else None)
-                    self.at, self.error = time.time(), ""
-                    time.sleep(0.2)
+                p = b.pose_mm_rad()
+                j = b.joints()
+                ext = list(j[1]) if isinstance(j, (tuple, list)) and len(j) == 2 and isinstance(j[0], (list, tuple)) else list(j)[4:]
+                self.pose = [p[0], p[1], p[2], math.degrees(p[5])]
+                self.jaw, self.module = (ext[0] if ext else None), (ext[1] if len(ext) > 1 else None)
+                self.at, self.error = time.time(), ""
             except Exception as e:
-                self.error = str(e)[:60] or "no answer"
+                self.error = str(e)[:60] or "busy"
+            finally:
                 try:
-                    if b: b.close()
+                    b.close()
                 except Exception:
                     pass
-                time.sleep(2.0)
-
+            time.sleep(max(0.05, 0.4 - (time.time() - t0)))
 
 class Model:
     """One fixed view of the cell: the hotel's parts, the pillar, the microscope box, the module; the claw where the arm is, the plate in it

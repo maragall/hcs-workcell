@@ -52,7 +52,17 @@ class Brcapi:
     # --------------------------------------------------------------- transport
     def connect(self):
         self.close()
-        self._sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
+        deadline = time.time() + 4.0
+        while True:
+            try:
+                self._sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
+                break
+            except ConnectionRefusedError:
+                # the port takes one client at a time (measured 2026-11-03); the window's pose poller holds it for a few tens of ms
+                # a few times a second: wait for it to let go instead of failing
+                if time.time() > deadline:
+                    raise
+                time.sleep(0.05)
         self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self._log("ctrl", "connect", f"{self.host}:{self.port}")
 

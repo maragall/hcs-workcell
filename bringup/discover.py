@@ -10,6 +10,7 @@ import importlib.util
 import os
 import ipaddress
 import socket
+import time
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -41,17 +42,25 @@ def local_subnets() -> List[ipaddress.IPv4Network]:
     return nets
 
 
-def port_open(host: str, port: int, timeout: float = PROBE_TIMEOUT_S) -> bool:
-    try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
-    except OSError:
-        return False
+def port_open(host: str, port: int, timeout: float = PROBE_TIMEOUT_S, retry_s: float = 0.0) -> bool:
+    """With retry_s: a refused connection is tried again for that long (the controller's BRCAPI port takes one client at a time and the
+    window's pose poller holds it for a few tens of ms a few times a second, 2026-11-03)."""
+    deadline = time.time() + retry_s
+    while True:
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except ConnectionRefusedError:
+            if time.time() >= deadline:
+                return False
+            time.sleep(0.05)
+        except OSError:
+            return False
 
 
 def scan(port: int, first: Optional[str] = None) -> Optional[str]:
     """The first host with `port` open: the known address, then the local subnets in parallel."""
-    if first and port_open(first, port, 1.0):
+    if first and port_open(first, port, 1.0, retry_s=2.0):
         return first
     hosts = [str(h) for net in local_subnets() for h in net.hosts()]
     with ThreadPoolExecutor(max_workers=64) as pool:
