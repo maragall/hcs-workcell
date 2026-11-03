@@ -292,6 +292,19 @@ def plan(layout: dict, safety: Safety, here: List[float], target: List[float],
         for i, p in enumerate(route.poses, 1):
             safety.check_target(p, f"{route.name}[{i}/{len(route.poses)}]")
         return route
+    leg = None
+    if GRAPH is not None and safety.joints:
+        try:
+            sig, branch = layout_sig(layout), fk.elbow_sign(list(safety.joints())[:4])
+            a, b = GRAPH.name_of(sig, holding, here), GRAPH.name_of(sig, holding, target)
+            if a and b and a != b:
+                leg = GRAPH.key(sig, a, b, holding, branch)
+                hit = GRAPH.get(leg)
+                if hit is not None:                      # a leg between two stations, planned and checked before: no search
+                    return Route(hit["name"], [list(q) for q in hit["poses"]],
+                                 joint_targets={int(i): list(j) for i, j in hit["joint_targets"].items()})
+        except Exception:
+            leg = None
     key = _route_key(layout, safety, here, target, holding)
     if key in _ROUTES:                        # the same leg from the same place, planned and checked before in this run
         return copy.deepcopy(_ROUTES[key])
@@ -303,19 +316,26 @@ def plan(layout: dict, safety: Safety, here: List[float], target: List[float],
         _CACHE = None
     if key is not None:
         _ROUTES[key] = copy.deepcopy(route)
+    if leg is not None and not route.taught:
+        GRAPH.put(leg, route.poses, route.joint_targets, route.name)
     return route
 
 
 _ROUTES: dict = {}
+GRAPH = None                # routes.graph.StationGraph, set by the Cycle: legs between named stations are stored and replayed
+
+
+GEOMETRY_KEYS = ("pose", "pose_at_0", "pose_at_90", "hover_mm", "clear_mm", "lift_mm", "lip_mm", "grid", "taught", "rows", "pose_source",
+                 "trajectory", "place_lift_mm", "free_above_z", "hotel_approach")
 
 
 def layout_sig(layout: dict) -> str:
-    """A hash of the geometry a route depends on: every volume, region and pose (not the occupancy, the setup notes or the vision
-    settings, which change every move)."""
-    fixtures = dict(layout.get("fixtures", {}))
-    hotel = {k: v for k, v in fixtures.get("hotel", {}).items() if k not in ("loaded", "active_slots")}
-    rest = {k: v for k, v in layout.items() if k not in ("setup", "vision", "fixtures")}
-    return hashlib.sha1(json.dumps([rest, dict(fixtures, hotel=hotel)], sort_keys=True, default=str).encode()).hexdigest()
+    """A hash of the geometry a route depends on: the volumes, the regions, the routes block, and of every fixture only the keys that place
+    or size it. Flags (a plate on the module), widths, the occupancy, the setup notes and the vision settings are left out: the first
+    version of this hash held them, changed every move, and no stored leg ever matched (2026-11-02)."""
+    fixtures = {name: {k: v for k, v in fx.items() if k in GEOMETRY_KEYS} for name, fx in layout.get("fixtures", {}).items() if isinstance(fx, dict)}
+    geometry = [layout.get("volumes"), layout.get("regions"), layout.get("routes"), fixtures]
+    return hashlib.sha1(json.dumps(geometry, sort_keys=True, default=str).encode()).hexdigest()
 
 
 def _route_key(layout, safety, here, target, holding):

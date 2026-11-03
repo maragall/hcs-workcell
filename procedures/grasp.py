@@ -43,13 +43,14 @@ class Grasp:
         """Close under the torque limit (devices/clamp.py) and judge by force: returns (reading, None when a plate is held, else the reason)."""
         g = self.L["gripper"]
         limit, speed = float(g.get("clamp_limit", 0.5)), int(g.get("clamp_speed", 20))
-        command = self.plate.jaw_closed[grip]
+        teaching = getattr(self, "teaching", False)          # setup: the plate's width is what is being learned: any width, a command well under it
+        command = max(self.plate.jaw_closed[grip] - (2.0 if teaching else 0.0), 0.0)
         try:
             r = self.robot.clamp(command, limit, speed, self.checks.width_of(grip))
         except Exception as e:
             self._fault(step, "clamp_error", str(e))
             raise StopSafe(f"{step}: the force clamp failed: {e}")
-        why = self.checks.clamp_holds(r, command, limit, grip)
+        why = self.checks.clamp_holds(r, command, limit, grip, near=not teaching)
         self.tele.log("jaw", "clamp", why or "holding", grip=grip, width=r["width"], torque=r["torque"], limit=limit)
         self._observe(f"jaw:clamp:{grip}", r["width"])
         return r, why
