@@ -51,13 +51,12 @@ prediction models train on.
 | section | what happens | where the result goes |
 |---|---|---|
 | connect | ports found, Squid homed (a Squid with no motors stays where it is), arm to the nest, module to 0 deg | the nest is `routes.nest` |
-| microscope seat | **you** take the plate off the module, set it in the microscope's holder and drag the arm so the open fingers straddle it; that pose is the seat; the arm lets go, rises, and proves the seat by picking the plate from it, lifting, setting it back and releasing | `fixtures.<name>.pose` |
-| grips.toml | the plate is carried to the module; short and long grip closed on it under the controller's force limit (0.5), the width the pads reach kept as the plate width, three carry-seat-regrip cycles, the plate carried back to the microscope | `gripper.plate_width`, `gripper.closed`, `gripper.accept_band`, `gripper.clamp_limit` |
+| microscope seat | **you** take the plate off the module, set it in the microscope's holder and drag the arm so the open fingers straddle it; that pose is the seat; the arm lets go, rises, and proves the seat by picking the plate from it (the force clamp; its first holding clamp teaches the grip's width), lifting, setting it back and releasing | `fixtures.<name>.pose`, `gripper.plate_width` |
 | microscope.toml | stage limits and park position from Squid (skipped for a Squid with no motors) | `squid.<name>` |
 | test | the plate through the microscope into a free hotel slot, then random plates between the slots and the microscope for ever (stop with `runs/STOP`) | |
 
 A refused check stops the run, prints what to fix and leaves that section's values as they were. Continue with
-`python cli.py setup --from "grips.toml"`. The Squid it drives is the practice
+`python cli.py setup --from "microscope seat"`. The Squid it drives is the practice
 one (no motors, nothing imaged) until `devices/squid.py` is wired in.
 Not yet automatic: a route to a microscope that stands more than the zone's 2 mm from the taught seat, and the 15-slot
 grip offset (`fixtures.hotel.grip_back_mm`).

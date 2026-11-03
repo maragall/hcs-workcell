@@ -17,7 +17,7 @@ ENTRIES = [
     ("2. THE VERDICT on a clamp reading: torque at the limit AND the jaw above the command AND near the width this grip reads on the plate.",
      "perception/predictor.py", ["clamp_holds"]),
     ("3. THE CLAMP AND THE CARRY CHECK as the cycle uses them (teaching mode, the stop when the plate is not in the claw).",
-     "procedures/grasp.py", ["_clamp", "_carry_check"]),
+     "procedures/grasp.py", ["_clamp", "_learn_width", "_carry_check"]),
     ("4. PICK AND PLACE at the module and the microscope, and the two routes of one plate.",
      "procedures/cycle.py", ["_pick", "_place", "_steps"]),
     ("5. THE HOTEL: slide-in rules, where the carry check sits, the squaring-up before the slide.",
@@ -25,7 +25,7 @@ ENTRIES = [
     ("6. THE ROUTE STORE: what a stored leg is keyed by (geometry only) and where the planner reads and writes it.",
      "routes/plan.py", ["layout_sig", "plan"]),
     ("7. THE SETUP in the order you run it: sections and their steps.",
-     "bringup/sections.py", ["sections", "seat", "grips"]),
+     "bringup/sections.py", ["sections", "seat"]),
     ("8. THE UNATTENDED RUN: what restarts the loop and when it gives up.",
      "tools/keep_running.py", None),
 ]

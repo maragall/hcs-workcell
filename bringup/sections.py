@@ -35,8 +35,6 @@ from procedures.telemetry import Telemetry
 CARRY_ON = ("safe to lower", "clear to lower", "clear to rotate", "fine to continue", "seated correctly", "held correctly", "Continue anyway", "Proceed with the taught pose")      # the camera gates' questions: the setup answers yes and logs the mismatch
 SEAT_MOVED_KEEP_MM = 1.0          # closer than this the taught seat stays: the read has that much noise
 SEARCH_HEIGHTS = 4                # heights tried below the microscope hover, highest allowed first
-BAND_BELOW, BAND_ABOVE = 0.1, {"short_edges": 0.5, "long_edges": 1.05}     # as gripper.accept_band was set 2026-10-22
-RESEATS = 1
 ACQUISITION_TIMEOUT_S = 600
 VIEW_DISTANCE_MM = 140.0         # camera height above the tag for the capture grid (calibration/plan.py tag_in_view)
 TAG_VIEW_MARGIN_MM = 5.0         # headroom under the workspace top for the stage view
@@ -246,7 +244,7 @@ class Bringup:
 
     # ------------------------------------------------------------------ the sections
     def sections(self) -> List[Section]:
-        return [self.connect(), self.seat(), self.grips(), self.microscope(), self.test()]       # the stage and slot look-arounds were camera checks: out
+        return [self.connect(), self.seat(), self.microscope(), self.test()]       # the stage and slot look-arounds were camera checks: out
 
     # ---- Connect system modules
     def connect(self) -> Section:
@@ -300,126 +298,6 @@ class Bringup:
             Step("polar", "let go of the plate and rise straight out of the holder", lambda: self.leave_holder(release=True), moves=True),
             Step("polar", "prove the seat: pick the plate from it, lift, set it back, release (clamped by force, the jaw opening all the way)", self.check_seat, moves=True)])
 
-    # ---- grips.toml
-    def grips(self) -> Section:
-        c = self.cell
-        widths: dict = {}
-
-        def poses():
-            F = c.layout()["fixtures"]["polar"]
-            return F, F["pose_at_0"]["pose"], F["pose_at_90"]["pose"]
-
-        def corrected(p0):
-            dx, dy, dyaw = self.found.get("plate_offset") or c.layout().get("setup", {}).get("plate_offset") or (0, 0, 0)
-            p = offset(p0, [dx, dy, 0.0])
-            p[5] = p0[5] + dyaw
-            return p
-
-        def to_module():
-            """The plate is in the holder (the seat was just proved): microscope to the module along the microscope's taught way and the planner."""
-            self.ready()
-            cyc = self.cyc()
-            st = cyc.store.s
-            st.plate_at, st.grip, st.step_done = self.scope, "none", True
-            cyc.store.save()
-            steps = cyc._steps("A1")[0][:2]                       # pick:microscope, place:polar (the slot's steps are not run)
-            self.guard(lambda: cyc._run_steps(steps))
-            return {"plate": "on the module at 0 deg"}
-
-        def short():
-            self.ready()
-            F, p0, _ = poses()
-            cyc = self.cyc()
-            self.leave_holder(release=True)                      # a plate may still be in the fingers at the microscope seat
-            self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-            if cyc.polar.driver == "ext_axis" and abs(((cyc.polar.read_angle() + 180.0) % 360.0) - 180.0) > 3.0:
-                print(f"   the module reads {cyc.polar.read_angle():.1f} deg: turning it to the short-edge grip (0) first")
-                self.guard(lambda: cyc._polar_rotate(0, p0))
-                self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-            cyc.teaching = True                                     # the first clamp on this plate: any width, the force says whether it is held
-            try:
-                self.guard(lambda: cyc._pick("polar", corrected(p0), F, "short_edges", None, gate="polar@0"))
-            finally:
-                cyc.teaching = False
-            widths["short_edges"] = round(c.robot.jaw(), 2)
-            return {"short_closed": widths["short_edges"]}
-
-        def grip_offset():
-            size = self.found.get("hotel_size") or c.layout().get("setup", {}).get("hotel", {}).get("size")
-            back = c.layout()["fixtures"]["hotel"].get("grip_back_mm", {}).get(str(size))
-            if back is None:
-                raise Refused(f"the {size}-slot hotel has no grip_back_mm in layout.json (fixtures.hotel). Measure how far "
-                              "back the plate is gripped for it with the caliper and enter it")
-            self.found["grip_offset"] = back
-            return {"grip_offset": back}
-
-        def long():
-            F, p0, p90 = poses()
-            cyc = self.cyc()
-            self.guard(lambda: cyc._place("polar", corrected(p0), F, "polar", None, gate="polar@0"))
-            self.guard(lambda: cyc._polar_rotate(90, p0))
-            cyc.teaching = True
-            try:
-                self.guard(lambda: cyc._pick("polar", p90, F, "long_edges", None, gate="polar@90"))
-            finally:
-                cyc.teaching = False
-            widths["long_edges"] = round(c.robot.jaw(), 2)
-            return {"long_closed": widths["long_edges"]}
-
-        def band():
-            def write(L):
-                g = L["gripper"]
-                for grip, w in widths.items():
-                    g.setdefault("plate_width", {})[grip] = w                 # where the pads stop on this plate under the force limit
-                    g["closed"][grip] = round(w - 1.0, 2)                     # the clamp command: 1 mm under it
-                    g["accept_band"][grip] = geometry.accept_band(w, BAND_BELOW, BAND_ABOVE[grip])
-                self.setup_node(L).update(grips={"short_closed": widths["short_edges"], "long_closed": widths["long_edges"],
-                                                 "grip_offset": self.found["grip_offset"], "measured_at": _stamp()})
-            self.edit(write)
-            cyc = self.cyc()
-            for grip, w in widths.items():                            # the cycle in hand judges the next picks against what was just learned
-                cyc.checks.width[grip] = w
-                cyc.checks.closed[grip] = cyc.plate.jaw_closed[grip] = round(w - 1.0, 2)
-            g = c.layout()["gripper"]["accept_band"]
-            return {"accept_band": {k: g[k] for k in widths}, "measured_at": _stamp()}
-
-        def reseat():
-            F, p0, p90 = poses()
-            cyc = self.cyc()
-            seen = []
-            for _ in range(RESEATS):
-                self.guard(lambda: cyc._place("polar", p90, F, "polar", None, gate="polar@90"))
-                self.guard(lambda: cyc._pick("polar", p90, F, "long_edges", None, gate="polar@90"))
-                seen.append(round(c.robot.jaw(), 2))
-            lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
-            bad = [w for w in seen if not lo <= w <= hi]
-            if bad:
-                raise Refused(f"re-grip widths {seen} left the band {lo} to {hi}: the plate does not seat the same way each time")
-            return {"re-grip widths": seen, "spread": geometry.spread(seen)}
-
-        def put_back():
-            F, p0, p90 = poses()
-            cyc = self.cyc()
-            self.guard(lambda: cyc._place("polar", p90, F, "polar", None, gate="polar@90"))
-            self.guard(lambda: cyc._polar_rotate(0, p90))
-
-        def to_scope():
-            """Back to the microscope's seat: the two legs between the microscope and the module are now done once each."""
-            cyc = self.cyc()
-            steps = cyc._steps("A1")[1][3:]                          # pick:polar by the short edges, place:microscope
-            self.guard(lambda: cyc._run_steps(steps))
-            self.edit(lambda L: (L["fixtures"][self.scope].update(plate_on_stage=True), L["fixtures"]["polar"].pop("plate_on_module", None)))
-            return {"plate": "on the microscope stage"}
-
-        return Section("grips.toml", [
-            Step("polar", "carry the plate from the microscope to the rotation module", to_module, moves=True),
-            Step("polar", "grip plate on the short edges at the module pose, closing under the force limit", short, moves=True),
-            Step("computer", "choose the long-edge grip offset for the hotel size", grip_offset),
-            Step("polar", "rotate module to 90, grip on the long edges, closing under the force limit", long, moves=True),
-            Step("computer", "keep the width each grip reached as the plate width, the clamp command 1 mm under it", band),
-            Step("polar", "carry, seat and re-grip the plate three times", reseat, moves=True),
-            Step("polar", "place plate back on the rotation module at 0 deg", put_back, moves=True),
-            Step("polar", "carry the plate back to the microscope", to_scope, moves=True)])
 
     # ---- microscope.toml
     def microscope(self) -> Section:
