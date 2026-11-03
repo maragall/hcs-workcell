@@ -75,7 +75,7 @@ class Feed(threading.Thread):
 
 
 class App:
-    def __init__(self, feeds, labels, argv, selftest_child=None):
+    def __init__(self, feeds, labels, argv, selftest_child=None, autostart=True):
         self.feeds, self.argv, self.child_cmd = feeds, argv, selftest_child
         self.proc, self.lines, self.prompt, self.exited = None, queue.Queue(), None, None
         self.tail = []
@@ -139,7 +139,10 @@ class App:
         r.bind("<Return>", lambda e: self.primary())
         r.bind("<Configure>", lambda e: self.now.configure(wraplength=max(e.width - 40, 400)) if e.widget is self.root else None)
         r.protocol("WM_DELETE_WINDOW", self.close)
-        self.start()
+        if autostart:
+            self.start()
+        else:
+            self.idle()
         self.tick()
 
     # ------------------------------------------------------------------ widgets
@@ -174,6 +177,15 @@ class App:
         self.proc = subprocess.Popen(cmd, cwd=HERE, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
                                      creationflags=NO_WINDOW if os.name == "nt" else 0)
         threading.Thread(target=self.read, args=(self.proc,), daemon=True).start()
+
+    def idle(self):
+        """Cameras only: nothing runs until the button is pressed; it starts the real setup (the same as Start over)."""
+        self.stop_btn.configure(state="disabled")
+        self.status.configure(text="cameras only", fg=MUTED)
+        for w in self.buttons.winfo_children():
+            w.destroy()
+        self.ask_text.configure(text="cameras only: the setup has not been started")
+        self.button(self.buttons, "Start setup", lambda: self.start(list(self.argv))).pack(side="right")
 
     def read(self, proc):
         for raw in iter(proc.stdout.readline, b""):
@@ -336,14 +348,7 @@ def main():
         return
     for f in feeds:
         f.start()
-    if "--view" in sys.argv:
-        argv = None
-    app = App(feeds, labels, argv or [], selftest_child=["python", "-c", "import time; time.sleep(10**6)"] if argv is None else None)
-    if argv is None:
-        app.stop_btn.configure(state="disabled")
-        app.status.configure(text="cameras only")
-        app.proc.kill()
-    app.root.mainloop()
+    App(feeds, labels, argv, autostart="--view" not in sys.argv).root.mainloop()
 
 
 if __name__ == "__main__":
