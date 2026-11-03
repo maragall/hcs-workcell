@@ -139,6 +139,10 @@ class App:
         cmd = self.child_cmd or [PYTHON, "-X", "utf8", "-u", "cli.py", "setup"] + list(args)
         env = dict(os.environ, NOVA_GUI="1", PYTHONIOENCODING="utf-8")
         self.exited, self.tail = None, []
+        try:
+            os.remove(os.path.join(HERE, "runs", "STOP"))        # left by this window's own Stop or an earlier run: a new run starts clean
+        except OSError:
+            pass
         self.set_prompt(None)
         self.stop_btn.configure(state="normal")
         self.status.configure(text="setup running", fg=MUTED)
