@@ -72,23 +72,26 @@ class App:
         r.title("Nova Cell")
         r.configure(bg=BG)
         r.geometry("1060x800")
-        r.minsize(640, 560)
+        r.minsize(760, 640)
+        self.cam = self.fit(1060, 800)             # the pixel size of each picture; changes only when the window is resized
         r.grid_columnconfigure(0, weight=1, uniform="c")
         r.grid_columnconfigure(1, weight=1, uniform="c")
         r.grid_rowconfigure(3, weight=1)
         self.photos = [None, None]
+        self.drawn = [(0.0, None), (0.0, None)]
         self.panels = []
         for i, label in enumerate(labels):
             f = tk.Frame(r, bg=BG)
             f.grid(row=0, column=i, sticky="n", padx=(16, 8) if i == 0 else (8, 16), pady=(16, 0))
-            img = tk.Label(f, bg="#000000", bd=0, highlightthickness=0)
+            img = tk.Canvas(f, width=self.cam[0], height=self.cam[1], bg="#000000", bd=0, highlightthickness=0)
             img.pack()
+            item = img.create_image(0, 0, anchor="nw")
             row = tk.Frame(f, bg=BG)
             row.pack(fill="x", pady=(8, 0))
             tk.Label(row, text=label, bg=BG, fg=FG, font=("Segoe UI", 11)).pack(side="left")
             state = tk.Label(row, text="", bg=BG, fg=MUTED, font=("Segoe UI", 9))
             state.pack(side="right")
-            self.panels.append((img, state))
+            self.panels.append((img, state, item))
         # the step in hand
         self.now = tk.Label(r, text="", bg=BG, fg=FG, font=("Segoe UI", 12), anchor="w", justify="left", wraplength=1000)
         self.now.grid(row=1, column=0, columnspan=2, sticky="ew", padx=16, pady=(16, 0))
@@ -117,6 +120,7 @@ class App:
         self.stop_btn = self.button(bar, "Stop", self.stop, BAD)
         self.stop_btn.pack(side="right")
         r.bind("<Return>", lambda e: self.primary())
+        r.bind("<Configure>", self.on_configure)
         r.protocol("WM_DELETE_WINDOW", self.close)
         self.start()
         self.tick()
@@ -251,12 +255,24 @@ class App:
         self.button(self.buttons, "Start over", lambda: self.start(list(self.argv)), "#3a3f47").pack(side="right", padx=(0, 8))
         self.ask.grid()
 
-    def size(self):
-        w, h = max(self.root.winfo_width(), 640), max(self.root.winfo_height(), 560)
+    @staticmethod
+    def fit(w, h):
+        """The size of one picture for a window of w x h: two side by side, the rows below them need about 430 px, 4:3 kept."""
         pw = (w - 16 * 2 - 16) // 2
         ph = max(h - 430, 150)
         pw = int(min(pw, ph * ASPECT))
         return pw, int(pw / ASPECT)
+
+    def on_configure(self, e):
+        """Only the window's own size changes the pictures' size (never what the widgets ask for): no feedback, no jumping."""
+        if e.widget is not self.root:
+            return
+        size = self.fit(e.width, e.height)
+        if abs(size[0] - self.cam[0]) >= 2:
+            self.cam = size
+            for img, _, _ in self.panels:
+                img.configure(width=size[0], height=size[1])
+        self.now.configure(wraplength=max(e.width - 40, 400))
 
     def tick(self):
         try:
@@ -268,16 +284,15 @@ class App:
                     self.handle(item)
         except queue.Empty:
             pass
-        pw, ph = self.size()
         for i, feed in enumerate(self.feeds):
-            img, state = self.panels[i]
-            if feed.frame is not None:
+            img, state, item = self.panels[i]
+            if feed.frame is not None and self.drawn[i] != (feed.at, self.cam):          # a new picture or a new size: draw, otherwise leave it
+                pw, ph = self.cam
                 frame = cv2.resize(feed.frame, (pw, ph), interpolation=cv2.INTER_AREA)
                 ok, png = cv2.imencode(".png", frame, [cv2.IMWRITE_PNG_COMPRESSION, 1])
                 self.photos[i] = tk.PhotoImage(data=base64.b64encode(png.tobytes()))
-                img.configure(image=self.photos[i], width=pw, height=ph)
-            else:
-                img.configure(image="", width=pw, height=ph)
+                img.itemconfigure(item, image=self.photos[i])
+                self.drawn[i] = (feed.at, self.cam)
             age = time.time() - feed.at if feed.at else None
             if feed.error and (age is None or age > 4):
                 state.configure(text=f"no signal  {feed.error}", fg=BAD)
@@ -285,7 +300,6 @@ class App:
                 state.configure(text="connecting", fg=MUTED)
             else:
                 state.configure(text="live" if age < 3 else f"last picture {age:.0f} s ago", fg=MUTED)
-        self.now.configure(wraplength=max(self.root.winfo_width() - 40, 400))
         self.root.after(200, self.tick)
 
 
@@ -313,7 +327,7 @@ def main():
             elif app.prompt is not None and stage == 1 and "[y/N]" in app.prompt:
                 print("question 2:", repr(app.prompt)); app.answer("y"); stage = 2
             time.sleep(0.05)
-        print("child exit", app.exited, "window drawn, panel size", app.size())
+        print("child exit", app.exited, "window drawn, panel size", app.cam)
         app.root.destroy()
         return
     for f in feeds:
