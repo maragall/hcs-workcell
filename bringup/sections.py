@@ -222,6 +222,9 @@ class Bringup:
         # module learns the other one before the first slot. Nothing stale from an earlier plate or earlier fingers can block them.
         self.edit(lambda L: L["gripper"].get("plate_width", {}).clear())
         cyc.checks.width.clear()
+        # the plate the operator just set in the holder is the cell's plate: the hotel occupancy and the module/stage flags start empty
+        self.edit(lambda L: (bench.set_loaded(L, []), L["fixtures"]["polar"].pop("plate_on_module", None), L["fixtures"][self.scope].pop("plate_on_stage", None)))
+        cyc.store.s.hotel = {}
         self.guard(lambda: cyc._pick(self.scope, F[self.scope]["pose"], F[self.scope], "short_edges", None))
         held = round(c.robot.jaw(), 2)
         self.guard(lambda: cyc._place(self.scope, F[self.scope]["pose"], F[self.scope], self.scope, None))
