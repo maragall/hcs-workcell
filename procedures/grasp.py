@@ -80,7 +80,7 @@ class Grasp:
         except Exception as e:
             self._fault(step, "clamp_error", str(e))
             raise StopSafe(f"{step}: the force read failed: {e}")
-        why = self.checks.clamp_holds(r, self.plate.jaw_closed[grip], limit, grip)
+        why = self.checks.clamp_holds(r, self.plate.jaw_closed[grip], limit, grip, floor=0.5)
         self.tele.log("jaw", "carry", why or "holding", grip=grip, width=r["width"], torque=r["torque"])
         if why:
             self._fault(step, "plate_lost", why)

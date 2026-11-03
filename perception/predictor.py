@@ -87,12 +87,12 @@ class PreChecks:
         presses), so an empty close reads the command, far outside. Without an entry the command is the width (the old behaviour)."""
         return self.width.get(grip, self.closed[grip])
 
-    def clamp_holds(self, r: dict, command: float, limit: float, grip: str):
+    def clamp_holds(self, r: dict, command: float, limit: float, grip: str, floor: float = 0.9):
         """None when the reading is a plate between the fingers, else the reason. The force is the signal: the torque is at the limit (a plate pushes
         back) and the jaw stopped above the command (the fingers did not reach it). The width only has to be near what this grip reads on the plate."""
         w, t = r["width"], abs(r["torque"])
-        if t < 0.9 * limit:
-            return f"torque {t:.2f} is under {0.9 * limit:.2f}: nothing presses back"
+        if t < floor * limit:                      # at the clamp 0.9 of the limit; during a carry 0.5 (the holding torque relaxes: 0.50 -> 0.40 over a
+            return f"torque {t:.2f} is under {floor * limit:.2f}: nothing presses back"      # 34 s carry with the plate held, 2026-11-03; half the clamp force is the vendor's own drop threshold)
         if w < command + 0.3:
             return f"the jaw closed to {w:.2f}, the command {command}: nothing between the fingers"
         want = self.width.get(grip)                 # known once the first holding clamp of this grip has been seen (Grasp._clamp learns it)
