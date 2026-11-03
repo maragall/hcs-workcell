@@ -26,7 +26,8 @@ from devices.vision_box import VisionClient  # noqa: E402
 
 PYTHON = os.path.join(os.path.dirname(sys.executable), "python.exe") if sys.executable.lower().endswith("pythonw.exe") else sys.executable
 ASPECT = 4 / 3                    # width / height of both cameras at the full field of view
-REQUEST = (1280, 960)             # the full-field 4:3 mode; 1280x720 is a crop of the sensor
+REQUEST = (640, 480)              # the full 4:3 field at the size it is shown: one picture pixel per screen pixel, nothing resampled here
+CAM = REQUEST                     # (the 16:9 modes are a crop of the sensor; 1280x960 and 3280x2464 show the same field as this)
 PERIOD_S = 0.6
 BG, PANEL, FG, MUTED, BAD, GOOD, ACCENT = "#0e0f11", "#16181b", "#e6e8eb", "#6b7280", "#d4574a", "#5aa874", "#4c8dff"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
@@ -82,9 +83,10 @@ class App:
         r = self.root
         r.title("hcs-workcell")
         r.configure(bg=BG)
-        r.geometry("1060x800")
-        r.minsize(760, 640)
-        self.cam = self.fit(1060, 800)             # the pixel size of each picture; changes only when the window is resized
+        self.cam = CAM
+        w = CAM[0] * 2 + 16 * 3
+        r.geometry(f"{w}x{CAM[1] + 420}")
+        r.minsize(w, CAM[1] + 420)                 # never smaller than the two full frames
         r.grid_columnconfigure(0, weight=1, uniform="c")
         r.grid_columnconfigure(1, weight=1, uniform="c")
         r.grid_rowconfigure(1, minsize=58)            # the step in hand: two lines, always
@@ -135,7 +137,7 @@ class App:
         self.stop_btn = self.button(bar, "Stop", self.stop, BAD)
         self.stop_btn.pack(side="right")
         r.bind("<Return>", lambda e: self.primary())
-        r.bind("<Configure>", self.on_configure)
+        r.bind("<Configure>", lambda e: self.now.configure(wraplength=max(e.width - 40, 400)) if e.widget is self.root else None)
         r.protocol("WM_DELETE_WINDOW", self.close)
         self.start()
         self.tick()
@@ -272,25 +274,6 @@ class App:
             self.button(self.buttons, f"Resume at {name}", lambda: self.start(extra)).pack(side="right")
         self.button(self.buttons, "Start over", lambda: self.start(list(self.argv)), "#3a3f47").pack(side="right", padx=(0, 8))
 
-    @staticmethod
-    def fit(w, h):
-        """The size of one picture for a window of w x h: two side by side, the rows below them need about 430 px, 4:3 kept."""
-        pw = (w - 16 * 2 - 16) // 2
-        ph = max(h - 430, 150)
-        pw = int(min(pw, ph * ASPECT))
-        return pw, int(pw / ASPECT)
-
-    def on_configure(self, e):
-        """Only the window's own size changes the pictures' size (never what the widgets ask for): no feedback, no jumping."""
-        if e.widget is not self.root:
-            return
-        size = self.fit(e.width, e.height)
-        if abs(size[0] - self.cam[0]) >= 2:
-            self.cam = size
-            for img, _, _ in self.panels:
-                img.configure(width=size[0], height=size[1])
-        self.now.configure(wraplength=max(e.width - 40, 400))
-
     def tick(self):
         try:
             while True:
@@ -305,7 +288,8 @@ class App:
             img, state, item = self.panels[i]
             if feed.frame is not None and self.drawn[i] != (feed.at, self.cam):          # a new picture or a new size: draw, otherwise leave it
                 pw, ph = self.cam
-                frame = letterbox(feed.frame, pw, ph)            # at the frame's own aspect, whatever size the box served
+                h, w = feed.frame.shape[:2]
+                frame = feed.frame if (w, h) == (pw, ph) else letterbox(feed.frame, pw, ph)      # as served; fitted only if the box sent another size
                 ok, png = cv2.imencode(".png", frame, [cv2.IMWRITE_PNG_COMPRESSION, 1])
                 self.photos[i] = tk.PhotoImage(data=base64.b64encode(png.tobytes()))
                 img.itemconfigure(item, image=self.photos[i])

@@ -299,9 +299,21 @@ class Motion:
             # 2026-11-03 the plate had been put down and the jaw read 29, the ledger still said short_edges)
             jaw = self.robot.jaw()
             bands = list(self.L["gripper"].get("accept_band", {}).values())
-            if not bands or any(lo - 0.6 <= jaw <= hi + 0.6 for lo, hi in bands):
-                raise SafetyViolation("the claw holds a plate; the nest is for an empty claw. Put the plate down by hand, then go to the nest")
-            self.tele.log("ledger", "stale", f"grip {grip} in the ledger, the jaw reads {jaw:.2f}, outside every plate width: the claw is empty")
+            held, why = True, f"the jaw reads {jaw:.2f}"
+            if bands and not any(lo - 0.6 <= jaw <= hi + 0.6 for lo, hi in bands):
+                held, why = False, f"the jaw reads {jaw:.2f}, outside every plate width"
+            elif hasattr(self.robot, "clamp_read"):
+                # the jaw at a plate width says nothing by itself (a plate pulled out of a stopped clamp leaves it there): the force does
+                try:
+                    r = self.robot.clamp_read()
+                    limit = float(self.L["gripper"].get("clamp_limit", 0.5))
+                    held = abs(r["torque"]) >= 0.5 * limit
+                    why = f"the jaw reads {r['width']:.2f} at torque {r['torque']:.2f}" + ("" if held else ": nothing presses back")
+                except Exception as e:
+                    why = f"the jaw reads {jaw:.2f}; the force could not be read ({str(e)[:60]})"
+            if held:
+                raise SafetyViolation(f"the claw holds a plate ({why}); the nest is for an empty claw. Put the plate down by hand, then go to the nest")
+            self.tele.log("ledger", "stale", f"grip {grip} in the ledger, {why}: the claw is empty")
             self.store.s.grip = "none"
             if self.store.s.plate_at == "gripper":
                 self.store.s.plate_at = "none"
