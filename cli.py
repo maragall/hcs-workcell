@@ -29,7 +29,6 @@ from devices import nova  # noqa: E402
 from devices.arm import MotionRefused, RobotFault  # noqa: E402
 from devices.controller import BrcapiError  # noqa: E402
 from devices.vision_box import VisionError  # noqa: E402
-from perception.lower_check import LowerCheck  # noqa: E402
 from procedures import positions  # noqa: E402
 from procedures.corrector import StopSafe  # noqa: E402
 from procedures.cycle import Cycle  # noqa: E402

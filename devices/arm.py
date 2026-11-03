@@ -208,6 +208,15 @@ class VendorRobot:
     def jaw_to(self, value: float):
         self.ext_axis_to(self.grip_axis, value)
 
+    def clamp(self, command: float, limit: float, speed: int = 20, plate_width=None) -> dict:
+        """Close toward `command` under the torque `limit` through the controller's probe (devices/clamp.py)."""
+        from devices import clamp as _clamp
+        return _clamp.close(self.ip, command, limit, speed)
+
+    def clamp_read(self) -> dict:
+        from devices import clamp as _clamp
+        return _clamp.read(self.ip)
+
     def drag(self, on: bool):
         """Hand-guiding on or off, the teach_daemon sequence: toggle, let the controller settle, re-enable after.
         The caller closes the jaw first; the toggle snaps the gripper."""

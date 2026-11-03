@@ -7,7 +7,6 @@ import sys
 import tempfile
 
 from devices import nova
-from perception.lower_check import LowerCheck
 from procedures import positions
 from procedures.motion import offset
 
@@ -29,10 +28,6 @@ def build():
     layout_path = os.path.join(tmp, "layout.json")
     positions.save(L, layout_path)
     ref_dir = os.path.join(tmp, "reference_images")
-    lc = LowerCheck(ref_dir)
-    for gate, state in r.GATES:
-        for _ in range(3):
-            lc.add_reference(gate, state, r.jpeg(r.SAFE))
     robot = nova.arm(L, sim=True)
     robot.follow_layout(L)
     m = L["fixtures"]["microscope"]

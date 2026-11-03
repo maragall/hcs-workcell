@@ -128,6 +128,23 @@ class SimRobot:
             return
         self._jaw = value
 
+    def clamp(self, command, limit, speed=20, plate_width=None):
+        """The force close of the real robot: a plate gives the limit's torque at the plate's width, nothing gives the command's width."""
+        self._closes += 1
+        if self._closes == self.faults.miss_grasp_at:
+            self._jaw, self._clamp_torque = command, 0.59
+        else:
+            w = plate_width if plate_width and plate_width >= command + 0.3 else command + 0.4      # a layout without a measured plate width: 0.4 above the command
+            if self._closes == self.faults.obstruct_at:
+                w = max(w, 3.6)
+            self._jaw, self._clamp_torque = w, -limit
+        self._clamp_width = self._jaw
+        return {"code": 1, "torque": self._clamp_torque, "torque_min": self._clamp_torque, "torque_max": self._clamp_torque, "width": self._jaw}
+
+    def clamp_read(self):
+        held = abs(self._jaw - getattr(self, "_clamp_width", -1.0)) < 0.01
+        return {"torque": getattr(self, "_clamp_torque", 0.0) if held else 0.0, "width": self._jaw}
+
     def drag(self, on: bool):
         self.faults.drag_on = bool(on)
 

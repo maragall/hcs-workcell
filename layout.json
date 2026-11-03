@@ -74,7 +74,7 @@
       "enforce": "auto",
       "_note": "down camera at the clear pose above the stage, before it rotates: the plate must look seated and nothing else in view. References collected by the cell per direction (to_0, to_90); auto: blocks once auto_refs are collected"
     },
-    "_marker_note": "the marker tab (aruco\u6807\u5b9a\u677f drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
+    "_marker_note": "the marker tab (aruco标定板 drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
     "calibration": {
       "auto_teach_camera": {
         "marker": "ok",
@@ -153,7 +153,10 @@
       "short_edges": 23.9,
       "long_edges": 0.21
     },
-    "_long_grip_2026_11_02": "measured with tools/measure_short_grip.py --grip long_edges on the plate on the module at 90: the jaw follows the command to 3.20 and meets the plate at 2.99 (refuses 2.70). The old closed width 3.71 (hand reading 3.68) was 0.7 mm wider: the plate was never clamped, it floated 0.35 mm per side in the claw, which with 1.4 mm to spare between the B-column posts gave the intermittent slide-in collisions. plate_width 3.0, command 2.1, band width -0.2/+0.5; an empty close reads 2.1."
+    "_long_grip_2026_11_02": "measured with tools/measure_short_grip.py --grip long_edges on the plate on the module at 90: the jaw follows the command to 3.20 and meets the plate at 2.99 (refuses 2.70). The old closed width 3.71 (hand reading 3.68) was 0.7 mm wider: the plate was never clamped, it floated 0.35 mm per side in the claw, which with 1.4 mm to spare between the B-column posts gave the intermittent slide-in collisions. plate_width 3.0, command 2.1, band width -0.2/+0.5; an empty close reads 2.1.",
+    "clamp_limit": 0.5,
+    "clamp_speed": 20,
+    "_clamp_2026_11_02": "force close through the controller's Lua probe (devices/clamp.py): the jaw closes toward `closed` under a torque limit of 0.5 and stops at the plate; held = torque at the limit AND the jaw above the command AND near plate_width (0.7). Short edges measured: stops 24.03 at 0.5, -0.50 torque, unchanged after a 30 mm lift and 3 s. 0.5 is the highest limit the probe accepts."
   },
   "speeds": {
     "supervised": {

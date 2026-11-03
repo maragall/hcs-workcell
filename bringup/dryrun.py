@@ -178,7 +178,6 @@ def hotel_visit(layout: dict, slot: str, lid: bool = False, lift_mm: Optional[fl
     import tempfile
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tests"))
     import rig
-    from perception.lower_check import LowerCheck
     from procedures.corrector import StopSafe
     from procedures.cycle import Cycle
     from procedures.state import StateStore
@@ -196,10 +195,6 @@ def hotel_visit(layout: dict, slot: str, lid: bool = False, lift_mm: Optional[fl
         L["fixtures"][fx].pop("grasp_width", None)
     tmp = tempfile.mkdtemp(prefix="dryrun_")
     ref_dir = os.path.join(tmp, "refs")
-    lc = LowerCheck(ref_dir)
-    for gate, state in rig.GATES:
-        for _ in range(3):
-            lc.add_reference(gate, state, rig.jpeg(rig.SAFE))
     tele = Telemetry(os.path.join(tmp, "run"))
     store = StateStore(os.path.join(tmp, "state.json"))
     hover = list(L["fixtures"]["polar"]["pose_at_0"]["pose"])

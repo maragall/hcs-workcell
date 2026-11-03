@@ -19,7 +19,6 @@ from devices.arm import Robot
 from devices.stage import PolarError, PolarStage
 from devices.vision_box import VisionClient
 from perception import hub
-from perception.lower_check import LowerCheck
 from perception.predictor import DriftMonitor, PreChecks
 from procedures import plates
 from procedures.corrector import Corrector, StopSafe
@@ -64,8 +63,6 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.drift = DriftMonitor(os.path.join(run_dir, f"drift_{scope}.json"))
         self.corr = Corrector(layout, vision, robot, self.safety, tele, self.supervised, clock)
         self.polar = PolarStage(layout["polar"], robot, tele.log, self.supervised, store.s.polar_angle, clock)
-        lc = layout["vision"]["lower_check"]
-        self.lower = LowerCheck(ref_dir, lc["min_refs"], lc["margin"], lc["floor"])
         self.lim = layout["limits"]
         self.down_cam = layout["vision"]["down_camera"]
         self.front_cam = layout["vision"]["front_camera"]
@@ -102,7 +99,6 @@ class Cycle(Motion, Grasp, Gates, Hotel):
     def _pick(self, fixture_name: str, pose: List[float], fixture: dict, grip: str, trajectory_in: Optional[str],
               gate: Optional[str] = None):
         prof = self.safety.profile
-        gate = gate or fixture_name
         step = f"pick:{fixture_name}"
         self.store.begin(step)
         self._health()
@@ -111,77 +107,27 @@ class Cycle(Motion, Grasp, Gates, Hotel):
             self._enter(trajectory_in, False, hover, fixture_name)
         self._arrive(hover, f"{step} hover", prof.approach)
         self._jaw_open(grip, fixture)
-        corr = self._vision_correction(fixture, step)
-        target = self._seat(pose, corr)
+        target = self._seat(pose, [0.0] * 6)
         hover = offset(target, [0, 0, fixture["hover_mm"]])
-        if any(abs(v) > 0.05 for v in corr[:3]):
-            self._move("L", hover, f"{step} hover(corrected)", prof.approach)
-
-        for attempt in range(1, self.corr.budget.regrasp + 2):
-            self._gate_lower(gate, "plate_present", step)
-            problems = self.checks.before_grasp(self.robot.jaw(), self.robot.state())
-            if problems:
-                raise StopSafe(f"{step}: " + "; ".join(problems))
-            self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
-            jaw = self._jaw_close(grip)
-            regrip = fixture.get("regrip_above", {}).get(grip)
-            for k in range(int(fixture.get("regrip_max", 2))):
-                # A wide first close at the microscope means the plate sits skewed in the holder's clips (robot-placed
-                # plates read 22.6 to 22.7, hand-placed 22.4 to 22.55). Opening and closing again squares it up: the
-                # 17:05 search saw 22.89 -> 22.64 -> 22.54 from the re-closes alone. A skewed plate carried to the
-                # stage does not drop into the nest at 0 (wrist collision 2026-10-20 23:25).
-                if regrip is None or jaw <= regrip + 1e-6:
-                    break
-                self.tele.log("jaw", "regrip", f"{jaw:.2f} above {regrip}: open and close again ({k + 1})", jaw=round(jaw, 2))
-                self._jaw_open(grip, fixture)
-                jaw = self._jaw_close(grip)
-            expected = fixture.get("grasp_width", {}).get(grip)
-            err = self.checks.grasp_ok(jaw, grip, expected)
-            if err and jaw > self.checks.width_of(grip):          # wider than the plate: pads off-centre, not an empty grasp
-                found = self._center_search(step, fixture_name, fixture, target, grip)
-                if found:
-                    jaw, target = found
-                    hover = offset(target, [0, 0, fixture["hover_mm"]])
-                    err = None
-                else:
-                    adopted = self._adopt_grasp_width(step, fixture_name, fixture, grip)
-                    if adopted is not None:
-                        self._jaw_open(grip, fixture)
-                        self._move("L", target, f"{step} back to seat", self.safety.profile.contact, allow_floor=(fixture_name,))
-                        jaw = self._jaw_close(grip)
-                        err = self.checks.grasp_ok(jaw, grip, adopted)
-            if err and jaw < self.checks.width_of(grip) - self.checks.jaw_tol:
-                # Nothing between the fingers: the close went through to the command. Either the plate is not at the seat or the stored
-                # width is off (2026-11-02: 0.9 mm wide, nothing was clamped and the close read back its own command). Measure the
-                # contact again here, from open, and adopt it when it differs; no contact at all means no plate.
-                contact = self._remeasure_grip(grip, fixture)
-                if contact is not None and abs(contact - self.checks.width_of(grip)) > 0.15:
-                    self._adopt_measured_width(grip, contact, step)
-                    self._jaw_open(grip, fixture)
-                    jaw = self._jaw_close(grip)
-                    err = self.checks.grasp_ok(jaw, grip, expected)
-            if not err:
+        problems = self.checks.before_grasp(self.robot.jaw(), self.robot.state())
+        if problems:
+            raise StopSafe(f"{step}: " + "; ".join(problems))
+        self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
+        for attempt in (1, 2):
+            r, why = self._clamp(grip, step)
+            if not why:
                 break
-            self._fault(step, "grasp", err)
+            self._fault(step, "grasp", why)
             self._jaw_open(grip, fixture)
-            self._move("L", hover, f"{step} lift(empty)", prof.approach)
-            self.corr.on_grasp_failed(fixture_name, attempt, err)
-            target = self._seat(pose, self._vision_correction(fixture, step))
-            hover = offset(target, [0, 0, fixture["hover_mm"]])
-            self._move("L", hover, f"{step} hover(recorrected)", prof.approach)
-
+            if attempt == 2:
+                raise StopSafe(f"{step}: nothing clamped in two closes: {why}")
         self._move("L", hover, f"{step} lift", prof.approach)
-        late = self.checks.grasp_ok(self.robot.jaw(), grip, expected)       # the latch: the plate is still between the fingers after the lift
-        if late:
-            self._fault(step, "plate_lost", late)
-            raise StopSafe(f"{step}: lifted without the plate: {late}")
-        self._check_plate_in_gripper(step, grip)
+        self._carry_check(step, grip)
         self.store.done(plate_at="gripper", grip=grip)
 
     def _place(self, fixture_name: str, pose: List[float], fixture: dict, at: str, trajectory_in: Optional[str],
                reverse: bool = False, gate: Optional[str] = None):
         prof = self.safety.profile
-        gate = gate or fixture_name
         step = f"place:{fixture_name}"
         self.store.begin(step)
         self._health()
@@ -189,35 +135,17 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         if trajectory_in:
             self._enter(trajectory_in, reverse, hover, fixture_name)
         self._arrive(hover, f"{step} hover", prof.approach)
-        corr = self._vision_correction(fixture, step)
-        target = self._seat(pose, corr)
+        target = self._seat(pose, [0.0] * 6)
         hover = offset(target, [0, 0, fixture["hover_mm"]])
         # a place stops this far above the height a pick lowers to: the plate is let go just over its seat and drops the last millimetres.
         # Lowered to the pick height the plate bottoms out in the clips and the jaw cannot open (module, 2026-11-02: 24.66 against 24.84)
         lift = float((fixture.get("place_lift_mm") or {}).get(self.store.s.grip, 0.0)) if isinstance(fixture.get("place_lift_mm"), dict) else float(fixture.get("place_lift_mm") or 0.0)
         if lift:
             target = [target[0], target[1], target[2] + lift] + list(target[3:])
-        if any(abs(v) > 0.05 for v in corr[:3]):
-            self._move("L", hover, f"{step} hover(corrected)", prof.approach)
-        problems = self.checks.before_release(self.robot.jaw(), self.store.s.grip)
-        if problems:
-            raise StopSafe(f"{step}: " + "; ".join(problems))
-        self._gate_lower(gate, "empty", step)
+        self._carry_check(step, self.store.s.grip)
         self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
         self._jaw_open(self.store.s.grip, fixture)
-        self._seated_front(step, gate)
         self._move("L", hover, f"{step} lift", prof.approach)
-        img = self._frame(self.down_cam)
-        self.tele.image(f"{step}_placed", img)
-        if img is None:
-            raise StopSafe(f"{step}: no frame for the seated check")
-        v = self.lower.verdict(gate, "plate_present", img)
-        self.tele.log("vision", f"{step} seated_check", v.reason, score=round(v.best, 3), safe=v.safe, gate=gate)
-        if not v.safe and v.n_refs >= self.lower.min_refs and not self.commission["no_gates"]:
-            self._fault(step, "not_seated", v.reason)
-            if not self.corr.operator_or_stop(step, "plate does not look seated after release",
-                                              "Plate is seated correctly?"):
-                raise StopSafe("plate not seated")
         self.store.done(plate_at=at, grip="none")
 
     # ------------------------------------------------------------------ polar
@@ -226,7 +154,6 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.store.begin(f"polar:{deg}")
         clear = offset(from_pose, [0, 0, F["hover_mm"] + F["clear_mm"]])
         self._move("L", clear, "polar clear", self.safety.profile.approach)
-        self._stage_clear(f"polar:{deg}", deg)
         while True:
             try:
                 self.polar.rotate_to(deg)
@@ -252,7 +179,6 @@ class Cycle(Motion, Grasp, Gates, Hotel):
             ("place:polar", lambda: self._place("polar", P0, F["polar"], "polar", route, gate="polar@0")),
             ("polar:90", lambda: self._polar_rotate(90, P0)),
             ("pick:polar", lambda: self._pick("polar", P90, F["polar"], "long_edges", None, gate="polar@90")),
-            ("scan", self._scan_plate),
             (f"place:hotel:{slot}", lambda: self._hotel_place_free(slot)),
         ]
         back = [

@@ -267,12 +267,10 @@ class Hotel:
         self._hotel_go_to_approach(slot, step)
         self._square_up(approach, step)
         # the ledger says the slot is free (checked above); no camera looks at it (the slot occupancy check was removed 2026-11-01)
-        if self.checks.before_release(self.robot.jaw(), "long_edges"):
-            raise StopSafe(f"{step}: not holding a plate on its long edges")
+        self._carry_check(step, "long_edges")
         self._slide(carry, f"{step} slide in")
         self._descend(p, f"{step} lower")
         self._jaw_open("long_edges")
-        self._seated_front(step, f"hotel_{slot}")
         self._move("L", carry, f"{step} lift off", prof.approach)
         self._move("L", approach, f"{step} slide out", prof.approach)
         self.store.s.hotel[slot] = self.store.s.plate_id
@@ -316,14 +314,17 @@ class Hotel:
         self._jaw_open("long_edges")
         self._slide(carry, f"{step} slide in")                        # same path as the place, reversed
         self._descend(p, f"{step} lower onto plate")
-        jaw = self._jaw_close("long_edges")
-        err = self.checks.grasp_ok(jaw, "long_edges")
-        if err:
-            self._fault(step, "grasp", err)
-            raise StopSafe(f"{step}: {err}")
+        for attempt in (1, 2):
+            r, why = self._clamp("long_edges", step)
+            if not why:
+                break
+            self._fault(step, "grasp", why)
+            self._jaw_open("long_edges")
+            if attempt == 2:
+                raise StopSafe(f"{step}: nothing clamped in two closes: {why}")
         self._move("L", carry, f"{step} lift", prof.approach)
+        self._carry_check(step, "long_edges")
         self._move("L", approach, f"{step} slide out", prof.approach)
-        self._check_plate_in_gripper(step, "long_edges")
         expected = self.store.s.hotel.get(slot, "")
         if expected and self.store.s.plate_id and expected != self.store.s.plate_id:
             self.corr.alert(step, f"plate id mismatch: slot had {expected}, scanned {self.store.s.plate_id}")

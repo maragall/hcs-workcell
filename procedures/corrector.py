@@ -73,18 +73,6 @@ class Corrector:
             raise StopSafe(reason)
         return self.ask(question, self.operator_timeout_s) == "y"
 
-    def on_lower_blocked(self, fixture: str, attempt: int, attempts: int, verdict) -> int:
-        """Returns the LED level to use for the next image, or raises StopSafe."""
-        if attempt < attempts - 1:
-            level = self.led_levels[min(attempt + 1, len(self.led_levels) - 1)]
-            self.tele.log("correct", "lower_check", f"retry {attempt + 1} with LED {level}", score=verdict.best)
-            self.clock.sleep(1.0)
-            return level
-        if self.operator_or_stop("lower_check", f"{fixture}: scene does not match safe references ({verdict.reason})",
-                                 "You looked at the fixture and it is safe to lower?"):
-            raise OperatorConfirmed(self.led_levels[0])
-        raise StopSafe(f"lower blocked at {fixture}")
-
     def on_grasp_failed(self, fixture: str, attempt: int, detail: str) -> None:
         self.tele.log("correct", "grasp", f"{fixture}: {detail} (attempt {attempt})")
         if attempt > self.budget.regrasp:

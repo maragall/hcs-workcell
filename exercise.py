@@ -69,14 +69,8 @@ def main(argv=None) -> int:
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests"))
         import rig
 
-        from perception.lower_check import LowerCheck
         vision, layout = rig.FakeVision(), rig.layout()
         ref_dir = tempfile.mkdtemp(prefix="exercise_refs_")
-        lc = LowerCheck(ref_dir)
-        gates = rig.GATES + [(n, st) for n in ("microscope_2",) for st in ("plate_present", "empty")]
-        for gate, state in gates:                                 # three synthetic "clear" photos per gate, as the tests do
-            for _ in range(3):
-                lc.add_reference(gate, state, rig.jpeg(rig.SAFE))
     state_dir = tempfile.mkdtemp(prefix="exercise_state_") if args.sim else None       # the simulator starts from fresh ledgers
     cell, robot, tele, slot_of = run.build(args, layout, vision=vision, tag="_exercise", ref_dir=ref_dir, state_dir=state_dir)
     if args.sim:

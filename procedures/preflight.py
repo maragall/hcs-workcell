@@ -40,13 +40,4 @@ def preflight(layout: dict, ref_dir: str, scopes: Iterable[str] = ("microscope",
         box = layout["regions"].get(s, {}).get("box")
         if not box or box["x"][0] >= box["x"][1] or box["y"][0] >= box["y"][1]:
             problems.append(f"regions.{s} box not set")
-    need = layout["vision"]["lower_check"]["min_refs"]
-    gates = [(s, state) for s in scopes for state in ("plate_present", "empty")]
-    gates += [("polar@0", "plate_present"), ("polar@0", "empty"), ("polar@90", "plate_present"), ("polar@90", "empty"),
-              ("gripper", "short_edges"), ("gripper", "long_edges")]
-    for gate, state in gates:
-        d = os.path.join(ref_dir, gate, state)
-        n = len(os.listdir(d)) if os.path.isdir(d) else 0
-        if n < need:
-            problems.append(f"reference images {gate}/{state}: {n}/{need}")
     return problems
