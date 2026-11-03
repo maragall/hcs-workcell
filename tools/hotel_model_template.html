@@ -41,8 +41,8 @@ function box(b,col,op,wire){const g=new THREE.BoxGeometry(b.x[1]-b.x[0],b.z[1]-b
  m.position.copy(T((b.x[0]+b.x[1])/2,(b.y[0]+b.y[1])/2,(b.z[0]+b.z[1])/2));
  if(wire){const e=new THREE.LineSegments(new THREE.EdgesGeometry(g),new THREE.LineBasicMaterial({color:col}));m.add(e)}return m}
 const other=new THREE.Group(),hotel=new THREE.Group();S.add(other,hotel);
-const colour={tray:0x4aa3ff,post:0xffb347,hotel:0x7aa0c4,other:0x56606b};
-D.boxes.forEach(b=>{const g=b.k==='other'?other:hotel;g.add(box(b,colour[b.k],b.k==='other'?.12:b.k==='tray'?.55:.5,b.k!=='other'))});
+const colour={tray:0x4aa3ff,post:0xffb347,hotel:0x7aa0c4,other:0x56606b,obstacle:0xff6b6b};
+D.boxes.forEach(b=>{const g=b.k==='other'?other:hotel;g.add(box(b,colour[b.k],b.k==='other'?.12:b.k==='tray'?.55:b.k==='obstacle'?.28:.5,b.k!=='other'))});
 const trays=D.boxes.filter(b=>b.k==='tray'),posts=D.boxes.filter(b=>b.k==='post');
 const tx=[Math.min(...trays.map(b=>b.x[0])),Math.max(...trays.map(b=>b.x[1]))];
 // claw + plate
