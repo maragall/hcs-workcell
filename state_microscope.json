@@ -2,8 +2,8 @@
   "plate_at": "polar",
   "polar_angle": 0,
   "grip": "none",
-  "step": "pick:polar",
-  "step_done": false,
+  "step": "place:polar",
+  "step_done": true,
   "cycle": 0,
   "hotel": {},
   "plate_id": "",
@@ -29,13 +29,6 @@
   },
   "home_slot": "A3",
   "faults": [
-    {
-      "t": 1793350349.3461857,
-      "cycle": 0,
-      "step": "place:hotel:A9",
-      "kind": "not_seated_front",
-      "detail": "best correlation 0.421 below 0.550"
-    },
     {
       "t": 1793350405.4185781,
       "cycle": 0,
@@ -1428,15 +1421,22 @@
       "step": "pick:polar",
       "kind": "grasp",
       "detail": "jaw closed to 22.90: nothing or too little between the fingers (plate missed / wrong edge)"
+    },
+    {
+      "t": 1793695012.0283186,
+      "cycle": 0,
+      "step": "place:polar",
+      "kind": "plate_lost",
+      "detail": "torque 0.40 is under 0.45: nothing presses back"
     }
   ],
   "last_safe_pose": [
     312.024,
     305.696,
-    68.873,
+    103.276,
     0.0,
     -0.0,
-    -91.3401
+    -91.34
   ],
-  "updated": 1793616967.7525108
+  "updated": 1793695012.0283186
 }

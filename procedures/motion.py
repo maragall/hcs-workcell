@@ -290,7 +290,17 @@ class Motion:
             raise SafetyViolation("routes.nest is not set")
         grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
         if grip and grip != "none":
-            raise SafetyViolation("the claw holds a plate; the nest is for an empty claw. Put the plate down by hand, then go to the nest")
+            # the ledger says a plate is in the claw; the jaw says whether that is still true (a stopped run leaves the ledger behind:
+            # 2026-11-03 the plate had been put down and the jaw read 29, the ledger still said short_edges)
+            jaw = self.robot.jaw()
+            bands = list(self.L["gripper"].get("accept_band", {}).values())
+            if not bands or any(lo - 0.6 <= jaw <= hi + 0.6 for lo, hi in bands):
+                raise SafetyViolation("the claw holds a plate; the nest is for an empty claw. Put the plate down by hand, then go to the nest")
+            self.tele.log("ledger", "stale", f"grip {grip} in the ledger, the jaw reads {jaw:.2f}, outside every plate width: the claw is empty")
+            self.store.s.grip = "none"
+            if self.store.s.plate_at == "gripper":
+                self.store.s.plate_at = "none"
+            self.store.save()
         here = self._position_here()
         if here and not here.startswith("polar"):          # at a microscope hover: the taught route out of its zone first
             self.move_to("polar.pose_at_0")

@@ -80,7 +80,7 @@ class App:
         self.tail = []
         self.root = tk.Tk()
         r = self.root
-        r.title("Nova Cell")
+        r.title("hcs-workcell")
         r.configure(bg=BG)
         r.geometry("1060x800")
         r.minsize(760, 640)
