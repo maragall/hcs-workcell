@@ -275,8 +275,7 @@ class Motion:
         self.store.s.last_safe_pose = after
 
     def _enter(self, trajectory: Optional[str], reverse: bool, hover: List[float], fixture_name: str) -> None:
-        """The taught route to a fixture's hover when the layout has one; otherwise the planner's way to the hover (a layout built
-        from the CAD alone has no taught route: bringup/scratch.py)."""
+        """The taught route to a fixture's hover when the layout has one; otherwise the planner's way to the hover."""
         if trajectory and trajectory in self.L["trajectories"]:
             self._waypoints(trajectory, reverse)
         else:

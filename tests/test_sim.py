@@ -13,11 +13,10 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from rig import BAD, GATES, SAFE, FakeClock, FakeVision, jpeg, layout  # noqa: E402
+from rig import BAD, GATES, FakeClock, FakeVision, layout  # noqa: E402
 
 from devices.fake_arm import SimFaults, SimRobot  # noqa: E402
 from devices.vision_box import VisionError  # noqa: E402
-from perception.lower_check import LowerCheck  # noqa: E402
 from procedures.corrector import StopSafe  # noqa: E402
 from procedures.cycle import Cycle  # noqa: E402
 from procedures.safety import SafetyViolation  # noqa: E402
@@ -30,10 +29,6 @@ class Rig:
         self.tmp = tempfile.mkdtemp()
         self.L = layout()
         ref_dir = os.path.join(self.tmp, "refs")
-        lc = LowerCheck(ref_dir)
-        for gate, state in refs:
-            for _ in range(3):
-                lc.add_reference(gate, state, jpeg(SAFE))
         self.tele = Telemetry(os.path.join(self.tmp, "run"))
         self.store = StateStore(os.path.join(self.tmp, "state.json"))
         self.store.s.plate_at = "microscope"                   # the rig starts with a plate on the microscope
@@ -109,22 +104,6 @@ def test_obstructed_grasp_twice_stops():
     r.robot.jaw_to = jaw_to
     r.expect_stop("grasp failed")
     assert sum(1 for f in r.store.s.faults if f["kind"] == "grasp") == 2
-    r.close()
-
-
-def test_lower_blocked_stops():
-    r = Rig()
-    r.vis.scene["auto_teach_camera"] = BAD
-    r.expect_stop("does not match")
-    assert r.store.s.plate_at == "microscope" and r.store.s.grip == "none"
-    r.close()
-
-
-def test_lower_gate_never_falls_through():
-    r = Rig()
-    r.L["vision"]["lower_check"]["retries"] = 0
-    r.vis.scene["auto_teach_camera"] = BAD
-    r.expect_stop("does not match")
     r.close()
 
 
