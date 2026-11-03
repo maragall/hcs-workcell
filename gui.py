@@ -76,6 +76,8 @@ class App:
         self.cam = self.fit(1060, 800)             # the pixel size of each picture; changes only when the window is resized
         r.grid_columnconfigure(0, weight=1, uniform="c")
         r.grid_columnconfigure(1, weight=1, uniform="c")
+        r.grid_rowconfigure(1, minsize=58)            # the step in hand: two lines, always
+        r.grid_rowconfigure(2, minsize=70)            # the prompt bar: always there, empty when nothing is asked
         r.grid_rowconfigure(3, weight=1)
         self.photos = [None, None]
         self.drawn = [(0.0, None), (0.0, None)]
@@ -93,7 +95,7 @@ class App:
             state.pack(side="right")
             self.panels.append((img, state, item))
         # the step in hand
-        self.now = tk.Label(r, text="", bg=BG, fg=FG, font=("Segoe UI", 12), anchor="w", justify="left", wraplength=1000)
+        self.now = tk.Label(r, text="", bg=BG, fg=FG, font=("Segoe UI", 12), anchor="nw", justify="left", wraplength=1000, height=2)
         self.now.grid(row=1, column=0, columnspan=2, sticky="ew", padx=16, pady=(16, 0))
         # the question, with its buttons (shown only while the setup waits for an answer)
         self.ask = tk.Frame(r, bg=PANEL)
@@ -102,7 +104,6 @@ class App:
         self.ask_text.pack(side="left", padx=14, pady=12, fill="x", expand=True)
         self.buttons = tk.Frame(self.ask, bg=PANEL)
         self.buttons.pack(side="right", padx=10)
-        self.ask.grid_remove()
         # the log
         box = tk.Frame(r, bg=BG)
         box.grid(row=3, column=0, columnspan=2, sticky="nsew", padx=16, pady=(10, 0))
@@ -112,6 +113,9 @@ class App:
         self.log.tag_configure("bad", foreground=BAD)
         self.log.tag_configure("step", foreground=FG)
         self.log.tag_configure("good", foreground=GOOD)
+        self.follow = True                            # the newest line stays in view; off while the reader has scrolled up
+        for ev in ("<MouseWheel>", "<ButtonRelease-1>", "<Key>"):
+            self.log.bind(ev, lambda e: self.root.after(60, self.check_follow))
         # the bar
         bar = tk.Frame(r, bg=BG)
         bar.grid(row=4, column=0, columnspan=2, sticky="ew", padx=16, pady=12)
@@ -134,8 +138,12 @@ class App:
     def show_log(self, text, tag=None):
         self.log.configure(state="normal")
         self.log.insert("end", text + "\n", tag)
-        self.log.see("end")
         self.log.configure(state="disabled")
+        if self.follow:
+            self.log.see("end")
+
+    def check_follow(self):
+        self.follow = self.log.yview()[1] >= 0.999
 
     # ------------------------------------------------------------------ the child
     def start(self, extra=None):
@@ -190,7 +198,7 @@ class App:
         for w in self.buttons.winfo_children():
             w.destroy()
         if text is None:
-            self.ask.grid_remove()
+            self.ask_text.configure(text="")
             return
         yes_no = "[y/N]" in text
         self.ask_text.configure(text=re.sub(r"^>+\s*", "", text.replace("[y/N]:", "").strip()).rstrip(":"))
@@ -199,7 +207,6 @@ class App:
             self.button(self.buttons, "Yes", lambda: self.answer("y")).pack(side="right")
         else:
             self.button(self.buttons, "Done", lambda: self.answer("")).pack(side="right")
-        self.ask.grid()
 
     def primary(self):
         if self.prompt is not None and "[y/N]" not in self.prompt:
@@ -253,7 +260,6 @@ class App:
             extra = ["--from", name] + (["--step", step] if step else [])
             self.button(self.buttons, f"Resume at {name}", lambda: self.start(extra)).pack(side="right")
         self.button(self.buttons, "Start over", lambda: self.start(list(self.argv)), "#3a3f47").pack(side="right", padx=(0, 8))
-        self.ask.grid()
 
     @staticmethod
     def fit(w, h):
@@ -300,6 +306,8 @@ class App:
                 state.configure(text="connecting", fg=MUTED)
             else:
                 state.configure(text="live" if age < 3 else f"last picture {age:.0f} s ago", fg=MUTED)
+        if self.follow and self.log.yview()[1] < 0.999:       # a resize pushed the end out of view: back to it
+            self.log.see("end")
         self.root.after(200, self.tick)
 
 
