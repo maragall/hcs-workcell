@@ -11,7 +11,7 @@ import threading
 import time
 from typing import Dict, Optional, Tuple
 
-SIZE, QUALITY = (1280, 720), 85
+SIZE, QUALITY = (1280, 960), 85      # the full field at 4:3, the size gui.py asks for too: two sizes requested in turn made the box serve the wrong one (2026-11-03)
 
 
 class FrameSource:

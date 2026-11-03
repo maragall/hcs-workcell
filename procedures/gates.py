@@ -33,12 +33,12 @@ class Gates:
 
     # ------------------------------------------------------------ pictures (setup only; no camera gate stops a move)
     def _frame(self, cam: str, led: Optional[int] = None) -> Optional[bytes]:
-        # 1280x720: the camera's 1080p mode is a different sensor crop, and all gate references are 720p.
+        # 1280x960: the full field at 4:3 (the 16:9 modes are a crop of the sensor), the same size bringup/frames.py and gui.py ask for.
         # The front camera is lit by its own LED so day and night frames match (vision.front_led).
         if led is None:
             led = self.front_led if cam == self.front_cam else self.led
         try:
-            return self.frames.frame(cam, 1280, 720, 85, None, led)
+            return self.frames.frame(cam, 1280, 960, 85, None, led)
         except Exception as e:
             self.tele.log("vision", "frame", f"{cam}: {e}")
             return None

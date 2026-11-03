@@ -35,6 +35,17 @@ RESUME = re.compile(r'--from "([^"]+)"(?: --step (\d+))?')
 NO_WINDOW = 0x08000000
 
 
+def letterbox(img, pw, ph):
+    """The picture scaled to fit pw x ph at its own aspect, black bars where it does not fill: a frame is never stretched."""
+    h, w = img.shape[:2]
+    k = min(pw / w, ph / h)
+    sw, sh = max(1, int(w * k)), max(1, int(h * k))
+    out = np.zeros((ph, pw, 3), np.uint8)
+    x, y = (pw - sw) // 2, (ph - sh) // 2
+    out[y:y + sh, x:x + sw] = cv2.resize(img, (sw, sh), interpolation=cv2.INTER_AREA)
+    return out
+
+
 class Feed(threading.Thread):
     """One camera: its own connection to the box, newest frame kept, its age known."""
 
@@ -294,7 +305,7 @@ class App:
             img, state, item = self.panels[i]
             if feed.frame is not None and self.drawn[i] != (feed.at, self.cam):          # a new picture or a new size: draw, otherwise leave it
                 pw, ph = self.cam
-                frame = cv2.resize(feed.frame, (pw, ph), interpolation=cv2.INTER_AREA)
+                frame = letterbox(feed.frame, pw, ph)            # at the frame's own aspect, whatever size the box served
                 ok, png = cv2.imencode(".png", frame, [cv2.IMWRITE_PNG_COMPRESSION, 1])
                 self.photos[i] = tk.PhotoImage(data=base64.b64encode(png.tobytes()))
                 img.itemconfigure(item, image=self.photos[i])
@@ -305,7 +316,8 @@ class App:
             elif age is None:
                 state.configure(text="connecting", fg=MUTED)
             else:
-                state.configure(text="live" if age < 3 else f"last picture {age:.0f} s ago", fg=MUTED)
+                served = "" if (feed.frame.shape[1], feed.frame.shape[0]) == REQUEST else f"   box sent {feed.frame.shape[1]}x{feed.frame.shape[0]}"
+                state.configure(text=("live" if age < 3 else f"last picture {age:.0f} s ago") + served, fg=MUTED)
         if self.follow and self.log.yview()[1] < 0.999:       # a resize pushed the end out of view: back to it
             self.log.see("end")
         self.root.after(200, self.tick)
