@@ -10,6 +10,7 @@ def scene_boxes(lay):
     """Every box of the cell in the robot frame: the hotel's CAD parts (kinds tray, post, hotel, other) and the planner's plain obstacles
     (kind obstacle: the pillar, the microscope from its seat)."""
     parts = json.load(open(os.path.join(HERE, "docs", "cad_parts.json"), encoding="utf-8"))
+    rows = set(lay["fixtures"]["hotel"].get("rows") or range(1, 11))
     boxes = []
     for p in parts:
         if p["size"][0] > 1e50:
@@ -19,6 +20,8 @@ def scene_boxes(lay):
         hx = b["x"][0] >= 405 and b["x"][1] <= 560 and b["y"][0] >= -200 and b["y"][1] <= 200 and b["z"][0] > 40
         kind = "tray" if hx and abs((b["z"][1] - b["z"][0]) - 8) < 0.6 and (b["x"][1] - b["x"][0]) > 100 else "post" if hx and (b["z"][1] - b["z"][0]) > 300 else "hotel" if hx else "other"
         b["k"] = kind
+        if kind == "tray" and round((b["z"][0] - 58.1) / 38.0) + 1 not in rows:      # the hotel as it is configured (15 slots: odd rows), the planner's rule
+            continue
         boxes.append(b)
     for name, o in lay["volumes"].get("obstacles", {}).items():
         if "parts" not in o and all(k in o for k in ("x", "y", "z")):
