@@ -664,7 +664,8 @@ class Bringup:
                     seen_empty, seen_full = set(), set()
 
             if st.contents.get("module") == "full" or st.plate_at in ("polar", self.scope):          # also when a plate was in the hand: the module's is still to go
-                if st.plate_at == self.scope and st.step_done:
+                still_there = st.plate_at == self.scope and (st.step_done or (st.step == f"pick:{self.scope}" and st.grip == "none" and c.robot.jaw() > 20.0))
+                if still_there:                       # also a pick begun and abandoned with the claw still open: the plate never left the stage (03:08, 2026-11-04)
                     print(f"   the plate is already on the {self.scope} stage: carrying on from it")
                 else:
                     P0 = F["polar"]["pose_at_0"]["pose"]
