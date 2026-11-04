@@ -268,6 +268,7 @@ class Hotel:
         self._jaw_open("long_edges")
         self._move("L", carry, f"{step} lift off", prof.approach)
         self._move("L", approach, f"{step} slide out", prof.approach)
+        self._collect("occupancy", slot, "full", "front", judge=True)   # the plate just set down, the claw empty at the approach: a picture and a verdict, no gate
         self.store.s.hotel[slot] = self.store.s.plate_id
         self.store.done(plate_at=f"hotel:{slot}", grip="none", home_slot=slot)
         self._hotel_leave_approach(slot, step)
@@ -306,6 +307,7 @@ class Hotel:
                 self._move("L", top, f"{step} climb", prof.approach)
                 self._move("L", approach, f"{step} approach", prof.approach)
         self._square_up(approach, step)
+        self._collect("occupancy", slot, "full", "front", judge=True)   # the slot as the ledger has it, before the pick: a picture and a verdict, no gate
         self._jaw_open("long_edges")
         self._slide(carry, f"{step} slide in")                        # same path as the place, reversed
         self._descend(p, f"{step} lower onto plate")
