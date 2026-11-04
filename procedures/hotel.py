@@ -263,6 +263,7 @@ class Hotel:
         self._square_up(approach, step)
         # the ledger says the slot is free (checked above); no camera looks at it (the slot occupancy check was removed 2026-11-01)
         self._carry_check(step, "long_edges")
+        self._square_grip(step)
         self._slide(carry, f"{step} slide in")
         self._descend(p, f"{step} lower")
         self._jaw_open("long_edges")

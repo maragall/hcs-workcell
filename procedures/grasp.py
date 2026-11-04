@@ -71,6 +71,21 @@ class Grasp:
         self.tele.log("correct", f"{step} grip width", f"{grip}: the pads meet the plate at {w}; command {g['closed'][grip]}, band {g['accept_band'][grip]}")
         positions.save(self.L)
 
+    CROOKED_MM = 0.35      # held width above the plate's learned width that means the plate sits rotated in the jaw (0.35 ~ 0.15 deg on a 128 mm plate)
+
+    def _square_grip(self, step: str) -> None:
+        """Before a slide into the rack: the plate must sit square in the jaw. A plate rotated by t reads wider by about 128 mm x t; at 0.6 deg
+        (3.65 against 3.0, B3 2026-11-04 01:45) its corner meets a post with 0.7 mm a side to spare. Stops here, outside the rack, not inside."""
+        grip = self.store.s.grip
+        known = self.checks.width_of(grip) if grip in self.checks.width else None
+        if known is None:
+            return
+        w = self.robot.jaw()
+        if w - known > self.CROOKED_MM:
+            self._fault(step, "crooked_grip", f"held at {w:.2f}, the plate reads {known:.2f} square")
+            raise StopSafe(f"{step}: the plate sits crooked in the jaw (held at {w:.2f}, {known:.2f} when square): not sliding into the rack. "
+                           "Set the plate down by hand and resume; the module's angle before the pick is the usual cause")
+
     def _carry_check(self, step: str, grip: str) -> None:
         """The plate is still pressed between the fingers: the torque read back is at the limit and the width has not moved."""
         g = self.L["gripper"]

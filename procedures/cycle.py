@@ -196,7 +196,9 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         deg = int(gate.split("@")[1])
         real = self.polar.read_angle()
         real = real - 360.0 * round(real / 360.0)
-        if abs(real - deg) <= 1.0 and self.polar.angle == deg:
+        # 0.3 deg, not 1: a plate seated 0.6 deg off at 90 is gripped 0.6 deg off by the long edges and its corner meets a post in the rack
+        # (B3, 2026-11-04 01:45: held width 3.65 against 3.0, wrist torque stop 13 mm into the slide)
+        if abs(real - deg) <= 0.3 and self.polar.angle == deg:
             return
         self.tele.log("polar", "angle", f"the module reads {real:.1f} deg, this seat needs {deg}: turning it first")
         F = self.L["fixtures"]["polar"]
