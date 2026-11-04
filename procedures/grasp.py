@@ -81,6 +81,16 @@ class Grasp:
             self._fault(step, "clamp_error", str(e))
             raise StopSafe(f"{step}: the force read failed: {e}")
         why = self.checks.clamp_holds(r, self.plate.jaw_closed[grip], limit, grip, floor=0.5)
+        if why and abs(r.get("torque", 0.0)) < 0.5 * limit:
+            # the holding force fades when the claw stands for minutes (00:14 2026-11-04: width 24.5, torque 0.00 after six minutes at the
+            # module hover, the plate still between the fingers): close once more under the limit, then judge
+            self.tele.log("jaw", "carry", f"torque {r['torque']:.2f} under the floor: closing again before judging", grip=grip, width=r["width"])
+            try:
+                r = self.robot.clamp(self.plate.jaw_closed[grip], limit, int(g.get("clamp_speed", 20)), self.checks.width_of(grip))
+            except Exception as e:
+                self._fault(step, "clamp_error", str(e))
+                raise StopSafe(f"{step}: the force clamp failed: {e}")
+            why = self.checks.clamp_holds(r, self.plate.jaw_closed[grip], limit, grip)
         self.tele.log("jaw", "carry", why or "holding", grip=grip, width=r["width"], torque=r["torque"])
         if why:
             self._fault(step, "plate_lost", why)

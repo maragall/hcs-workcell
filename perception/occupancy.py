@@ -9,10 +9,10 @@ Level 1 (no learning). Grey, region of interest (ROI, fractions of the frame: th
 the lower third for the front camera at a slot mouth, per-station overrides in ROI), 320 px wide, Gaussian blur. Three differences between the live ROI and one empty reference, all 0 for identical pictures:
   ncc   1 - normalised cross-correlation (cv2.matchTemplate TM_CCOEFF_NORMED), the live centre searched over +-SHIFT px in the
         reference so a millimetre of arm repeatability does not count as a difference
-  grad  mean |Sobel gradient magnitude difference| with each magnitude map scaled to unit mean (a lighting change cancels)
+  grad  1 - normalised cross-correlation of the Sobel gradient magnitude maps (structure; noise amplitude and lighting gain cancel)
   edge  |log(Canny edge density live / empty)|, thresholds from the median grey of each picture
-score = ncc + grad + edge, against the nearest empty reference. Values seen 2026-11-03: a jittered copy of an empty
-(+-6 px, gain 0.8..1.2) scores 0.2..0.5, a clear 96-well plate on the microscope stage 1.8, another station's empty 2.5.
+score = ncc + edge, against the nearest empty reference (grad is reported, not scored: it measures sensor noise on speckled metal).
+Values seen 2026-11-04: two empties of the module 28 minutes apart 0.11, a clear 96-well plate in a slot 0.5..1.1, on a seat 0.7..0.9.
 
 Threshold. N = the empty noise: the largest leave-one-out empty-vs-empty score (with 4 or more empties also mean + 3 sd), never
 below NOISE_FLOOR; with a single empty nothing can be measured and the conservative DEFAULT_NOISE is used (Station.calibrated
@@ -43,8 +43,8 @@ MODEL = os.environ.get("OCC_MODEL", os.path.join(HERE, "models", "resnet18-v1-7.
 WIDTH = 320            # px, the ROI is resized to this width
 BLUR = 1.5             # Gaussian sigma after the resize
 SHIFT = 8              # px of shift tolerance in the correlation search (at WIDTH)
-DEFAULT_NOISE = 0.5    # score units, the empty noise assumed when only one empty exists
-NOISE_FLOOR = 0.25     # the noise is never taken below this: two empties minutes apart (A1: 0.06) have not seen a day's light or the arm's drift
+DEFAULT_NOISE = 0.25   # score units, the empty noise assumed when only one empty exists (ncc + edge: two empties 28 min apart scored 0.11)
+NOISE_FLOOR = 0.15     # the noise is never taken below this: two empties minutes apart (A1: 0.00) have not seen a day's light or the arm's drift
 LOW, HIGH = 1.5, 2.5   # verdict bands as multiples of the empty noise
 ROI_DEFAULT = (0.2, 0.2, 0.8, 0.8)   # x0, y0, x1, y1 as fractions of the frame: the central 60 % (down camera over a seat)
 ROI_SLOT = (0.22, 0.65, 0.80, 1.0)   # front camera at a slot's approach point: the plate fills the lower third between the walls
@@ -85,14 +85,18 @@ def features(live, ref):
     t = live[SHIFT:-SHIFT, SHIFT:-SHIFT]
     _, ncc, _, (x, y) = cv2.minMaxLoc(cv2.matchTemplate(ref, t, cv2.TM_CCOEFF_NORMED))
     r = ref[y:y + t.shape[0], x:x + t.shape[1]]
-    grad = float(np.mean(np.abs(_grad(t) - _grad(r))))
+    # 1 - correlation of the gradient maps: structure, not noise amplitude. The mean absolute difference used first scored 0.9 between two
+    # empty pictures of the module's speckled pad 25 minutes apart (2026-11-03 23:55, different exposure, same scene).
+    grad = 1.0 - float(cv2.minMaxLoc(cv2.matchTemplate(_grad(r), _grad(t), cv2.TM_CCOEFF_NORMED))[1])
     edge = abs(float(np.log((_edges(t).mean() / 255 + 1e-4) / (_edges(r).mean() / 255 + 1e-4))))
     return {"ncc": 1.0 - float(ncc), "grad": grad, "edge": edge, "shift": (x - SHIFT, y - SHIFT)}
 
 
 def score(live, ref):
+    """ncc + edge. The gradient term is reported but not scored: on the module's speckled pad two empties 28 minutes apart scored 0.69 on
+    it (noise texture under a different exposure) while ncc and edge stayed at 0.08 and 0.03 (2026-11-04)."""
     f = features(live, ref)
-    return f["ncc"] + f["grad"] + f["edge"], f
+    return f["ncc"] + f["edge"], f
 
 
 def pictures(station, camera, state):
