@@ -784,22 +784,25 @@ class App:
         feed = self.feeds[i]
         if feed.frame is None or time.time() - feed.at > 3.0:
             return
-        if self.still_since is None or time.time() - self.still_since < 1.0 or feed.at < self.still_since + 0.3:
-            img = self.panels[i][0]                                             # not judged while arriving: a frame taken in motion reads as unsure (operator, 02:08)
-            img.create_text(12, 10, anchor="nw", fill=MUTED, font=("Consolas", 12, "bold"), tags="occ", text=f"{name}: settling")
-            return
         bands = self.model.bands.values()
-        if p.jaw is not None and any(lo - 0.6 <= p.jaw <= hi + 0.6 for lo, hi in bands):
-            img = self.panels[i][0]                                             # a plate in the claw fills the region: the seat is not judged
+        if cam == "front" and p.jaw is not None and any(lo - 0.6 <= p.jaw <= hi + 0.6 for lo, hi in bands):
+            img = self.panels[i][0]                                             # a carried plate fills the front camera's slot region; the down camera at a seat view is clear of it
             img.create_text(12, 10, anchor="nw", fill=MUTED, font=("Consolas", 12, "bold"), tags="occ", text=f"{name}: carrying a plate, no check")
             return
-        if self.judged_at != feed.at:
+        visit = (name, self.still_since)
+        if getattr(self, "judged_visit", None) != visit:
+            # one picture per visit: once the arm has stood still for 0.8 s, on a frame from after that moment. A frame taken while arriving
+            # reads as unsure (operator, 02:08). The verdict then stays until the arm leaves the pose.
+            if self.still_since is None or time.time() - self.still_since < 0.8 or feed.at < self.still_since + 0.5:
+                img = self.panels[i][0]
+                img.create_text(12, 10, anchor="nw", fill=MUTED, font=("Consolas", 12, "bold"), tags="occ", text=f"{name}: settling")
+                return
             try:
                 got = self.det.judge(name, feed.frame)
             except Exception as e:
                 got = None
                 self.show_log(f"occupancy {name}: {e}", "bad")
-            self.judged_at = feed.at
+            self.judged_visit = visit
             if got:
                 self.last_verdict = (name, got[0], got[1])
                 self.model.seen[name] = (got[0], time.time())
