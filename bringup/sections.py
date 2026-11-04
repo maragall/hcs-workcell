@@ -610,6 +610,8 @@ class Bringup:
             # out: a parking place needs the ledger and the camera to say empty, a pick needs the ledger's full and no confident empty from the
             # camera. A disagreement is a log line and a skipped slot, never a move.
             seen_empty, seen_full = survey(cyc, taught) if c.layout()["vision"].get("survey", True) else (set(), set())
+            if not c.layout()["vision"].get("veto", False):                  # tonight the camera's word changes nothing: the ledger drives, the verdicts are logged
+                seen_empty, seen_full = set(), set()
 
             def parking_places():
                 have = set(bench.loaded_slots(c.layout()))
@@ -666,9 +668,9 @@ class Bringup:
                     seen_empty.discard(dest)
                     holes.append(slot)
                     moves += 1
-                    if c.layout()["vision"].get("check_module_after_park", True):
-                        # the plate is parked, the claw is empty: the last moment both seats can be seen before the next plate goes to them
-                        # (a carried plate hangs 3 cm under the camera and hides the seat from any height). Shown and logged; no gate tonight.
+                    if c.layout()["vision"].get("check_seats_after_park", False):
+                        # off (operator, 01:25): the seats are not looked at with the empty claw; the question "can I drop in here" is asked with
+                        # the plate in hand from the front camera at the hover. Kept for the day a seat check from above is wanted.
                         seat_check(cyc, "polar")
                         seat_check(cyc, self.scope)
             return {"stopped": "by request, between plates", "passes": passes, "plates moved": moves}
@@ -705,10 +707,12 @@ class Bringup:
             if st.grip != "none":
                 print("   a plate is in the claw: no survey")
                 return seen_empty, seen_full
-            print("   occupancy survey (the camera, record only; it can rule a slot out, never in)")
-            for station in ("microscope", "polar"):
-                seat_check(cyc, station)
-            for slot in taught:
+            # the seats are not looked at with the empty claw (operator, 01:25): the question about a seat is asked with the plate in hand,
+            # before lowering, from the front camera at the hover (tomorrow's check; tonight the loop records hover_held for it)
+            h = c.layout()["fixtures"]["hotel"]
+            slots = [f"{col}{r}" for col in h.get("columns", []) for r in h.get("rows", [])]       # every column, taught or not: the hotel's state
+            print(f"   hotel occupancy sweep over {slots} (the camera, record only)")
+            for slot in slots:
                 target = cyc._hotel_geometry(slot)[1]
                 self.guard(lambda slot=slot: cyc._hotel_go_to_approach(slot, f"survey {slot}"))
                 self.guard(lambda slot=slot, target=target: cyc._square_up(target, f"survey {slot}"))

@@ -61,6 +61,18 @@ class Gates:
             cam = self.down_cam if camera == "down" else self.front_cam
             with locating(self.L["vision"]["host"], wait_s=5.0):             # one fresh frame from the box itself (the buffer was stale at the module view, 01:03)
                 jpg = self.vision.frame(cam, 1280, 960, 90, None, 0)
+            out = None
+            if judge:                                                          # judged against the references as they were BEFORE this picture is saved
+                import cv2                                                     # (saved first, the survey of 01:18 compared every frame with itself: score 0.00)
+                import numpy as np
+                from perception.occupancy import Station
+                cache = self.__dict__.setdefault("_occ_stations", {})
+                st = cache.get(station) or Station.load(station)
+                cache[station] = st
+                if st.empties:
+                    v = st.verdict(cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR))
+                    self.tele.log("occupancy", station, v.state, truth=state, agree=(v.state == state), score=round(v.score, 2), noise=round(v.noise, 2))
+                    out = (v.state, f"{v.state} ({v.score:.2f} against noise {v.noise:.2f})")
             d = os.path.join(REFS_ROOT, kind, station)
             os.makedirs(d, exist_ok=True)
             stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -71,17 +83,7 @@ class Gates:
                     "source": "loop", "at": time.strftime("%Y-%m-%d %H:%M:%S")}
             with open(os.path.join(d, f"{state}_{stamp}.json"), "w", encoding="utf-8") as f:
                 json.dump(meta, f, indent=1)
-            if judge:
-                import cv2
-                import numpy as np
-                from perception.occupancy import Station
-                cache = self.__dict__.setdefault("_occ_stations", {})
-                st = cache.get(station) or Station.load(station)
-                cache[station] = st
-                if st.empties:
-                    v = st.verdict(cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR))
-                    self.tele.log("occupancy", station, v.state, truth=state, agree=(v.state == state), score=round(v.score, 2), noise=round(v.noise, 2))
-                    return v.state, f"{v.state} ({v.score:.2f} against noise {v.noise:.2f})"
+            return out
         except Exception as e:
             self.tele.log("collect", station, f"{kind} {state}: not recorded: {str(e)[:80]}")
         return None
