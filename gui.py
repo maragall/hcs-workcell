@@ -770,6 +770,11 @@ class App:
         feed = self.feeds[i]
         if feed.frame is None or time.time() - feed.at > 3.0:
             return
+        bands = self.model.bands.values()
+        if p.jaw is not None and any(lo - 0.6 <= p.jaw <= hi + 0.6 for lo, hi in bands):
+            img = self.panels[i][0]                                             # a plate in the claw fills the region: the seat is not judged
+            img.create_text(12, 10, anchor="nw", fill=MUTED, font=("Consolas", 12, "bold"), tags="occ", text=f"{name}: carrying a plate, no check")
+            return
         if self.judged_at != feed.at:
             try:
                 got = self.det.judge(name, feed.frame)
