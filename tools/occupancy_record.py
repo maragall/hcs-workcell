@@ -134,7 +134,10 @@ def hotel_round(state):
         if not robot.enable():
             sys.exit("robot could not be enabled")
         only = sys.argv[3] if len(sys.argv) > 3 else ""
-        slots = [s for s in layout["fixtures"]["hotel"].get("active_slots", []) if s.startswith(only)]
+        h = layout["fixtures"]["hotel"]
+        slots = [s for s in h.get("active_slots", []) if s.startswith(only)]
+        if only and not slots and only in h.get("columns", []):                 # a column outside the taught set (C): its slots from the hotel's rows
+            slots = [f"{only}{r}" for r in h["rows"]]
         print("round", state, "over", slots, flush=True)
         for slot in slots:
             target = view_of(cyc, layout, slot)
