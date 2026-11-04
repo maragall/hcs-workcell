@@ -1,0 +1,30 @@
+{
+ "station": "C9",
+ "state": "full",
+ "pose": [
+  191.986,
+  -134.243,
+  388.278,
+  0.0,
+  -0.0,
+  0.001
+ ],
+ "view_pose": [
+  191.986,
+  -134.243,
+  388.278,
+  0.0,
+  -0.0,
+  0.001
+ ],
+ "size": [
+  1280,
+  960
+ ],
+ "cameras": {
+  "front": "scan_camera"
+ },
+ "source": "loop",
+ "at": "2026-11-04 01:35:13",
+ "relabelled": "the sweep labelled it by the ledger (empty); the plates of column C were still in (operator, 01:40)"
+}

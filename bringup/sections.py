@@ -609,9 +609,7 @@ class Bringup:
             # one occupancy sweep with the empty claw before any plate moves (vision.survey, on by default). The camera can only rule a slot
             # out: a parking place needs the ledger and the camera to say empty, a pick needs the ledger's full and no confident empty from the
             # camera. A disagreement is a log line and a skipped slot, never a move.
-            seen_empty, seen_full = survey(cyc, taught) if c.layout()["vision"].get("survey", True) else (set(), set())
-            if not c.layout()["vision"].get("veto", False):                  # tonight the camera's word changes nothing: the ledger drives, the verdicts are logged
-                seen_empty, seen_full = set(), set()
+            seen_empty, seen_full = set(), set()                             # the sweep runs after the intake (below), with the empty claw
 
             def parking_places():
                 have = set(bench.loaded_slots(c.layout()))
@@ -645,6 +643,11 @@ class Bringup:
                 self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))
                 st.contents["module"] = "empty"
                 cyc.store.save()
+            # the hotel occupancy sweep: after the intake (operator, 01:45), the first plate parked and the claw empty, before the rotation
+            if c.layout()["vision"].get("survey", True):
+                seen_empty, seen_full = survey(cyc, taught)
+                if not c.layout()["vision"].get("veto", False):              # tonight the camera's word changes nothing: the ledger drives, the verdicts are logged
+                    seen_empty, seen_full = set(), set()
             passes = 0
             while not stopped():
                 have = set(bench.loaded_slots(c.layout()))
