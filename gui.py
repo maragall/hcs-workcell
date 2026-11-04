@@ -336,11 +336,20 @@ class Model:
             seen = (os.path.getmtime(lp), os.path.getmtime(sp) if os.path.exists(sp) else 0.0)
             if seen == self._state_seen:
                 return
+            layout_changed = seen[0] != self._state_seen[0]
             self._state_seen = seen
             lay = json.load(open(lp, encoding="utf-8"))
             st = json.load(open(sp, encoding="utf-8")) if os.path.exists(sp) else {}
         except (OSError, ValueError):
             return
+        if layout_changed:                                                     # the setup wrote the layout (a seat, the microscope box, a view pose): redraw the still picture
+            try:
+                self.layout = lay
+                self.boxes = scene_boxes(lay)
+                self.module_pad = self._module_pad()
+                self.draw_static()
+            except Exception:
+                pass
         loaded = set(lay["fixtures"]["hotel"].get("loaded") or [])
         plates = []
         for b in self.boxes:

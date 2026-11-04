@@ -298,7 +298,7 @@ def plan(layout: dict, safety: Safety, here: List[float], target: List[float],
             sig, branch = layout_sig(layout), fk.elbow_sign(list(safety.joints())[:4])
             a, b = GRAPH.name_of(sig, holding, here), GRAPH.name_of(sig, holding, target)
             if a and b and a != b:
-                leg = GRAPH.key(sig, a, b, holding, branch)
+                leg = GRAPH.key(leg_sig(layout, a, b), a, b, holding, branch)
                 hit = GRAPH.get(leg)
                 if hit is not None:                      # a leg between two stations, planned and checked before: no search
                     return Route(hit["name"], [list(q) for q in hit["poses"]],
@@ -336,6 +336,22 @@ def layout_sig(layout: dict) -> str:
     fixtures = {name: {k: v for k, v in fx.items() if k in GEOMETRY_KEYS} for name, fx in layout.get("fixtures", {}).items() if isinstance(fx, dict)}
     geometry = [layout.get("volumes"), layout.get("regions"), layout.get("routes"), fixtures]
     return hashlib.sha1(json.dumps(geometry, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def leg_sig(layout: dict, a: str, b: str) -> str:
+    """The geometry hash one stored leg depends on. A leg that touches no microscope station leaves every microscope out of the hash
+    (its seat, its box, its region): re-teaching a microscope seat then drops only the legs to and from that microscope, and the hotel
+    <-> module legs stay (operator, 2026-11-04). A microscope is any fixture with a pose other than the module and the hotel."""
+    fixtures = layout.get("fixtures", {})
+    scopes = [n for n, fx in fixtures.items() if isinstance(fx, dict) and "pose" in fx and n not in ("polar", "hotel")]
+    drop = {s for s in scopes if s not in a and s not in b}
+    if not drop:
+        return layout_sig(layout)
+    fx = {name: {k: v for k, v in f.items() if k in GEOMETRY_KEYS} for name, f in fixtures.items() if isinstance(f, dict) and name not in drop}
+    volumes = dict(layout.get("volumes") or {})
+    volumes["obstacles"] = {k: v for k, v in (volumes.get("obstacles") or {}).items() if k not in drop}
+    regions = {k: v for k, v in (layout.get("regions") or {}).items() if k not in drop}
+    return hashlib.sha1(json.dumps([volumes, regions, layout.get("routes"), fx], sort_keys=True, default=str).encode()).hexdigest()
 
 
 def _route_key(layout, safety, here, target, holding):
