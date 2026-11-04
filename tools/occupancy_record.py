@@ -178,6 +178,7 @@ def sweep():
             target = view_of(cyc, layout, slot)
             cyc._hotel_go_to_approach(slot, f"sweep {slot}")
             cyc._square_up(target, f"sweep {slot}")
+            time.sleep(0.6)                                                   # settled before the picture: a frame taken as the arm arrives reads as unsure
             with locating(v["host"], wait_s=10.0):
                 if int(v.get("front_led", 0)):
                     box.led(v["front_camera"], int(v.get("front_led", 0)))

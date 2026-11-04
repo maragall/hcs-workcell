@@ -547,7 +547,7 @@ class App:
         r.grid_rowconfigure(3, weight=1)
         self.photos = [None, None]
         self.drawn = [(0.0, None), (0.0, None)]
-        self.det, self.judged_at = Detector(), 0.0
+        self.det, self.judged_at, self.still_since = Detector(), 0.0, None
         self.panels = []
         for i, label in enumerate(labels):
             f = tk.Frame(r, bg=BG)
@@ -774,10 +774,19 @@ class App:
             return
         name, cam = self.det.station_at(p.pose)
         if not name:
+            self.still_since = None
             return
+        last = getattr(self, "last_pose", None)
+        if last is None or max(abs(p.pose[k] - last[k]) for k in range(3)) > 0.5:
+            self.still_since = time.time()                                   # the arm moved: the clock for "settled" starts again
+        self.last_pose = list(p.pose)
         i = 0 if cam == "down" else 1
         feed = self.feeds[i]
         if feed.frame is None or time.time() - feed.at > 3.0:
+            return
+        if self.still_since is None or time.time() - self.still_since < 1.0 or feed.at < self.still_since + 0.3:
+            img = self.panels[i][0]                                             # not judged while arriving: a frame taken in motion reads as unsure (operator, 02:08)
+            img.create_text(12, 10, anchor="nw", fill=MUTED, font=("Consolas", 12, "bold"), tags="occ", text=f"{name}: settling")
             return
         bands = self.model.bands.values()
         if p.jaw is not None and any(lo - 0.6 <= p.jaw <= hi + 0.6 for lo, hi in bands):
