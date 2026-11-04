@@ -585,6 +585,13 @@ class Bringup:
             return c.stop_event.is_set() or os.path.exists(os.path.join(c.runs_dir, "STOP"))
 
         def rotate():
+            c.between_plates_only = True                                 # runs/STOP ends the run with the plate in a slot, never mid-carry
+            try:
+                return _rotate()
+            finally:
+                c.between_plates_only = False
+
+        def _rotate():
             self.ready()
             cyc = self.cyc()
             cyc.safety.profile = SpeedProfile(**c.layout()["speeds"][self.speed])      # --speed: stress by default (travel 0.5, approach 0.25, contact 0.1); the lowers, slides and clamps keep their slow last millimetres

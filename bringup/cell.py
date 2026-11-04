@@ -85,9 +85,14 @@ class Cell:
             except Exception as e:
                 self.log("setup", "vision", f"led not set: {e}")
 
+    between_plates_only = False      # the rotation sets this: runs/STOP then ends the run between two plates (sections.py stopped()), not mid-carry
+
     def stop_file_seen(self) -> bool:
-        """runs/STOP, the file run_forever.py and cli.py run end on: while the setup runs it is a STOP."""
+        """runs/STOP, the file run_forever.py and cli.py run end on: while the setup runs it is a STOP at the next step, except during the
+        rotation, which reads the file itself between plates (2026-11-03 22:43 it stopped a carry with the plate in the claw)."""
         if os.path.exists(os.path.join(self.runs_dir, "STOP")) and not self.stop_event.is_set():
+            if self.between_plates_only:
+                return True
             self.stop()
             self.note(f"{os.path.join(self.runs_dir, 'STOP')} is present; delete it to run again")
             return True
