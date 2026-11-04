@@ -22,7 +22,8 @@ class ClampError(Exception):
 
 
 def _up(b: Brcapi) -> None:
-    b.start_program()
+    if b.state().prog_state != "running":                 # still running from a session the controller cut: use it as it is
+        b.start_program()
     t0 = time.time()
     while True:
         if time.time() - t0 > 10.0:
@@ -47,20 +48,39 @@ def _sample(b: Brcapi, n: int = 10, dt: float = 0.1) -> Dict[str, float]:
 
 
 def _stop(b: Brcapi) -> None:
-    try:
-        b.stop_program()
-    except Exception:
-        pass
+    for _ in range(2):                                     # a cut connection: once more on a fresh one, so the probe never stays running
+        try:
+            b.stop_program()
+            break
+        except OSError:
+            continue
+        except Exception:
+            break
     time.sleep(0.7)
     b.close()
 
 
+def _session(ip: str, port: int, work) -> Dict[str, float]:
+    """`work(b)` on a connection of its own, the probe stopped after. If the controller cuts the connection (it did once in about fifty
+    clamps with the window's pose poller on the same port, 2026-11-03 02:28, before the port had a lock), once more from the start: the
+    jaw is where it is, a second close only presses again."""
+    last = None
+    for attempt in (1, 2):
+        b = Brcapi(ip, port, log=None)
+        try:
+            b.connect()
+            _up(b)
+            return work(b)
+        except OSError as e:
+            last = e
+        finally:
+            _stop(b)
+    raise ClampError(f"the controller cut the connection twice: {last}")
+
+
 def close(ip: str, command: float, limit: float, speed: int = 20, port: int = PORT) -> Dict[str, float]:
     """Close toward `command` under the torque `limit` (0..0.5); the reading once it has stopped."""
-    b = Brcapi(ip, port, log=None)
-    b.connect()
-    try:
-        _up(b)
+    def work(b: Brcapi):
         try:
             code = b.run_job({0: 23, 1: int(round(command * 100)), 2: int(round(limit * 1000)), 3: int(speed)}, 15.0)
         except BrcapiError as e:
@@ -69,16 +89,9 @@ def close(ip: str, command: float, limit: float, speed: int = 20, port: int = PO
         r = _sample(b)
         r["code"] = code
         return r
-    finally:
-        _stop(b)
+    return _session(ip, port, work)
 
 
 def read(ip: str, port: int = PORT) -> Dict[str, float]:
     """The holding torque and width of the jaw as it is, nothing commanded."""
-    b = Brcapi(ip, port, log=None)
-    b.connect()
-    try:
-        _up(b)
-        return _sample(b)
-    finally:
-        _stop(b)
+    return _session(ip, port, _sample)

@@ -268,21 +268,14 @@ class VendorRobot:
             b.close()
 
     def errors(self) -> list:
-        """Controller error list over BRCAPI (one short connection); empty when unreachable, the SDK path still guards."""
-        import json
-        import socket
+        """Controller error list over BRCAPI (one short connection, under the port's lock); empty when unreachable or busy, the SDK path
+        still guards."""
+        from devices.controller import Brcapi
+        b = Brcapi(self.ip, self.BRCAPI_PORT, timeout=3, log=None, wait_s=1.5)
         try:
-            s = socket.create_connection((self.ip, self.BRCAPI_PORT), timeout=3)
-            s.settimeout(3)
-            s.sendall((json.dumps({"BRCAPI": "1.0", "cmd": "getRobotErr", "id": 7}) + "\n").encode())
-            buf = b""
-            while not buf.endswith(b"\n"):
-                c = s.recv(65536)
-                if not c:
-                    break
-                buf += c
-            s.close()
-            ret = json.loads(buf).get("ret") or []
-            return [e for e in ret if e.get("errCode") is not None]
+            b.connect()
+            return [e for e in (b.call("getRobotErr") or []) if e.get("errCode") is not None]
         except Exception:
             return []
+        finally:
+            b.close()

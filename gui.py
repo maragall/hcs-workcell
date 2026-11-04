@@ -88,11 +88,12 @@ class PosePoll(threading.Thread):
         self.pose, self.jaw, self.module, self.at, self.error = None, None, None, 0.0, ""
 
     def run(self):
-        """One short connection per reading (connect, two reads, close, about 60 ms): the port takes one client at a time, and the setup's
-        own readings, error checks and force clamps need it in between. While the setup holds it (a clamp, up to 15 s) the view goes stale."""
+        """One short connection per reading (connect, two reads, close, about 60 ms), under this PC's lock on the port (devices/portlock.py):
+        the port takes one client at a time, and the setup's own readings, error checks and force clamps take the same lock in between.
+        While the setup holds it (a clamp, a few seconds) this waits 0.3 s, gives the turn up, and the view says how old it is."""
         while True:
             t0 = time.time()
-            b = Brcapi(self.ip, 56788, timeout=2.0, log=None)
+            b = Brcapi(self.ip, 56788, timeout=2.0, log=None, wait_s=0.3)
             try:
                 b.connect()
                 p = b.pose_mm_rad()
@@ -101,6 +102,8 @@ class PosePoll(threading.Thread):
                 self.pose = [p[0], p[1], p[2], math.degrees(p[5])]
                 self.jaw, self.module = (ext[0] if ext else None), (ext[1] if len(ext) > 1 else None)
                 self.at, self.error = time.time(), ""
+            except ConnectionRefusedError:
+                self.error = "the setup has the controller's port"
             except Exception as e:
                 self.error = str(e)[:60] or "busy"
             finally:
@@ -140,6 +143,7 @@ class Model:
         self.route, self.planning = r, None
 
     def _rot(self, x, y, z):
+        y = -y                                                              # mirrored across the xz plane: the view matches the cell as the operator stands at it (2026-11-03)
         ca, sa, ce, se = math.cos(self.AZ), math.sin(self.AZ), math.cos(self.EL), math.sin(self.EL)
         xr, yr = x * ca - y * sa, x * sa + y * ca
         return xr, z * ce - yr * se, yr * ce + z * se          # screen right, screen up, depth

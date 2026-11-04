@@ -14,6 +14,8 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+from devices.portlock import PortLock
+
 SYS_STATE = {0: "init", 1: "idle", 2: "running", 3: "error", 4: "pause", 5: "enabled"}
 PROG_STATE = {0: "stopped", 1: "running", 2: "paused", 3: "error"}
 
@@ -38,10 +40,11 @@ class ControllerState:
 class Brcapi:
     KEEPALIVE_S = 60.0
 
-    def __init__(self, host: str, port: int = 56788, timeout: float = 10.0, log=None):
-        self.host, self.port, self.timeout = host, port, timeout
+    def __init__(self, host: str, port: int = 56788, timeout: float = 10.0, log=None, wait_s: float = 4.0):
+        self.host, self.port, self.timeout, self.wait_s = host, port, timeout, wait_s
         self._log = log or (lambda *a: None)
         self._sock: Optional[socket.socket] = None
+        self._port_lock, self._locked = PortLock(host, port), False
         self._buf = bytearray()
         self._id = 100
         self._lock = threading.Lock()
@@ -51,19 +54,27 @@ class Brcapi:
 
     # --------------------------------------------------------------- transport
     def connect(self):
+        """The port takes one client at a time (measured 2026-11-03): first this PC's lock on it (devices/portlock.py: the window's pose
+        poller, the setup and the force clamp take turns), held until close(); then the connection, a refusal waited out for the rest of
+        wait_s (a client on another PC, BioyondWorks, is outside the lock)."""
         self.close()
-        deadline = time.time() + 4.0
-        while True:
-            try:
-                self._sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
-                break
-            except ConnectionRefusedError:
-                # the port takes one client at a time (measured 2026-11-03); the window's pose poller holds it for a few tens of ms
-                # a few times a second: wait for it to let go instead of failing
-                if time.time() > deadline:
-                    raise
-                time.sleep(0.05)
-        self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        deadline = time.time() + self.wait_s
+        if not self._port_lock.acquire(self.wait_s):
+            raise ConnectionRefusedError(f"{self.host}:{self.port} is busy: another program on this PC holds it")
+        self._locked = True
+        try:
+            while True:
+                try:
+                    self._sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
+                    break
+                except ConnectionRefusedError:
+                    if time.time() > deadline:
+                        raise
+                    time.sleep(0.05)
+            self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except BaseException:
+            self._unlock()
+            raise
         self._log("ctrl", "connect", f"{self.host}:{self.port}")
 
     def close(self):
@@ -73,6 +84,12 @@ class Brcapi:
             except OSError:
                 pass
             self._sock = None
+        self._unlock()
+
+    def _unlock(self):
+        if self._locked:
+            self._locked = False
+            self._port_lock.release()
 
     def _readline(self, timeout: float) -> Optional[dict]:
         self._sock.settimeout(timeout)
@@ -109,20 +126,30 @@ class Brcapi:
             msg = {"BRCAPI": "1.0", "cmd": cmd, "id": rid}
             if params is not None:
                 msg["params"] = params
-            self._sock.sendall((json.dumps(msg) + "\n").encode())
-            self._last_tx = time.time()
-            deadline = time.time() + self.timeout
-            while time.time() < deadline:
-                m = self._readline(max(0.1, deadline - time.time()))
-                if m is None:
-                    continue
-                if m.get("id") == rid and ("ret" in m or "error" in m):
-                    if "error" in m:
-                        e = m["error"]
-                        raise BrcapiError(e.get("code"), e.get("message"), cmd)
-                    return m.get("ret")
-                self._dispatch_push(m)
+            try:
+                self._sock.sendall((json.dumps(msg) + "\n").encode())
+                self._last_tx = time.time()
+                deadline = time.time() + self.timeout
+                while time.time() < deadline:
+                    m = self._readline(max(0.1, deadline - time.time()))
+                    if m is None:
+                        continue
+                    if m.get("id") == rid and ("ret" in m or "error" in m):
+                        if "error" in m:
+                            e = m["error"]
+                            raise BrcapiError(e.get("code"), e.get("message"), cmd)
+                        return m.get("ret")
+                    self._dispatch_push(m)
+            except OSError as e:
+                self._cut(cmd, e)
             raise BrcapiError("timeout", f"no ack within {self.timeout}s", cmd)
+
+    def _cut(self, cmd: str, e: OSError):
+        """The controller cut the connection (it does when another client takes the port): drop it, so the next call opens a new one,
+        and tell the caller."""
+        self.close()
+        self._buf.clear()
+        raise ConnectionError(f"{cmd}: the controller cut the connection ({e})") from e
 
     def wait_push(self, rid: int, timeout: float, predicate=lambda m: True) -> Optional[dict]:
         deadline = time.time() + timeout
@@ -132,7 +159,10 @@ class Brcapi:
                     if predicate(m):
                         self._pushes[rid].remove(m)
                         return m
-                m = self._readline(0.5)
+                try:
+                    m = self._readline(0.5)
+                except OSError as e:
+                    self._cut("wait_push", e)
                 if m is not None:
                     self._dispatch_push(m)
             if time.time() - self._last_tx > self.KEEPALIVE_S:

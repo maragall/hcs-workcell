@@ -43,19 +43,27 @@ def local_subnets() -> List[ipaddress.IPv4Network]:
 
 
 def port_open(host: str, port: int, timeout: float = PROBE_TIMEOUT_S, retry_s: float = 0.0) -> bool:
-    """With retry_s: a refused connection is tried again for that long (the controller's BRCAPI port takes one client at a time and the
-    window's pose poller holds it for a few tens of ms a few times a second, 2026-11-03)."""
-    deadline = time.time() + retry_s
-    while True:
-        try:
-            with socket.create_connection((host, port), timeout=timeout):
-                return True
-        except ConnectionRefusedError:
-            if time.time() >= deadline:
+    """The controller's BRCAPI port takes one client at a time: it is probed under this PC's lock on it (devices/portlock.py, shared with the
+    window's pose poller and the force clamp), and with retry_s a refusal is tried again for that long (a client on another PC)."""
+    from devices.portlock import PortLock
+    lock = PortLock(host, port) if port == ARM_PORTS[1] else None
+    if lock and not lock.acquire(max(retry_s, 1.0)):
+        return False
+    try:
+        deadline = time.time() + retry_s
+        while True:
+            try:
+                with socket.create_connection((host, port), timeout=timeout):
+                    return True
+            except ConnectionRefusedError:
+                if time.time() >= deadline:
+                    return False
+                time.sleep(0.05)
+            except OSError:
                 return False
-            time.sleep(0.05)
-        except OSError:
-            return False
+    finally:
+        if lock:
+            lock.release()
 
 
 def scan(port: int, first: Optional[str] = None) -> Optional[str]:
