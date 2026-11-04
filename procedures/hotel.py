@@ -33,7 +33,7 @@ def plate_order(layout: dict):
     return interleave(*([f"{col}{row}" for row in rows] for col, rows in loaded.items()))
 
 
-MOUTH_CLEAR_MM = 5.0         # planned mode: the claw waits this far outside the first part of the hotel before it goes in
+MOUTH_CLEAR_MM = 15.0        # planned mode: the claw (and the plate it carries) waits this far outside the first part of the hotel before it goes in and after it comes out (5 until 2026-11-04 03:00: a route's first leg then swept the plate sideways 18 mm inside the front)
 MIN_LIFT_MM = 4.0           # least the plate is raised above its seat: the trays are flat, nothing to clear but the surface
 
 
