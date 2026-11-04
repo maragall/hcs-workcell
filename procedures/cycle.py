@@ -130,7 +130,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.store.done(plate_at="gripper", grip=grip)
 
     def _place(self, fixture_name: str, pose: List[float], fixture: dict, at: str, trajectory_in: Optional[str],
-               reverse: bool = False, gate: Optional[str] = None):
+               reverse: bool = False, gate: Optional[str] = None, check: bool = True):
         prof = self.safety.profile
         step = f"place:{fixture_name}"
         self.store.begin(step)
@@ -138,7 +138,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         hover = offset(pose, [0, 0, fixture["hover_mm"]])
         if trajectory_in:
             self._enter(trajectory_in, reverse, hover, fixture_name)
-        if not self._check_seat_from_view(fixture_name, pose, fixture, hover, step):
+        if not (check and self._check_seat_from_view(fixture_name, pose, fixture, hover, step)):      # check=False: the seat proof, the plate was just lifted off it
             self._arrive(hover, f"{step} hover", prof.approach)
         self._polar_ensure(fixture_name, gate, pose, hover)
         target = self._seat(pose, [0.0] * 6)
@@ -177,8 +177,11 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self._arrive(hover, f"{step} hover", prof.approach)                 # the stored leg to the hover; from there straight up and sideways: nothing new to plan
         self._move("L", [hover[0], hover[1], target[2]] + list(hover[3:]), f"{step} up to the occupancy view", prof.approach)
         self._move("L", target, f"{step} occupancy view", prof.approach)
-        got = self._collect("occupancy", fixture_name, "empty", "down", judge=True)
-        word = got[1] if got else "no verdict (no reference)"
+        # judged against this seat's own pictures from this very situation, a plate in hand at the view (reference_images/occupancy_drop); the
+        # empty-claw pictures differ (closed fingers, the plate's edge) and read 0.44 on an empty module (02:20). Every drop-in picture whose
+        # seat the ledger calls empty becomes a reference after the verdict; the first one has none.
+        got = self._collect("occupancy_drop", fixture_name, "empty", "down", judge=True, save=(self.store.s.contents.get("module" if fixture_name == "polar" else fixture_name) != "full"))
+        word = got[1] if got else "no verdict (no reference yet)"
         self.tele.log("seat", fixture_name, f"before lowering: the camera says {word}")
         print(f"   {fixture_name}: occupancy before lowering: {word}", flush=True)
         if got and got[0] == "full" and v.get("gate_before_lower", False):

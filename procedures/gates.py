@@ -1,6 +1,7 @@
 """What is checked before and after a move: health, the camera gates, the barcode. Part of Cycle, see procedures/cycle.py."""
 from __future__ import annotations
 
+import glob
 import json
 import os
 import shutil
@@ -49,12 +50,12 @@ class Gates:
             return None
 
     # ------------------------------------------------- collection: a picture and a verdict in the log, never a stop (2026-11-04)
-    def _collect(self, kind: str, station: str, state: str, camera: str, judge: bool = False) -> None:
+    def _collect(self, kind: str, station: str, state: str, camera: str, judge: bool = False, save: Optional[bool] = None):
         """Record only. `kind` occupancy or seat: the camera's freshest frame goes under reference_images/<kind>/<station>/<state>_<stamp>_
         <camera>.jpg with the pose, labelled by what the ledger says (`state`). With `judge`, the occupancy detector's verdict on that
         frame is logged beside the truth, so the morning tells how often they agree. Off with vision.collect = false. Nothing here raises:
         the loop's moves are not gated by any of this; a failure is one log line."""
-        collect = self.L["vision"].get("collect", True)
+        collect = self.L["vision"].get("collect", True) if save is None else save
         if not collect and not judge:
             return
         try:
@@ -66,14 +67,29 @@ class Gates:
             if judge:                                                          # judged against the references as they were BEFORE this picture is saved
                 import cv2                                                     # (saved first, the survey of 01:18 compared every frame with itself: score 0.00)
                 import numpy as np
-                from perception.occupancy import Station
+                from perception.occupancy import Station, pictures
                 cache = self.__dict__.setdefault("_occ_stations", {})
-                st = cache.get(station) or Station.load(station)
-                cache[station] = st
-                if st.empties:
+                key = (kind, station)
+                st = cache.get(key)
+                if st is None:
+                    if kind == "occupancy":
+                        st = Station.load(station)
+                    else:                                                      # e.g. occupancy_drop: the seat seen with a plate in hand, its own empties
+                        folder = os.path.join(REFS_ROOT, kind, station)
+                        paths = sorted(glob.glob(os.path.join(folder, f"empty_*_{camera}.jpg")))
+                        st = Station.load(station, camera=camera, paths=paths)
+                    cache[key] = st
+                if not st.empties:
+                    self.tele.log("occupancy", station, f"no {kind} reference yet: this picture becomes the first")
+                else:
                     v = st.verdict(cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR))
                     self.tele.log("occupancy", station, v.state, truth=state, agree=(v.state == state), score=round(v.score, 2), noise=round(v.noise, 2))
                     out = (v.state, f"{v.state} ({v.score:.2f} against noise {v.noise:.2f})")
+                    try:                                                       # the window draws this verdict's box and label on that camera (gui.py @@OCC)
+                        from bringup import prompt
+                        prompt.emit("OCC", {"station": station, "camera": camera, "roi": list(st.roi), "state": v.state, "score": round(v.score, 2), "noise": round(v.noise, 2)})
+                    except Exception:
+                        pass
             if not collect:
                 return out
             d = os.path.join(REFS_ROOT, kind, station)

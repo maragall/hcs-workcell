@@ -724,6 +724,15 @@ class App:
             except ValueError:
                 pass
             return
+        if line.startswith("@@OCC "):                                          # the loop's own verdict on a seat or a slot: box and word on that camera, the seat marked in the model
+            try:
+                o = json.loads(line[6:])
+                o["at"] = time.time()
+                self.ar = o
+                self.model.seen[o["station"]] = (type("V", (), {"state": o["state"]})(), time.time())
+            except (ValueError, KeyError):
+                pass
+            return
         clean = ANSI.sub("", line)
         if not clean.strip():
             return
@@ -769,6 +778,18 @@ class App:
         """At a station's viewing pose: judge the newest frame of that station's camera, draw the region and the verdict on that feed."""
         for img, _, _ in self.panels:
             img.delete("occ")
+        ar = getattr(self, "ar", None)
+        if ar and time.time() - ar["at"] < 6.0:                               # the loop's verdict, drawn for six seconds: the box over the seat and the word
+            i = 0 if ar.get("camera") == "down" else 1
+            img = self.panels[i][0]
+            pw, ph = self.cam
+            r = ar["roi"]
+            colour = Detector.COLOUR.get(ar["state"], "#ffffff")
+            word = {"empty": "empty", "full": "occupied", "unsure": "unsure"}.get(ar["state"], ar["state"])
+            img.create_rectangle(r[0] * pw, r[1] * ph, r[2] * pw - 1, r[3] * ph - 1, outline=colour, width=3, tags="occ")
+            img.create_text((r[0] + r[2]) / 2 * pw, r[1] * ph + 10, anchor="n", fill=colour, font=("Segoe UI", 26, "bold"), tags="occ", text=word)
+            img.create_text(r[0] * pw + 6, r[3] * ph - 6, anchor="sw", fill=colour, font=("Consolas", 11), tags="occ", text=f"{ar['station']}   {ar['score']:.2f} / {ar['noise']:.2f}")
+            return
         p = self.poll
         if p is None or p.pose is None or time.time() - p.at > 2.0:
             return
