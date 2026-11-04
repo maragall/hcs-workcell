@@ -61,8 +61,19 @@ class Feed(threading.Thread):
         self.client = VisionClient(host, port, timeout=5.0, log=None)        # a box that does not answer must not hold the vision lock for 30 s
         self.frame, self.at, self.error = None, 0.0, ""
 
+    def light(self, on=True):
+        """The LED once for the session (turn_on_led), never per frame: a brightness on a frame request is a flash for that photo, and at
+        2.5 frames a second that is a blinking lamp (the operator, 2026-11-03). Re-sent now and then: the box forgets it when its service
+        restarts."""
+        if self.led > 0:
+            try:
+                self.client.led(self.camera, self.led if on else 0)
+                self.lit_at = time.time()
+            except Exception:
+                self.lit_at = 0.0
+
     def grab(self):
-        jpg = self.client.frame(self.camera, REQUEST[0], REQUEST[1], 80, None, self.led)
+        jpg = self.client.frame(self.camera, REQUEST[0], REQUEST[1], 80, None, 0)
         img = cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR)
         if img is not None:
             self.frame, self.at, self.error = img, time.time(), ""
@@ -73,6 +84,7 @@ class Feed(threading.Thread):
         the camera to its full resolution and hang while a client keeps asking for 640x480 frames (measured 2026-11-03, 100 s and no
         answer). A locating call holds the lock; the pictures pause and say so, then carry on."""
         lock = PortLock(self.client.host, "locate")
+        self.lit_at = 0.0
         while True:
             t0 = time.time()
             if not lock.acquire(0.2):
@@ -80,9 +92,12 @@ class Feed(threading.Thread):
                 time.sleep(0.3)
                 continue
             try:
+                if time.time() - self.lit_at > 60.0:
+                    self.light()
                 self.grab()
             except Exception as e:
                 self.error = str(e)[:60] or "no answer"
+                self.lit_at = 0.0
                 time.sleep(2.0)
             finally:
                 lock.release()

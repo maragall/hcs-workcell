@@ -67,9 +67,11 @@ def main():
     st = v.status()
     print(f"box: {st.state}, {st.clients} clients, {st.cameras} cameras; camera {cam}, workspace {ws}, marker {size_m * 1000:.0f} mm")
     with locating(vis["host"], wait_s=20.0):
+        if int(vis.get("led", 0)) and cam == vis["down_camera"]:
+            v.led(cam, int(vis.get("led", 0)))                                 # the lamp on for the session; the calls below ask no flash
         t = time.time()
         try:
-            r = v.aruco_pose(cam, marker_size_m=size_m, led=int(vis.get("led", 0)))
+            r = v.aruco_pose(cam, marker_size_m=size_m, led=0)
             print(f"get_aruco_pose: target {[round(x, 2) for x in r.target]} frame {r.frame} pixel {[round(x, 1) for x in r.pixel[:2]]} ({time.time() - t:.1f} s)")
         except VisionError as e:
             print(f"get_aruco_pose: error {e.code} {e.message} ({time.time() - t:.1f} s)")
@@ -79,14 +81,14 @@ def main():
             print("robot pose", [round(x, 2) for x in pose])
             t = time.time()
             try:
-                out = v.set_reference(cam, a.set_reference, pose, marker_size_m=size_m, led=int(vis.get("led", 0)))
+                out = v.set_reference(cam, a.set_reference, pose, marker_size_m=size_m, led=0)
                 print(f"set_reference_aruco_pose {a.set_reference}: {b','.join(out)[:160]!r} ({time.time() - t:.1f} s)")
                 ref = a.set_reference
             except VisionError as e:
                 print(f"set_reference_aruco_pose: error {e.code} {e.message} ({time.time() - t:.1f} s)")
         t = time.time()
         try:
-            o = v.pose_offset(cam, ref, workspace=ws, marker_size_m=size_m, led=int(vis.get("led", 0)))
+            o = v.pose_offset(cam, ref, workspace=ws, marker_size_m=size_m, led=0)
             print(f"get_pose_offset vs {ref}: d {[round(x, 2) for x in o.d]} frame {o.frame} |pos| {o.pos_mag:.2f} |rot| {o.rot_mag:.2f} ({time.time() - t:.1f} s)")
         except VisionError as e:
             print(f"get_pose_offset vs {ref}: error {e.code} {e.message} ({time.time() - t:.1f} s)")

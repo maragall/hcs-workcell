@@ -79,7 +79,7 @@ def go(station):
     target = from_tool_frame(p0, fwd, left, up)
     try:
         cyc.move_to(name)
-        cyc._move("L", target, f"{station} view pose (forward {fwd:.1f}, left {left:.1f}, up {up:.1f} mm from the seat pose)", cyc.safety.profile.approach)
+        cyc._move("L", target, f"{station} view pose (forward {fwd:.1f}, left {left:.1f}, up {up:.1f} mm from the seat pose)", cyc.safety.profile.contact)   # slow: toward the instrument, above the planner's box
         print("at", [round(v, 1) for v in robot.pose()[:3]], "yaw", round(robot.pose()[5], 1), flush=True)
         robot.drag(True)
         print("arm loose: adjust it by hand watching the gripper camera; then: python tools/view_pose.py save", station, flush=True)

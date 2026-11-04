@@ -95,7 +95,9 @@ def record(station, state):
         stamp = time.strftime("%Y%m%d_%H%M%S")
         with locating(v["host"], wait_s=10.0):
             for label, cam, led in (("front", v["front_camera"], int(v.get("front_led", v.get("led", 0)))), ("down", v["down_camera"], int(v.get("led", 0)))):
-                jpg = box.frame(cam, SIZE[0], SIZE[1], 90, None, led)
+                if led:
+                    box.led(cam, led)                                         # the lamp as the window keeps it: on for the session, never a flash per frame
+                jpg = box.frame(cam, SIZE[0], SIZE[1], 90, None, 0)
                 open(os.path.join(d, f"{state}_{stamp}_{label}.jpg"), "wb").write(jpg)
         json.dump({"station": station, "state": state, "pose": [round(x, 3) for x in pose], "view_pose": [round(x, 3) for x in target], "size": SIZE,
                    "cameras": {"front": v["front_camera"], "down": v["down_camera"]}, "led": {"front": int(v.get("front_led", v.get("led", 0))), "down": int(v.get("led", 0))},
