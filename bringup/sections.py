@@ -666,8 +666,11 @@ class Bringup:
                     seen_empty.discard(dest)
                     holes.append(slot)
                     moves += 1
-                    if c.layout()["vision"].get("check_module_after_park", True):      # the plate is parked, the claw is empty: is the module clear for the next one? (shown, logged, no gate tonight)
+                    if c.layout()["vision"].get("check_module_after_park", True):
+                        # the plate is parked, the claw is empty: the last moment both seats can be seen before the next plate goes to them
+                        # (a carried plate hangs 3 cm under the camera and hides the seat from any height). Shown and logged; no gate tonight.
                         seat_check(cyc, "polar")
+                        seat_check(cyc, self.scope)
             return {"stopped": "by request, between plates", "passes": passes, "plates moved": moves}
 
         def seat_check(cyc, station):
