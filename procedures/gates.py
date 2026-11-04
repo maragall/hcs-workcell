@@ -57,8 +57,10 @@ class Gates:
         if not self.L["vision"].get("collect", True):
             return
         try:
+            from devices.vision_box import locating
             cam = self.down_cam if camera == "down" else self.front_cam
-            jpg = self.frames.frame(cam, 1280, 960, 90, None, 0)
+            with locating(self.L["vision"]["host"], wait_s=5.0):             # one fresh frame from the box itself (the buffer was stale at the module view, 01:03)
+                jpg = self.vision.frame(cam, 1280, 960, 90, None, 0)
             d = os.path.join(REFS_ROOT, kind, station)
             os.makedirs(d, exist_ok=True)
             stamp = time.strftime("%Y%m%d_%H%M%S")

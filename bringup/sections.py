@@ -248,6 +248,7 @@ class Bringup:
         cyc = self.cyc()
         F = c.layout()["fixtures"]
         cyc.store.s.plate_at, cyc.store.s.grip, cyc.store.s.step_done = self.scope, "none", True
+        cyc.store.s.contents["module"], cyc.store.s.contents[self.scope] = "empty", "full"     # the operator moved the plate from the module into the holder
         cyc.store.save()
         # a setup teaches the grips afresh: this clamp (short edges, at the microscope) learns its width, the first long-edge clamp at the
         # module learns the other one before the first slot. Nothing stale from an earlier plate or earlier fingers can block them.
@@ -690,5 +691,7 @@ class Bringup:
                 self.guard(lambda: cyc._move("L", hover, f"{station}: down to the hover", cyc.safety.profile.contact))
             return out
 
-        return Section("test", [Step("polar", "look at the microscope seat and the module from above: the occupancy check (record only)", look, moves=True),
-                                Step("polar", "the rotation, for ever: the module's plate through the microscope into an empty slot, then every plate in a taught slot to the microscope and into the slot empty the longest", unattended(rotate), moves=True)])
+        # The occupancy survey (the empty claw at the slot mouths and the two viewing poses, tools/occupancy_record.py and `look` above) is not
+        # a setup step: put into the test on 2026-11-04 01:01 it moved the arm away from the microscope between the seat proof and the first pick
+        # and broke the proven flow (operator). It belongs to the start of a loop run, before any plate is in the claw.
+        return Section("test", [Step("polar", "the rotation, for ever: the module's plate through the microscope into an empty slot, then every plate in a taught slot to the microscope and into the slot empty the longest", unattended(rotate), moves=True)])
