@@ -4,6 +4,7 @@ and says which. Both cameras, full frames, with the pose, under reference_images
   python tools/occupancy_record.py go A1            the empty claw to A1's approach point, by the planner (the front camera looks into the slot)
   python tools/occupancy_record.py go polar         to the module's taught viewing pose (tools/view_pose.py); microscope the same
   python tools/occupancy_record.py record A1 empty  pictures of A1 as it is now, labelled empty; then `record A1 full` once a plate is in
+  python tools/occupancy_record.py round empty      every taught slot in turn, one recording each (the hotel empty); `round full A` for one column
   python tools/occupancy_record.py list             what has been recorded
 
 A recording is refused when the arm is not within 5 mm of the station's viewing pose, so a label never goes with the wrong view. The
@@ -31,6 +32,12 @@ from tools.view_pose import from_tool_frame, to_view  # noqa: E402
 
 OUT = os.path.join(HERE, "reference_images", "occupancy")
 SIZE = (1280, 960)
+
+
+def cameras_for(station: str):
+    """Which camera sees the station: a slot only the front camera (at a slot's mouth the down camera looks at the rotation module); the
+    module and the microscope only the down camera (their front frames show the room). Operator, 2026-11-03."""
+    return ("down",) if station in ("polar", "microscope") else ("front",)
 
 
 def view_of(cyc, layout, station):
@@ -80,30 +87,61 @@ def go(station):
         tele.close()
 
 
+def capture(layout, tele, robot, cyc, station, state):
+    pose = robot.pose()
+    target = view_of(cyc, layout, station)
+    far = max(abs(pose[i] - target[i]) for i in range(3))
+    if far > 5.0:
+        sys.exit(f"the arm is {far:.1f} mm from {station}'s viewing pose: not recording (go {station} first)")
+    v = layout["vision"]
+    box = nova.vision_box(layout, tele.log)
+    d = os.path.join(OUT, station)
+    os.makedirs(d, exist_ok=True)
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    cams = {"front": (v["front_camera"], int(v.get("front_led", v.get("led", 0)))), "down": (v["down_camera"], int(v.get("led", 0)))}
+    with locating(v["host"], wait_s=10.0):
+        for label in cameras_for(station):
+            cam, led = cams[label]
+            if led:
+                box.led(cam, led)                                             # the lamp as the window keeps it: on for the session, never a flash per frame
+            jpg = box.frame(cam, SIZE[0], SIZE[1], 90, None, 0)
+            open(os.path.join(d, f"{state}_{stamp}_{label}.jpg"), "wb").write(jpg)
+    json.dump({"station": station, "state": state, "pose": [round(x, 3) for x in pose], "view_pose": [round(x, 3) for x in target], "size": SIZE,
+               "cameras": {k: cams[k][0] for k in cameras_for(station)}, "led": {k: cams[k][1] for k in cameras_for(station)},
+               "at": time.strftime("%Y-%m-%d %H:%M:%S")}, open(os.path.join(d, f"{state}_{stamp}.json"), "w", encoding="utf-8"), indent=1)
+    print(f"recorded {station} {state}: {d}\\{state}_{stamp}_{'|'.join(cameras_for(station))}.jpg", flush=True)
+
+
 def record(station, state):
     layout, tele, robot, st, store, cyc = setup()
     try:
-        pose = robot.pose()
-        target = view_of(cyc, layout, station)
-        far = max(abs(pose[i] - target[i]) for i in range(3))
-        if far > 5.0:
-            sys.exit(f"the arm is {far:.1f} mm from {station}'s viewing pose: not recording (go {station} first)")
-        v = layout["vision"]
-        box = nova.vision_box(layout, tele.log)
-        d = os.path.join(OUT, station)
-        os.makedirs(d, exist_ok=True)
-        stamp = time.strftime("%Y%m%d_%H%M%S")
-        with locating(v["host"], wait_s=10.0):
-            for label, cam, led in (("front", v["front_camera"], int(v.get("front_led", v.get("led", 0)))), ("down", v["down_camera"], int(v.get("led", 0)))):
-                if led:
-                    box.led(cam, led)                                         # the lamp as the window keeps it: on for the session, never a flash per frame
-                jpg = box.frame(cam, SIZE[0], SIZE[1], 90, None, 0)
-                open(os.path.join(d, f"{state}_{stamp}_{label}.jpg"), "wb").write(jpg)
-        json.dump({"station": station, "state": state, "pose": [round(x, 3) for x in pose], "view_pose": [round(x, 3) for x in target], "size": SIZE,
-                   "cameras": {"front": v["front_camera"], "down": v["down_camera"]}, "led": {"front": int(v.get("front_led", v.get("led", 0))), "down": int(v.get("led", 0))},
-                   "at": time.strftime("%Y-%m-%d %H:%M:%S")}, open(os.path.join(d, f"{state}_{stamp}.json"), "w", encoding="utf-8"), indent=1)
-        print(f"recorded {station} {state}: {d}\\{state}_{stamp}_(front|down).jpg", flush=True)
+        capture(layout, tele, robot, cyc, station, state)
         print(summary(station), flush=True)
+    finally:
+        robot.disconnect()
+        tele.close()
+
+
+def hotel_round(state):
+    """Every taught slot in turn, the empty claw: to its mouth by the planner, one recording labelled `state`. For the whole hotel empty,
+    or a column just filled by hand (then only its slots: `round full A`)."""
+    layout, tele, robot, st, store, cyc = setup()
+    try:
+        if store.s.grip != "none":
+            sys.exit(f"the ledger says the claw holds a plate ({store.s.grip}): the round is for an empty claw")
+        if st.drag:
+            robot.drag(False)
+        if not robot.enable():
+            sys.exit("robot could not be enabled")
+        only = sys.argv[3] if len(sys.argv) > 3 else ""
+        slots = [s for s in layout["fixtures"]["hotel"].get("active_slots", []) if s.startswith(only)]
+        print("round", state, "over", slots, flush=True)
+        for slot in slots:
+            target = view_of(cyc, layout, slot)
+            cyc._hotel_go_to_approach(slot, f"view {slot}")
+            cyc._square_up(target, f"view {slot}")
+            capture(layout, tele, robot, cyc, slot, state)
+        print(summary(), flush=True)
     finally:
         robot.disconnect()
         tele.close()
@@ -112,7 +150,7 @@ def record(station, state):
 def summary(station=None):
     rows = []
     for s in sorted(os.listdir(OUT)) if os.path.isdir(OUT) else []:
-        if station and s != station:
+        if (station and s != station) or not os.path.isdir(os.path.join(OUT, s)):
             continue
         files = os.listdir(os.path.join(OUT, s))
         rows.append(f"  {s}: empty {sum(f.startswith('empty_') and f.endswith('.json') for f in files)}, full {sum(f.startswith('full_') and f.endswith('.json') for f in files)}")
@@ -127,5 +165,7 @@ if __name__ == "__main__":
         go(a[1])
     elif len(a) == 3 and a[0] == "record" and a[2] in ("empty", "full"):
         record(a[1], a[2])
+    elif len(a) in (2, 3) and a[0] == "round" and a[1] in ("empty", "full"):
+        hotel_round(a[1])
     else:
         sys.exit(__doc__)
