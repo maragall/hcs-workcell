@@ -150,6 +150,56 @@ def hotel_round(state):
         tele.close()
 
 
+def sweep():
+    """Every slot of every column with the empty claw: a verdict per slot from the station's empty references (perception/occupancy.py),
+    printed and shown live in the window; the picture is kept as sweep_<stamp> (not a reference; the operator says what was true)."""
+    import cv2
+    import numpy as np
+    from perception.occupancy import Station
+    layout, tele, robot, st, store, cyc = setup()
+    try:
+        if st.drag:
+            robot.drag(False)
+        if not robot.enable():
+            sys.exit("robot could not be enabled")
+        jaw = robot.jaw()
+        if jaw < 1.0 and store.s.grip != "none":                              # fingers together: nothing between them, whatever the ledger says
+            store.s.grip = "none"
+            store.save()
+        if store.s.grip != "none":
+            sys.exit(f"the ledger says the claw holds a plate ({store.s.grip}) and the jaw reads {jaw:.1f}: not sweeping")
+        if jaw < 20.0:
+            robot.jaw_to(29.0)
+        h = layout["fixtures"]["hotel"]
+        v = layout["vision"]
+        box = nova.vision_box(layout, tele.log)
+        rows = []
+        for slot in [f"{c}{r}" for c in h.get("columns", []) for r in h.get("rows", [])]:
+            target = view_of(cyc, layout, slot)
+            cyc._hotel_go_to_approach(slot, f"sweep {slot}")
+            cyc._square_up(target, f"sweep {slot}")
+            with locating(v["host"], wait_s=10.0):
+                if int(v.get("front_led", 0)):
+                    box.led(v["front_camera"], int(v.get("front_led", 0)))
+                jpg = box.frame(v["front_camera"], SIZE[0], SIZE[1], 90, None, 0)
+            stn = Station.load(slot)
+            if stn.empties:
+                vd = stn.verdict(cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR))
+                line = f"{slot}: {vd.state}  (score {vd.score:.2f}, noise {vd.noise:.2f}{'' if stn.calibrated else '*'}, {len(stn.empties)} empties)"
+            else:
+                line = f"{slot}: no empty reference"
+            d = os.path.join(OUT, slot)
+            os.makedirs(d, exist_ok=True)
+            open(os.path.join(d, f"sweep_{time.strftime('%Y%m%d_%H%M%S')}_front.jpg"), "wb").write(jpg)
+            print("   " + line, flush=True)
+            rows.append(line)
+            time.sleep(1.5)                                                   # long enough to read the label in the window
+        print("\n".join(rows))
+    finally:
+        robot.disconnect()
+        tele.close()
+
+
 def summary(station=None):
     rows = []
     for s in sorted(os.listdir(OUT)) if os.path.isdir(OUT) else []:
@@ -164,6 +214,8 @@ if __name__ == "__main__":
     a = sys.argv[1:]
     if a[:1] == ["list"]:
         print(summary())
+    elif a == ["sweep"]:
+        sweep()
     elif len(a) == 2 and a[0] == "go":
         go(a[1])
     elif len(a) == 3 and a[0] == "record" and a[2] in ("empty", "full"):

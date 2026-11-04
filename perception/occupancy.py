@@ -45,7 +45,8 @@ BLUR = 1.5             # Gaussian sigma after the resize
 SHIFT = 8              # px of shift tolerance in the correlation search (at WIDTH)
 DEFAULT_NOISE = 0.25   # score units, the empty noise assumed when only one empty exists (ncc + edge: two empties 28 min apart scored 0.11)
 NOISE_FLOOR = 0.15     # the noise is never taken below this: two empties minutes apart (A1: 0.00) have not seen a day's light or the arm's drift
-LOW, HIGH = 1.5, 2.5   # verdict bands as multiples of the empty noise
+LOW, HIGH = 1.5, 2.5   # reported bands as multiples of the empty noise (tools/occupancy_eval.py); the verdict uses the fixed bands below
+EMPTY_MAX, FULL_MIN = 0.30, 0.45   # verdict: distance to the nearest empty reference; between the two is unsure
 ROI_DEFAULT = (0.2, 0.2, 0.8, 0.8)   # x0, y0, x1, y1 as fractions of the frame: the central 60 % (down camera over a seat)
 ROI_SLOT = (0.22, 0.65, 0.80, 1.0)   # front camera at a slot's approach point: the plate fills the lower third between the walls
 ROI = {}                             # per-station overrides, e.g. "A1": (0.25, 0.6, 0.75, 1.0)
@@ -159,8 +160,11 @@ class Station:
         return best
 
     def verdict(self, image, deep=False):
+        """Fixed bands on the distance to the NEAREST empty reference (EMPTY_MAX / FULL_MIN), not multiples of the station's spread: once
+        day and night empties sit in one folder the spread is the lighting gap (1 to 6.6 on 2026-11-04 01:34) and bands scaled by it swallow a
+        plate (B3 at 3.9 read empty). Measured: same-light empties stay under 0.2 of their nearest, a plate scores 0.5 and up."""
         s, n, f = self.distance(prepare(image, self.roi))
-        v = Verdict("empty" if s <= LOW * self.noise else "full" if s >= HIGH * self.noise else "unsure", s, self.noise, n, f)
+        v = Verdict("empty" if s <= EMPTY_MAX else "full" if s >= FULL_MIN else "unsure", s, self.noise, n, f)
         if deep:
             v.deep = self.deep_score(image)
         return v

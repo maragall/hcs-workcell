@@ -173,14 +173,16 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         zmax = float(self.L["workspace_box"]["z"][1]) - 3.0
         if target[2] > zmax:
             target = [target[0], target[1], zmax] + list(target[3:])
-        self.go_to(target, f"{step} occupancy view")
+        prof = self.safety.profile
+        self._arrive(hover, f"{step} hover", prof.approach)                 # the stored leg to the hover; from there straight up and sideways: nothing new to plan
+        self._move("L", [hover[0], hover[1], target[2]] + list(hover[3:]), f"{step} up to the occupancy view", prof.approach)
+        self._move("L", target, f"{step} occupancy view", prof.approach)
         got = self._collect("occupancy", fixture_name, "empty", "down", judge=True)
         word = got[1] if got else "no verdict (no reference)"
         self.tele.log("seat", fixture_name, f"before lowering: the camera says {word}")
         print(f"   {fixture_name}: occupancy before lowering: {word}", flush=True)
         if got and got[0] == "full" and v.get("gate_before_lower", False):
             raise StopSafe(f"{step}: the camera says the seat is occupied ({word}); not lowering")
-        prof = self.safety.profile
         self._move("L", [hover[0], hover[1], target[2]] + list(hover[3:]), f"{step} over the seat", prof.approach)
         self._move("L", hover, f"{step} hover", prof.approach)
         return True
