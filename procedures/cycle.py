@@ -109,6 +109,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         if trajectory_in:
             self._enter(trajectory_in, False, hover, fixture_name)
         self._arrive(hover, f"{step} hover", prof.approach)
+        self._polar_ensure(fixture_name, gate, pose, hover)
         self._jaw_open(grip, fixture)
         target = self._seat(pose, [0.0] * 6)
         hover = offset(target, [0, 0, fixture["hover_mm"]])
@@ -138,6 +139,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         if trajectory_in:
             self._enter(trajectory_in, reverse, hover, fixture_name)
         self._arrive(hover, f"{step} hover", prof.approach)
+        self._polar_ensure(fixture_name, gate, pose, hover)
         target = self._seat(pose, [0.0] * 6)
         hover = offset(target, [0, 0, fixture["hover_mm"]])
         # a place stops this far above the height a pick lowers to: the plate is let go just over its seat and drops the last millimetres.
@@ -152,6 +154,30 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.store.done(plate_at=at, grip="none")
 
     # ------------------------------------------------------------------ polar
+    def _polar_ensure(self, fixture_name: str, gate: Optional[str], pose: List[float], hover: List[float]) -> None:
+        """At the module's hover, before the lower: the module at the angle this seat is taught for (`gate` polar@0 for the short-edge seat,
+        polar@90 for the long-edge one), read from the axis, never assumed. Set down at the other angle the plate lies across the seat
+        (A7's plate, 2026-11-03 19:52: the test had turned the module to 0 and the long-edge place did not look). Off: up to the clear
+        height, turn, back to the hover."""
+        if fixture_name != "polar" or not gate or "@" not in gate or self.polar.driver != "ext_axis":
+            return
+        deg = int(gate.split("@")[1])
+        real = self.polar.read_angle()
+        real = real - 360.0 * round(real / 360.0)
+        if abs(real - deg) <= 1.0 and self.polar.angle == deg:
+            return
+        self.tele.log("polar", "angle", f"the module reads {real:.1f} deg, this seat needs {deg}: turning it first")
+        F = self.L["fixtures"]["polar"]
+        prof = self.safety.profile
+        clear = offset(pose, [0, 0, F["hover_mm"] + F["clear_mm"]])
+        self._move("L", clear, "polar clear", prof.approach)
+        self.polar.rotate_to(deg)
+        err = (self.polar.read_angle() - deg + 180.0) % 360.0 - 180.0
+        self.tele.log("polar", "readback", deg=deg, err_deg=round(err, 3))
+        self.store.s.polar_angle = self.polar.angle = deg
+        self.store.save()
+        self._move("L", hover, "back to the hover", prof.approach)
+
     def _polar_rotate(self, deg: int, from_pose: List[float]):
         F = self.L["fixtures"]["polar"]
         self.store.begin(f"polar:{deg}")

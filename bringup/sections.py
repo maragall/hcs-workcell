@@ -587,13 +587,9 @@ class Bringup:
         def rotate():
             self.ready()
             cyc = self.cyc()
-            cyc.safety.profile = SpeedProfile(**c.layout()["speeds"][self.speed])
-            real = cyc.polar.read_angle()                                # the axis, never the assumed angle (a hand or a stop may have turned it)
-            real = real - 360.0 * round(real / 360.0)
-            if abs(real) > 1.0 or cyc.polar.angle != 0:
-                print(f"   the module reads {real:.1f} deg: turning it to 0 before any plate goes to it")
-                self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-                self.guard(lambda: cyc._polar_rotate(0, c.layout()["fixtures"]["polar"]["pose_at_90"]["pose"]))     # --speed: stress by default (travel 0.5, approach 0.25, contact 0.1; the profile the overnight runs of October used); the lowers, slides and clamps keep their slow last millimetres
+            cyc.safety.profile = SpeedProfile(**c.layout()["speeds"][self.speed])      # --speed: stress by default (travel 0.5, approach 0.25, contact 0.1); the lowers, slides and clamps keep their slow last millimetres
+            # the module's angle is not set here: every pick and place at the module reads the axis at the hover and turns it to the angle
+            # its seat is taught for (Cycle._polar_ensure). Turning it to 0 here put A7's plate across the long-edge seat (2026-11-03 19:52).
             F = c.layout()["fixtures"]
             st = cyc.store.s
             taught = [x for x in F["hotel"].get("active_slots", []) if reachable(cyc, x)]
@@ -618,10 +614,7 @@ class Bringup:
                 if st.plate_at == self.scope and st.step_done:
                     print(f"   the plate is already on the {self.scope} stage: carrying on from it")
                 else:
-                    P0, P90 = F["polar"]["pose_at_0"]["pose"], F["polar"]["pose_at_90"]["pose"]
-                    self.guard(lambda: cyc.move_to("polar.pose_at_0"))
-                    if cyc.polar.angle != 0:
-                        self.guard(lambda: cyc._polar_rotate(0, P90))
+                    P0 = F["polar"]["pose_at_0"]["pose"]
                     st.plate_at, st.grip, st.step_done = "polar", "none", True
                     cyc.store.save()
                     route = F[self.scope].get("trajectory", "microscope_to_polar")

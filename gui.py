@@ -85,7 +85,7 @@ class PosePoll(threading.Thread):
     def __init__(self, ip):
         super().__init__(daemon=True)
         self.ip = ip
-        self.pose, self.jaw, self.module, self.at, self.error = None, None, None, 0.0, ""
+        self.pose, self.jaw, self.module, self.joints, self.at, self.error = None, None, None, None, 0.0, ""
 
     def run(self):
         """One short connection per reading (connect, two reads, close, about 60 ms), under this PC's lock on the port (devices/portlock.py):
@@ -100,6 +100,7 @@ class PosePoll(threading.Thread):
                 j = b.joints()
                 ext = list(j[1]) if isinstance(j, (tuple, list)) and len(j) == 2 and isinstance(j[0], (list, tuple)) else list(j)[4:]
                 self.pose = [p[0], p[1], p[2], math.degrees(p[5])]
+                self.joints = list(j[0]) if isinstance(j, (tuple, list)) and len(j) == 2 and isinstance(j[0], (list, tuple)) else list(j)[:4]
                 self.jaw, self.module = (ext[0] if ext else None), (ext[1] if len(ext) > 1 else None)
                 self.at, self.error = time.time(), ""
             except ConnectionRefusedError:
@@ -137,10 +138,37 @@ class Model:
         self.scale = 0.92 * min(w / (u1 - u0), h / (v1 - v0))
         self.ox, self.oy = w / 2 - self.scale * (u0 + u1) / 2, h / 2 + self.scale * (v0 + v1) / 2
         self.route, self.planning = None, None
+        self.mesh = self._load_mesh()
+        self.polar_cfg = layout.get("polar", {}).get("ext_axis", {"zero_reading": 0.0, "direction": 1})
+        self.module_pad = self._module_pad()
         self.draw_static()
 
     def set_route(self, r):
         self.route, self.planning = r, None
+
+    def _load_mesh(self):
+        """The claw as the CAD has it (models/claw_mesh.json, tools/claw_mesh.py reads it out of the STEP file): feature edges per part in
+        the tool frame, the fingers slid across to the jaw reading. Without the file: the rectangles of layout volumes.claw."""
+        try:
+            m = json.load(open(os.path.join(HERE, "models", "claw_mesh.json"), encoding="utf-8"))
+            return m if m.get("parts") else None
+        except (OSError, ValueError):
+            return None
+
+    def _module_pad(self):
+        """The module's seat pad: axis and half sizes from the CAD (hardware.json cad.rotation_module), else 186.5 mm ahead of the taught
+        short-edge pose; its z from that pose."""
+        F = self.layout["fixtures"]
+        P0 = F["polar"]["pose_at_0"]["pose"]
+        z = (P0[2] - 40.0, P0[2] - 12.0)
+        try:
+            h = json.load(open(os.path.join(HERE, "hardware.json"), encoding="utf-8"))["cad"]["rotation_module"]
+            sx, sy = h["plate_seat_x_r"], h["plate_seat_y_r"]
+            return (h["axis_r"][0], h["axis_r"][1], (sx[1] - sx[0]) / 2, (sy[1] - sy[0]) / 2) + z
+        except (OSError, KeyError, ValueError):
+            hx = self.held["short_edges"]["x"]
+            a, yaw = (hx[0] + hx[1]) / 2, math.radians(P0[5])
+            return (P0[0] + a * math.cos(yaw), P0[1] + a * math.sin(yaw), 68.0, 47.0) + z
 
     def _rot(self, x, y, z):
         y = -y                                                              # mirrored across the xz plane: the view matches the cell as the operator stands at it (2026-11-03)
@@ -170,22 +198,25 @@ class Model:
         for f in faces:
             self.canvas.create_polygon(*[v for i in f for v in pts[i][:2]], fill=fill, outline=outline, tags=tag)
 
+    def _shown(self, b) -> bool:
+        """What the still picture draws: the trays, the posts, the microscope box, and of the platform and the hotel's frame only the parts
+        one would see from across the room (longest side 60 mm or more). The brackets, feet, clips and fasteners under the module and the
+        hotel are in the planner's volumes, not here (the operator: 'a lot of cubes', 2026-11-03). The module's pad is drawn live, turning."""
+        if b["k"] in ("tray", "post", "obstacle"):
+            return True
+        size = [b[a][1] - b[a][0] for a in ("x", "y", "z")]
+        if max(size) < 60.0:
+            return False
+        cx, cy, *_ = self.module_pad
+        if math.hypot((b["x"][0] + b["x"][1]) / 2 - cx, (b["y"][0] + b["y"][1]) / 2 - cy) < 40.0 and max(size) < 200.0:
+            return False
+        return True
+
     def draw_static(self):
         self.canvas.delete("static")
         for b in self.boxes:
-            if b["k"] == "other" and (b["z"][1] - b["z"][0]) < 3:
-                continue
-            self.wire(self._corners(b), self.COL[b["k"]], "static")
-        F = self.layout["fixtures"]
-        try:                                                                # the module: a square where the plate sits at 0 deg
-            P0 = F["polar"]["pose_at_0"]["pose"]
-            hx = self.held["short_edges"]["x"]
-            a = (hx[0] + hx[1]) / 2
-            yaw = math.radians(P0[5])
-            cx, cy = P0[0] + a * math.cos(yaw), P0[1] + a * math.sin(yaw)
-            self.wire(self._corners({"x": [cx - 70, cx + 70], "y": [cy - 70, cy + 70], "z": [P0[2] - 40, P0[2] - 12]}), "#8fd18f", "static")
-        except KeyError:
-            pass
+            if self._shown(b):
+                self.wire(self._corners(b), self.COL[b["k"]], "static")
         x0, y0, _ = self.P(126, 0, 0)
         self.canvas.create_oval(x0 - 4, y0 - 4, x0 + 4, y0 + 4, outline="#9aa7b5", tags="static")
         self.canvas.create_text(8, self.h - 8, anchor="sw", fill="#6b7280", font=("Segoe UI", 9), text="cell model: hotel, pillar, microscope box, module; the claw as the arm reports it", tags="static")
@@ -201,12 +232,63 @@ class Model:
                     out.append((x + u * c - v * s_, y + u * s_ + v * c, zw + dz))
         return out
 
-    def draw(self, poll):
-        self.canvas.delete("dyn")
-        if poll is None or poll.pose is None:
-            self.canvas.create_text(self.w / 2, 18, fill="#6b7280", font=("Segoe UI", 10), text=("arm: " + poll.error) if poll and poll.error else "arm: connecting", tags="dyn")
+    def _draw_module(self, raw):
+        """The module's pad where the axis says it is: angle = (reading - zero) * direction, as devices/stage.py reads it. Returns the angle."""
+        cx, cy, hx, hy, z0, z1 = self.module_pad
+        a = self.polar_cfg
+        ang = (((raw - float(a.get("zero_reading", 0.0))) * float(a.get("direction", 1))) % 360.0) if raw is not None else 0.0
+        t = math.radians(ang)
+        c, s_ = math.cos(t), math.sin(t)
+        corners = [(cx + u * c - v * s_, cy + u * s_ + v * c, z) for z in (z0, z1) for v in (-hy, hy) for u in (-hx, hx)]
+        self.solid(corners, "#1e3326", "#8fd18f", "dyn")
+        p = self.P(cx, cy, z1)
+        self.canvas.create_oval(p[0] - 2, p[1] - 2, p[0] + 2, p[1] + 2, fill="#8fd18f", outline="", tags="dyn")
+        return ang
+
+    def _seg_box(self, a, b, width, z0, z1):
+        """Corners of a box lying along the segment a -> b (x, y), `width` across, between heights z0 and z1."""
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        n = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / n * width / 2, dx / n * width / 2
+        return [(p[0] + s * nx, p[1] + s * ny, z) for z in (z0, z1) for s in (-1, 1) for p in (a, b)]
+
+    def _draw_arm(self, pose, joints):
+        """The arm's links from the live joints (routes_opt/fk, the planner's model): the carriage from the column to the shoulder, link 1 to
+        the elbow, link 2 to the wrist; they ride above the claw (layout volumes.claw.links_z)."""
+        if not joints or len(joints) < 3:
             return
-        pose, jaw = poll.pose, poll.jaw
+        from routes_opt import fk
+        m = fk.MODEL
+        shoulder = (m["x0"], m["y0"])
+        elbow = fk.elbow_xy(joints)
+        wrist = (pose[0], pose[1])
+        top = pose[2] + self.claw.get("links_z", [-25.0, 130.0])[1]
+        self.solid(self._seg_box((shoulder[0] - 90.0, shoulder[1]), shoulder, 110.0, top - 90.0, top - 30.0), "#2b3440", "#8a9bb0", "dyn")     # carriage, from the column
+        self.solid(self._seg_box(shoulder, elbow, 70.0, top - 40.0, top), "#34404f", "#9fb3c8", "dyn")                                       # link 1
+        self.solid(self._seg_box(elbow, wrist, 60.0, top - 70.0, top - 35.0), "#3a4656", "#9fb3c8", "dyn")                                    # link 2
+        for (x, y), r in ((shoulder, 6), (elbow, 5)):
+            p = self.P(x, y, top)
+            self.canvas.create_oval(p[0] - r, p[1] - r, p[0] + r, p[1] + r, outline="#e6e8eb", tags="dyn")
+
+    def _tool_pts(self, pose, pts, dy=0.0):
+        """Tool-frame points (x along the fingers, y across, z up from the reported z) at the wrist pose, on screen."""
+        x, y, zw, yaw = pose
+        c, s_ = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+        return [self.P(x + u * c - (v + dy) * s_, y + u * s_ + (v + dy) * c, zw + w) for u, v, w in pts]
+
+    def _draw_claw(self, pose, jaw):
+        if self.mesh:
+            # the fingers' inner faces are 80 mm apart at jaw 0 and open 2 mm per unit (short edges at 24 hold 128 mm, long edges at 3 hold 86)
+            half = 40.0 + (jaw if jaw is not None else 10.0)
+            for name, part in self.mesh["parts"].items():
+                dy = 0.0
+                if name.startswith("finger"):
+                    side = 1.0 if float(part.get("side", 1)) > 0 else -1.0
+                    dy = side * half - float(part.get("inner_y", side * 40.0))
+                pts = self._tool_pts(pose, part["v"], dy)
+                for a, b in part["e"]:
+                    self.canvas.create_line(pts[a][0], pts[a][1], pts[b][0], pts[b][1], fill="#9fb3c8", tags="dyn")
+            return
         body, fingers, z = self.claw["body"], self.claw["fingers"], self.claw["z"]
         self.solid(self._tool_box(pose, body, z), "#3a4656", "#9fb3c8", "dyn")
         if jaw is not None:
@@ -216,6 +298,17 @@ class Model:
                 self.solid(self._tool_box(pose, rect, z), "#4c5a6d", "#9fb3c8", "dyn")
         else:
             self.solid(self._tool_box(pose, fingers, z), "#4c5a6d", "#9fb3c8", "dyn")
+
+    def draw(self, poll):
+        self.canvas.delete("dyn")
+        if poll is None or poll.pose is None:
+            self._draw_module(None)
+            self.canvas.create_text(self.w / 2, 18, fill="#6b7280", font=("Segoe UI", 10), text=("arm: " + poll.error) if poll and poll.error else "arm: connecting", tags="dyn")
+            return
+        pose, jaw = poll.pose, poll.jaw
+        module_deg = self._draw_module(poll.module)
+        self._draw_claw(pose, jaw)
+        self._draw_arm(pose, poll.joints)
         grip = next((k for k, (lo, hi) in self.bands.items() if jaw is not None and lo - 0.6 <= jaw <= hi + 0.6), None)
         if grip and grip in self.held:
             h = self.held[grip]
@@ -232,14 +325,14 @@ class Model:
             self.canvas.create_oval(prev[0] - 6, prev[1] - 6, prev[0] + 6, prev[1] + 6, outline="#ffffff", tags="dyn")
             r = self.route
             how = "taught route" if r.get("taught") else ("stored leg" if r.get("planned_s", 9) < 1.0 else f"planned in {r.get('planned_s')} s")
-            self.canvas.create_text(self.w - 8, 8, anchor="ne", fill="#9fb3c8", font=("Consolas", 9), tags="dyn",
+            self.canvas.create_text(8, 24, anchor="nw", fill="#9fb3c8", font=("Consolas", 9), tags="dyn",            # second line, under the pose
                                     text=f"route to {r.get('to')}: {len(r['poses'])} legs, {how}   (orange = joint leg)")
         elif self.planning:
-            self.canvas.create_text(self.w - 8, 8, anchor="ne", fill="#ffb347", font=("Consolas", 9), tags="dyn", text=f"planning a route to {self.planning} ...")
+            self.canvas.create_text(8, 24, anchor="nw", fill="#ffb347", font=("Consolas", 9), tags="dyn", text=f"planning a route to {self.planning} ...")
         age = time.time() - poll.at
         txt = f"x {pose[0]:.1f}  y {pose[1]:.1f}  z {pose[2]:.1f}  yaw {pose[3]:.1f}   jaw {jaw:.2f}" if jaw is not None else f"x {pose[0]:.1f}  y {pose[1]:.1f}  z {pose[2]:.1f}"
         if poll.module is not None:
-            txt += f"   module {poll.module:.1f}"
+            txt += f"   module {module_deg:.0f} deg"
         self.canvas.create_text(8, 8, anchor="nw", fill="#e6e8eb" if age < 2 else "#d4574a", font=("Consolas", 9), text=txt + ("" if age < 2 else f"   ({age:.0f} s old)"), tags="dyn")
 
 
