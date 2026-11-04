@@ -148,6 +148,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         if lift:
             target = [target[0], target[1], target[2] + lift] + list(target[3:])
         self._carry_check(step, self.store.s.grip)
+        self._collect("seat", fixture_name, "hover_held", "front")     # the carried plate over the seat from the hover: the reference for "is the seat below occupied?" asked before lowering
         self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
         self._collect("seat", fixture_name, "held", "front")           # the pair the tilt check will use: level in the fingers, then as it lands
         self._jaw_open(self.store.s.grip, fixture)
