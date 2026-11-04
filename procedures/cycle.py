@@ -177,6 +177,14 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self._arrive(hover, f"{step} hover", prof.approach)                 # the stored leg to the hover; from there straight up and sideways: nothing new to plan
         self._move("L", [hover[0], hover[1], target[2]] + list(hover[3:]), f"{step} up to the occupancy view", prof.approach)
         self._move("L", target, f"{step} occupancy view", prof.approach)
+        if fixture_name == "polar" and self.polar.driver == "ext_axis":
+            real = self.polar.read_angle()
+            real = real - 360.0 * round(real / 360.0)
+            if abs(real) > 0.3:                                              # the module's occupancy picture is taken at 0 deg, along x (operator, 02:45); the place's own
+                self.tele.log("polar", "angle", f"module at {real:.1f}: to 0 for the occupancy picture")   # angle check turns it to the seat's angle before lowering
+                self.polar.rotate_to(0)
+                self.store.s.polar_angle = self.polar.angle = 0
+                self.store.save()
         # judged against this seat's own pictures from this very situation, a plate in hand at the view (reference_images/occupancy_drop); the
         # empty-claw pictures differ (closed fingers, the plate's edge) and read 0.44 on an empty module (02:20). Every drop-in picture whose
         # seat the ledger calls empty becomes a reference after the verdict; the first one has none.
