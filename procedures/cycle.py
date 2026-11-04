@@ -138,7 +138,8 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         hover = offset(pose, [0, 0, fixture["hover_mm"]])
         if trajectory_in:
             self._enter(trajectory_in, reverse, hover, fixture_name)
-        self._arrive(hover, f"{step} hover", prof.approach)
+        if not self._check_seat_from_view(fixture_name, pose, fixture, hover, step):
+            self._arrive(hover, f"{step} hover", prof.approach)
         self._polar_ensure(fixture_name, gate, pose, hover)
         target = self._seat(pose, [0.0] * 6)
         hover = offset(target, [0, 0, fixture["hover_mm"]])
@@ -156,6 +157,33 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self._collect("seat", fixture_name, "flat", "front")
         self._move("L", hover, f"{step} lift", prof.approach)
         self.store.done(plate_at=at, grip="none")
+
+    def _check_seat_from_view(self, fixture_name: str, pose: List[float], fixture: dict, hover: List[float], step: str) -> bool:
+        """Before a plate is lowered onto the module or a microscope: is the seat already occupied? With the plate in hand the arm goes to the
+        station's viewing pose first (fixtures.<station>.view, taught with tools/view_pose.py; the carried plate is outside the down camera's
+        field there, 2026-11-04 01:50), the down camera is judged against the seat's empty pictures, then the arm comes over the seat at
+        that height and down to the hover. Returns True when it ended at the hover. vision.check_before_lower switches it; vision.gate_before_lower
+        makes a confident "full" a stop (off until the false-positive rate is known); otherwise the verdict is logged and shown."""
+        v = self.L["vision"]
+        view = (fixture.get("view") or {}).get("tool_offset")
+        if not v.get("check_before_lower", True) or not view or fixture_name == "hotel":
+            return False
+        from tools.view_pose import from_tool_frame
+        target = from_tool_frame(pose, *view)
+        zmax = float(self.L["workspace_box"]["z"][1]) - 3.0
+        if target[2] > zmax:
+            target = [target[0], target[1], zmax] + list(target[3:])
+        self.go_to(target, f"{step} occupancy view")
+        got = self._collect("occupancy", fixture_name, "empty", "down", judge=True)
+        word = got[1] if got else "no verdict (no reference)"
+        self.tele.log("seat", fixture_name, f"before lowering: the camera says {word}")
+        print(f"   {fixture_name}: occupancy before lowering: {word}", flush=True)
+        if got and got[0] == "full" and v.get("gate_before_lower", False):
+            raise StopSafe(f"{step}: the camera says the seat is occupied ({word}); not lowering")
+        prof = self.safety.profile
+        self._move("L", [hover[0], hover[1], target[2]] + list(hover[3:]), f"{step} over the seat", prof.approach)
+        self._move("L", hover, f"{step} hover", prof.approach)
+        return True
 
     # ------------------------------------------------------------------ polar
     def _polar_ensure(self, fixture_name: str, gate: Optional[str], pose: List[float], hover: List[float]) -> None:

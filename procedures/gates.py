@@ -54,7 +54,8 @@ class Gates:
         <camera>.jpg with the pose, labelled by what the ledger says (`state`). With `judge`, the occupancy detector's verdict on that
         frame is logged beside the truth, so the morning tells how often they agree. Off with vision.collect = false. Nothing here raises:
         the loop's moves are not gated by any of this; a failure is one log line."""
-        if not self.L["vision"].get("collect", True):
+        collect = self.L["vision"].get("collect", True)
+        if not collect and not judge:
             return
         try:
             from devices.vision_box import locating
@@ -73,6 +74,8 @@ class Gates:
                     v = st.verdict(cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR))
                     self.tele.log("occupancy", station, v.state, truth=state, agree=(v.state == state), score=round(v.score, 2), noise=round(v.noise, 2))
                     out = (v.state, f"{v.state} ({v.score:.2f} against noise {v.noise:.2f})")
+            if not collect:
+                return out
             d = os.path.join(REFS_ROOT, kind, station)
             os.makedirs(d, exist_ok=True)
             stamp = time.strftime("%Y%m%d_%H%M%S")
