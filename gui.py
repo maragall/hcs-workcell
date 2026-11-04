@@ -34,7 +34,7 @@ ASPECT = 4 / 3                    # width / height of both cameras at the full f
 REQUEST = (640, 480)              # the full 4:3 field at the size it is shown: one picture pixel per screen pixel, nothing resampled here
 MODEL_W = 560                     # the 3D view between the cameras: two 640 frames and this fit a 1920 screen
 CAM = REQUEST                     # (the 16:9 modes are a crop of the sensor; 1280x960 and 3280x2464 show the same field as this)
-PERIOD_S = 0.12                   # about 8 frames a second per camera: a 640x480 frame takes ~30 ms on the kept connection (operator, 2026-11-04 02:40)
+PERIOD_S = 0.15                   # about 6 frames a second per camera: a 640x480 frame takes ~30 ms on the kept connection (operator, 2026-11-04 02:40)
 BG, PANEL, FG, MUTED, BAD, GOOD, ACCENT = "#0e0f11", "#16181b", "#e6e8eb", "#6b7280", "#d4574a", "#5aa874", "#4c8dff"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 STEP = re.compile(r"^\s{2,}(user|computer|polar|nova|squid) : (.*)$")
@@ -77,6 +77,9 @@ class Feed(threading.Thread):
         jpg = self.client.frame(self.camera, REQUEST[0], REQUEST[1], 80, None, 0)
         img = cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR)
         if img is not None:
+            h, w = img.shape[:2]
+            shown = img if (w, h) == REQUEST else letterbox(img, REQUEST[0], REQUEST[1])
+            self.ppm = cv2.imencode(".ppm", shown)[1].tobytes()                # raw, prepared here: the window loads it without compressing or decoding
             self.frame, self.at, self.error = img, time.time(), ""
         return img
 
@@ -850,12 +853,8 @@ class App:
             pass
         for i, feed in enumerate(self.feeds):
             img, state, item = self.panels[i]
-            if feed.frame is not None and self.drawn[i] != (feed.at, self.cam):          # a new picture or a new size: draw, otherwise leave it
-                pw, ph = self.cam
-                h, w = feed.frame.shape[:2]
-                frame = feed.frame if (w, h) == (pw, ph) else letterbox(feed.frame, pw, ph)      # as served; fitted only if the box sent another size
-                ok, png = cv2.imencode(".png", frame, [cv2.IMWRITE_PNG_COMPRESSION, 1])
-                self.photos[i] = tk.PhotoImage(data=base64.b64encode(png.tobytes()))
+            if feed.frame is not None and self.drawn[i] != (feed.at, self.cam):          # a new picture: draw, otherwise leave it
+                self.photos[i] = tk.PhotoImage(data=feed.ppm)                              # PPM from the feed thread: no PNG, no base64 on the main thread
                 img.itemconfigure(item, image=self.photos[i])
                 self.drawn[i] = (feed.at, self.cam)
             age = time.time() - feed.at if feed.at else None
