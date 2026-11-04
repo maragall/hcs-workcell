@@ -755,7 +755,11 @@ class Bringup:
             # the seats are not looked at with the empty claw (operator, 01:25): the question about a seat is asked with the plate in hand,
             # before lowering, from the front camera at the hover (tomorrow's check; tonight the loop records hover_held for it)
             h = c.layout()["fixtures"]["hotel"]
-            slots = [f"{col}{r}" for col in h.get("columns", []) for r in h.get("rows", [])]       # every column, taught or not: the hotel's state
+            # every column, taught or not: the hotel's state. The columns outside the taught set (C) go FIRST and the sweep ends in a taught
+            # column: coming back from C the arm is on the mirrored elbow branch, from which the planner has no route to the module (02:48)
+            cols = [x for x in h.get("columns", []) if not any(s.startswith(x) for s in h.get("active_slots", []))] + \
+                   [x for x in h.get("columns", []) if any(s.startswith(x) for s in h.get("active_slots", []))]
+            slots = [f"{col}{r}" for col in cols for r in h.get("rows", [])]
             print(f"   hotel occupancy sweep over {slots} (the camera, record only)")
             for slot in slots:
                 target = cyc._hotel_geometry(slot)[1]
