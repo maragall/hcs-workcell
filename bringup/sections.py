@@ -301,9 +301,37 @@ class Bringup:
             self.squid.home()
             return {"stage": "homed"}
 
+        def module_to_zero():
+            """The rotation module at 0 deg when the cell starts (operator, 2026-11-04 02:30), read from its own axis. Not while the claw stands
+            over the module below its clear height: then it is left to the first pick or place there, which turns it (Cycle._polar_ensure)."""
+            import math
+            self.ready()
+            cyc = self.cyc()
+            if cyc.polar.driver != "ext_axis":
+                return {"module": "no axis to read"}
+            real = cyc.polar.read_angle()
+            real = real - 360.0 * round(real / 360.0)
+            F = self.cell.layout()["fixtures"]["polar"]
+            P0 = F["pose_at_0"]["pose"]
+            here = self.cell.robot.pose()
+            over = math.hypot(here[0] - P0[0], here[1] - P0[1]) < 120.0 and here[2] < P0[2] + F["hover_mm"] + F["clear_mm"]
+            if abs(real) <= 0.3:
+                cyc.store.s.polar_angle = cyc.polar.angle = 0
+                cyc.store.save()
+                return {"module": f"at 0 ({real:+.2f} deg)"}
+            if over:
+                return {"module": f"reads {real:+.1f} deg; the claw is over it, left for the first pick or place to turn"}
+            cyc.polar.rotate_to(0)
+            err = cyc.polar.read_angle()
+            err = err - 360.0 * round(err / 360.0)
+            cyc.store.s.polar_angle = cyc.polar.angle = 0
+            cyc.store.save()
+            return {"module": f"turned from {real:+.1f} to 0 ({err:+.2f} deg)"}
+
         return Section("connect", [
             Step("computer", "search ports", search_ports),
-            Step("squid", "home stage", home, moves=True)])
+            Step("squid", "home stage", home, moves=True),
+            Step("polar", "turn the rotation module to 0 deg", module_to_zero, moves=True)])
 
 
 
