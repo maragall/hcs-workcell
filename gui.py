@@ -24,6 +24,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from devices.controller import Brcapi  # noqa: E402
+from devices.portlock import PortLock  # noqa: E402
 from devices.vision_box import VisionClient  # noqa: E402
 from tools.hotel_model_html import scene_boxes  # noqa: E402
 
@@ -68,13 +69,23 @@ class Feed(threading.Thread):
         return img
 
     def run(self):
+        """Each grab under this PC's vision lock (devices/vision_box.locating): the box's locating calls (ArUco pose, pose offset) switch
+        the camera to its full resolution and hang while a client keeps asking for 640x480 frames (measured 2026-11-03, 100 s and no
+        answer). A locating call holds the lock; the pictures pause and say so, then carry on."""
+        lock = PortLock(self.client.host, "locate")
         while True:
             t0 = time.time()
+            if not lock.acquire(0.2):
+                self.error = "paused: a locating call is running"
+                time.sleep(0.3)
+                continue
             try:
                 self.grab()
             except Exception as e:
                 self.error = str(e)[:60] or "no answer"
                 time.sleep(2.0)
+            finally:
+                lock.release()
             time.sleep(max(0.0, PERIOD_S - (time.time() - t0)))
 
 
@@ -138,6 +149,7 @@ class Model:
         self.scale = 0.92 * min(w / (u1 - u0), h / (v1 - v0))
         self.ox, self.oy = w / 2 - self.scale * (u0 + u1) / 2, h / 2 + self.scale * (v0 + v1) / 2
         self.route, self.planning = None, None
+        self.plates, self._state_seen = [], (0.0, 0.0)
         self.mesh = self._load_mesh()
         self.polar_cfg = layout.get("polar", {}).get("ext_axis", {"zero_reading": 0.0, "direction": 1})
         self.module_pad = self._module_pad()
@@ -232,6 +244,54 @@ class Model:
                     out.append((x + u * c - v * s_, y + u * s_ + v * c, zw + dz))
         return out
 
+    PLATE = (127.8, 85.5, 14.4)                                             # a plate: long, short, high (mm)
+
+    def _refresh_plates(self):
+        """Where the ledger says the plates are, re-read when layout.json or state_microscope.json change: a plate in every slot of
+        fixtures.hotel.loaded (on its tray, long edges along x as in the rack), one on the module when the state says so."""
+        try:
+            lp, sp = os.path.join(HERE, "layout.json"), os.path.join(HERE, "state_microscope.json")
+            seen = (os.path.getmtime(lp), os.path.getmtime(sp) if os.path.exists(sp) else 0.0)
+            if seen == self._state_seen:
+                return
+            self._state_seen = seen
+            lay = json.load(open(lp, encoding="utf-8"))
+            st = json.load(open(sp, encoding="utf-8")) if os.path.exists(sp) else {}
+        except (OSError, ValueError):
+            return
+        loaded = set(lay["fixtures"]["hotel"].get("loaded") or [])
+        plates = []
+        for b in self.boxes:
+            if b["k"] != "tray":
+                continue
+            cx, cy, top = (b["x"][0] + b["x"][1]) / 2, (b["y"][0] + b["y"][1]) / 2, b["z"][1]
+            col = "A" if cy > 60 else ("B" if cy > -60 else "C")
+            slot = f"{col}{round((b['z'][0] - 58.1) / 38) + 1}"
+            if slot in loaded:
+                plates.append(("slot", slot, cx, cy, top, 0.0))
+        if st.get("plate_at") == "polar" or (st.get("contents") or {}).get("module") == "full":
+            plates.append(("module", "module", None, None, None, 0.0))
+        scope = st.get("plate_at") or ""
+        if scope and scope not in ("polar", "gripper", "none") and not scope.startswith("hotel:") and scope in lay["fixtures"] and lay["fixtures"][scope].get("pose"):
+            s = lay["fixtures"][scope]["pose"]                                 # on a microscope: centred 186.5 ahead of the taught wrist pose
+            yaw = math.radians(s[5])
+            plates.append(("seat", scope, s[0] + 186.5 * math.cos(yaw), s[1] + 186.5 * math.sin(yaw), s[2] - 25.0, s[5]))
+        self.plates = plates
+
+    def _draw_plates(self, module_deg):
+        L, S, H = self.PLATE
+        cx0, cy0, _, _, _, z1 = self.module_pad
+        for kind, name, cx, cy, top, yaw in self.plates:
+            if kind == "module":
+                cx, cy, top, ang = cx0, cy0, z1, math.radians(module_deg)
+            elif kind == "seat":
+                ang = math.radians(yaw + 90.0)                                 # short edges across the claw: the long edges run across its line
+            else:
+                ang = 0.0
+            c, s_ = math.cos(ang), math.sin(ang)
+            corners = [(cx + u * c - v * s_, cy + u * s_ + v * c, z) for z in (top, top + H) for v in (-S / 2, S / 2) for u in (-L / 2, L / 2)]
+            self.solid(corners, "#8a7d3a", "#d8c76a", "dyn")
+
     def _draw_module(self, raw):
         """The module's pad where the axis says it is: angle = (reading - zero) * direction, as devices/stage.py reads it. Returns the angle."""
         cx, cy, hx, hy, z0, z1 = self.module_pad
@@ -307,6 +367,8 @@ class Model:
             return
         pose, jaw = poll.pose, poll.jaw
         module_deg = self._draw_module(poll.module)
+        self._refresh_plates()
+        self._draw_plates(module_deg)
         self._draw_claw(pose, jaw)
         self._draw_arm(pose, poll.joints)
         grip = next((k for k, (lo, hi) in self.bands.items() if jaw is not None and lo - 0.6 <= jaw <= hi + 0.6), None)
@@ -323,6 +385,7 @@ class Model:
                 self.canvas.create_oval(q[0] - 3, q[1] - 3, q[0] + 3, q[1] + 3, outline=col, fill="#000000", tags="dyn")
                 prev = q
             self.canvas.create_oval(prev[0] - 6, prev[1] - 6, prev[0] + 6, prev[1] + 6, outline="#ffffff", tags="dyn")
+            self.canvas.create_text(prev[0] + 9, prev[1] - 9, anchor="sw", fill="#ffffff", font=("Consolas", 9), text=str(self.route.get("to", "")), tags="dyn")
             r = self.route
             how = "taught route" if r.get("taught") else ("stored leg" if r.get("planned_s", 9) < 1.0 else f"planned in {r.get('planned_s')} s")
             self.canvas.create_text(8, 24, anchor="nw", fill="#9fb3c8", font=("Consolas", 9), tags="dyn",            # second line, under the pose

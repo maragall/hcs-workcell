@@ -65,6 +65,26 @@ class NgEvent:
     message: str
 
 
+class locating:
+    """`with locating(host):` around the box's locating calls (get_aruco_pose, set_reference_aruco_pose, get_pose_offset). They switch the
+    camera to its full resolution and hang while another client keeps asking for small frames (the window's camera pictures; measured
+    2026-11-03: 100 s, no answer, the box's log stops at "forcing 3280x2464"). The window's pictures take the same lock for each grab and
+    pause while this holds it."""
+
+    def __init__(self, host: str, wait_s: float = 15.0):
+        from devices.portlock import PortLock
+        self.lock, self.wait_s = PortLock(host, "locate"), wait_s
+
+    def __enter__(self):
+        if not self.lock.acquire(self.wait_s):
+            raise VisionError("busy", f"another program on this PC holds the vision box's locating lock for more than {self.wait_s} s", "", "locating")
+        time.sleep(0.4)                                                        # a grab already in flight finishes
+        return self
+
+    def __exit__(self, *a):
+        self.lock.release()
+
+
 class VisionClient:
     def __init__(self, host: str, port: int = 9000, timeout: float = 30.0, log=None):
         self.host, self.port, self.timeout = host, port, timeout
@@ -215,6 +235,20 @@ class VisionClient:
     def ng_image(self, error_id: str) -> Optional[bytes]:
         p = self.request("get_ng_image", error_id, max_split=1)
         return self._img(p[0]) if p else None
+
+    # ------------------------------------------------------------------- logs
+    def logs(self, limit: int = 5) -> List[dict]:
+        """The box's own log files, newest first (get_logs): name, size, mtime_ms."""
+        p = [x.decode("utf-8", "replace") for x in self.request("get_logs", limit)]
+        n = int(self._f(p, 0, 0))
+        return [{"name": p[1 + 3 * k], "size": int(self._f(p, 2 + 3 * k)), "mtime_ms": int(self._f(p, 3 + 3 * k))} for k in range(n) if 3 + 3 * k < len(p)]
+
+    def log_tail(self, name: str, lines: int = 300) -> str:
+        """The last `lines` of one of the box's log files (get_log_content with tail_lines): what the box did with a request."""
+        p = self.request("get_log_content", name, lines, max_split=1)
+        if len(p) >= 2 and p[0] == b"txt_b64":
+            return base64.b64decode(p[1] + b"==").decode("utf-8", "replace")
+        return b",".join(p).decode("utf-8", "replace")
 
     # -------------------------------------------------- no-teach workspace API
     def positions(self, workspace="autoteach", ptype="all"):

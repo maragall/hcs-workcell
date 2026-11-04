@@ -9,8 +9,17 @@ teaching (default today is distance-based), route planner, error recovery.
 - Blockers: Bioyond vision drift / offset correction. Probed 2026-11-02 (read-only): `get_pose_offset` returns 1300 Calibration Not Found for
   auto_teach_camera and scan_camera, any workspace or reference name; `get_aruco_pose` returns 1002 with no tag in view. `set_reference_aruco_pose`
   is never called by the cell code (only tests), so the references `microscope_ref` / `stage-wide` may never have been stored. Factory file for
-  auto_teach_camera (2025-06-12): intrinsic reprojection error 0.59 px, hand-eye `calibration_error` 827.76 (unit unknown). No ssh: debug through the
-  protocol (store a reference with the tag in view, then get_pose_offset).
+  auto_teach_camera (2025-06-12): intrinsic reprojection error 0.59 px, hand-eye `calibration_error` 827.76 (unit unknown).
+  2026-11-03, with the box's own log (ssh works again, `nova_ssh.local.json`; and `get_log_content` over the protocol, `VisionClient.log_tail`):
+  the handler finds the active intrinsic calibration, then "forces the maximum resolution 3280x2464" and never answers while the window
+  keeps asking for 640x480 frames (100 s, no reply, no error line). Fix in place: a PC-wide vision lock (`devices/vision_box.locating`); the
+  window's pictures pause while a locating call holds it. `tools/offset_probe.py` runs ArUco pose, optional `--set-reference`, and the
+  offset under that lock and prints the box's log lines for the request. The vendor's own data on the box (`data/workspaces/autoteach`):
+  teaches microscope-short, polar0-short, polar90-wide, stage-wide; triggers stage-wide-trig1/2 (marker pose in robot and camera frames,
+  camera auto_teach_camera, caltab_distance 150); relations trigger -> teach (relative pose). That is the vendor's no-teach flow: photo pose
+  with the marker, grip pose, relation; at run time the offset at the photo pose moves the grip pose. Still to do: run the probe with the
+  window on the new code (the lock), with the marker tab in view; decide where a marker lives at each station (none is mounted today: the
+  ArUco plate is shelved and the real plate carries no tag), without which there is nothing to correct against.
 - Immediate (operator: UNCONDITIONAL): replace distance-based grip teaching with force-based. The vendor has it built in (controller manual
   B.1): gripper.conf `trq_thr`/`pos_thr`/`default_trq`, `SetGripperTorqueLimit`, `GripperEmptyDet`, and `EnableGripperDet(1)` after the close /
   `DisableGripperDet(1)` before the open, which watches the whole carry and raises an error on a drop. `lua/torque_probe` already wraps these.
