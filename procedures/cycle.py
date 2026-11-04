@@ -105,6 +105,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         step = f"pick:{fixture_name}"
         self.store.begin(step)
         self._health()
+        self._taught_branch(step)
         hover = offset(pose, [0, 0, fixture["hover_mm"]])
         if trajectory_in:
             self._enter(trajectory_in, False, hover, fixture_name)
@@ -157,6 +158,20 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self._collect("seat", fixture_name, "flat", "front")
         self._move("L", hover, f"{step} lift", prof.approach)
         self.store.done(plate_at=at, grip="none")
+
+    def _taught_branch(self, step: str) -> None:
+        """Before a plate is picked up: the arm on the taught elbow branch. Back from column C it is on the mirrored one, and on that branch no
+        route exists from the module to a hotel mouth with a plate in hand (02:46, 2026-11-04). With the claw still empty the nest is reachable
+        from anywhere and puts the arm back on the taught branch."""
+        try:
+            from routes_opt import fk
+            joints = list(self.robot.joints())[:4]
+        except Exception:
+            return
+        if fk.elbow_sign(joints) == 1:
+            return
+        self.tele.log("move", step, "the arm is on the mirrored elbow branch: to the nest first, with the empty claw")
+        self.go_nest()
 
     def _check_seat_from_view(self, fixture_name: str, pose: List[float], fixture: dict, hover: List[float], step: str) -> bool:
         """Before a plate is lowered onto the module or a microscope: is the seat already occupied? With the plate in hand the arm goes to the
