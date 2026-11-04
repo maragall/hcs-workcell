@@ -93,26 +93,45 @@ class VisionClient:
 
     # ------------------------------------------------------------------ core
     def _raw(self, line: bytes) -> bytes:
+        """One connection kept open per client, reconnected after any error. The box leaks a file descriptor per client connection
+        (2026-11-03: 'Too many open files' after three hours of a new connection per frame; its service had to be restarted), so a
+        connection per request is not an option."""
         with self._lock:
-            deadline = time.time() + self.timeout
-            s = socket.create_connection((self.host, self.port), timeout=self.timeout)
+            for attempt in (1, 2):
+                s = getattr(self, "_sock", None)
+                try:
+                    if s is None:
+                        s = socket.create_connection((self.host, self.port), timeout=self.timeout)
+                        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                        self._sock = s
+                    deadline = time.time() + self.timeout
+                    s.sendall(line)
+                    buf = bytearray()
+                    while True:
+                        remaining = deadline - time.time()
+                        if remaining <= 0:
+                            raise VisionError("timeout", f"no complete reply within {self.timeout}s")
+                        s.settimeout(remaining)
+                        chunk = s.recv(1 << 20)
+                        if not chunk:
+                            raise ConnectionError("vision box closed the connection")
+                        buf += chunk
+                        if buf.endswith(b"\r"):
+                            return bytes(buf[:-1])
+                except (OSError, VisionError):
+                    self.close()
+                    if attempt == 2:
+                        raise
+            raise VisionError("io", "no reply", "", "")
+
+    def close(self):
+        s = getattr(self, "_sock", None)
+        self._sock = None
+        if s is not None:
             try:
-                s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                s.sendall(line)
-                buf = bytearray()
-                while True:
-                    remaining = deadline - time.time()
-                    if remaining <= 0:
-                        raise VisionError("timeout", f"no complete reply within {self.timeout}s")
-                    s.settimeout(remaining)
-                    chunk = s.recv(1 << 20)
-                    if not chunk:
-                        raise ConnectionError("vision box closed the connection")
-                    buf += chunk
-                    if buf.endswith(b"\r"):
-                        return bytes(buf[:-1])
-            finally:
                 s.close()
+            except OSError:
+                pass
 
     def request(self, command: str, *params, max_split: int = -1) -> List[bytes]:
         rid = str(uuid.uuid4())

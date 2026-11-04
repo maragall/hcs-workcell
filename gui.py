@@ -58,7 +58,7 @@ class Feed(threading.Thread):
     def __init__(self, host, port, camera, led):
         super().__init__(daemon=True)
         self.camera, self.led = camera, led
-        self.client = VisionClient(host, port, log=None)
+        self.client = VisionClient(host, port, timeout=5.0, log=None)        # a box that does not answer must not hold the vision lock for 30 s
         self.frame, self.at, self.error = None, 0.0, ""
 
     def grab(self):
