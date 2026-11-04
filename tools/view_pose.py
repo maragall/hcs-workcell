@@ -50,6 +50,16 @@ def from_tool_frame(p0, fwd, left, up):
     return [p0[0] + fwd * math.cos(yaw) - left * math.sin(yaw), p0[1] + fwd * math.sin(yaw) + left * math.cos(yaw), p0[2] + up] + list(p0[3:])
 
 
+def to_view(cyc, station, target):
+    """From the station's hover (the planner's end) to its viewing pose: straight up to the viewing height first, then sideways at that
+    height. Inside the microscope's zone a sideways move is allowed only above its instrument (regions.microscope.free_above_z); a single
+    diagonal leg from the hover is refused there (2026-11-03). Both legs at the slow contact speed."""
+    here = cyc.robot.pose()
+    if target[2] > here[2] + 1.0:
+        cyc._move("L", [here[0], here[1], target[2]] + list(here[3:]), f"{station} view: up to z {target[2]:.0f}", cyc.safety.profile.contact)
+    cyc._move("L", target, f"{station} view pose", cyc.safety.profile.contact)
+
+
 def cell():
     layout = R.load_layout()
     runs = os.path.join(R.RUNS, "view_pose")
@@ -76,10 +86,15 @@ def go(station):
     hover = offset(p0, [0, 0, fx["hover_mm"]])
     view = fx.get("view", {}).get("tool_offset")
     fwd, left, up = view if view else (SEAT_AHEAD_MM - CAMERA_AHEAD_MM, 0.0, fx["hover_mm"] + ABOVE_HOVER_MM)
+    zmax = float(layout["workspace_box"]["z"][1]) - 3.0 if isinstance(layout.get("workspace_box", {}).get("z"), list) else None
+    if zmax is not None and p0[2] + up > zmax:                                 # the module's height carried to a higher seat can pass the arm's reach
+        print(f"the view would be at z {p0[2] + up:.0f}, above the workspace ({zmax:.0f}): using {zmax - p0[2]:.0f} mm above the seat instead", flush=True)
+        up = zmax - p0[2]
     target = from_tool_frame(p0, fwd, left, up)
     try:
         cyc.move_to(name)
-        cyc._move("L", target, f"{station} view pose (forward {fwd:.1f}, left {left:.1f}, up {up:.1f} mm from the seat pose)", cyc.safety.profile.contact)   # slow: toward the instrument, above the planner's box
+        print(f"view: forward {fwd:.1f}, left {left:.1f}, up {up:.1f} mm from the seat pose", flush=True)
+        to_view(cyc, station, target)
         print("at", [round(v, 1) for v in robot.pose()[:3]], "yaw", round(robot.pose()[5], 1), flush=True)
         robot.drag(True)
         print("arm loose: adjust it by hand watching the gripper camera; then: python tools/view_pose.py save", station, flush=True)

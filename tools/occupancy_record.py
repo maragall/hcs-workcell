@@ -27,7 +27,7 @@ from procedures.cycle import Cycle  # noqa: E402
 from procedures.safety import SpeedProfile  # noqa: E402
 from procedures.state import StateStore  # noqa: E402
 from procedures.telemetry import Telemetry  # noqa: E402
-from tools.view_pose import from_tool_frame  # noqa: E402
+from tools.view_pose import from_tool_frame, to_view  # noqa: E402
 
 OUT = os.path.join(HERE, "reference_images", "occupancy")
 SIZE = (1280, 960)
@@ -70,7 +70,7 @@ def go(station):
         target = view_of(cyc, layout, station)
         if station in layout["fixtures"]:
             cyc.move_to("polar.pose_at_0" if station == "polar" else station)
-            cyc._move("L", target, f"{station} view pose", cyc.safety.profile.approach)
+            to_view(cyc, station, target)
         else:
             cyc._hotel_go_to_approach(station, f"view {station}")
             cyc._square_up(target, f"view {station}")
