@@ -653,9 +653,17 @@ class Bringup:
                 print(f"   a plate is in the hand by the long edges: scan, into {slot}")
                 self.guard(lambda: cyc._run_steps(cyc._steps(slot)[0][4:]))
                 self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))
+            def sweep_now():
+                """The hotel occupancy sweep with the empty claw (vision.survey). With vision.veto (default on) the camera's word counts:
+                a parking place needs the ledger and the camera to say empty, a pick needs no confident empty from the camera."""
+                nonlocal seen_empty, seen_full
+                if not c.layout()["vision"].get("survey", True):
+                    return
+                seen_empty, seen_full = survey(cyc, taught)
+                if not c.layout()["vision"].get("veto", True):
+                    seen_empty, seen_full = set(), set()
+
             if st.contents.get("module") == "full" or st.plate_at in ("polar", self.scope):          # also when a plate was in the hand: the module's is still to go
-                slot = holes.pop(random.randrange(len(holes)))
-                out = cyc._steps(slot)[0]
                 if st.plate_at == self.scope and st.step_done:
                     print(f"   the plate is already on the {self.scope} stage: carrying on from it")
                 else:
@@ -663,19 +671,25 @@ class Bringup:
                     st.plate_at, st.grip, st.step_done = "polar", "none", True
                     cyc.store.save()
                     route = F[self.scope].get("trajectory", "microscope_to_polar")
-                    print(f"   the module's plate to the microscope, acquire, then into {slot}")
+                    print(f"   the module's plate to the microscope, acquire, then to the module")
                     self.guard(lambda: cyc._pick("polar", P0, F["polar"], "short_edges", None, gate="polar@0"))
                     self.guard(lambda: cyc._place(self.scope, F[self.scope]["pose"], F[self.scope], self.scope, route, reverse=True))
                 self._acquire()
-                self.guard(lambda: cyc._run_steps(out))
+                # stage -> module by the short edges, module to 90: the plate rests on the module and the claw is empty
+                self.guard(lambda: cyc._run_steps(cyc._steps(taught[0])[0][:3]))                  # pick:scope, place:polar, polar:90 (no slot in them)
+                # the hotel sweep now, before the long-edge pick: the parking place must be known empty before a plate goes to it (operator, 02:36)
+                sweep_now()
+                holes = parking_places()
+                if not holes:
+                    raise Refused("no taught slot that both the ledger and the camera call empty: free one by hand, then: python cli.py setup --from \"test\"")
+                slot = holes.pop(random.randrange(len(holes)))
+                print(f"   the module's plate into {slot}")
+                self.guard(lambda: cyc._run_steps(cyc._steps(slot)[0][3:]))                       # pick:polar (long edges), place:hotel:<slot>
                 self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))
                 st.contents["module"] = "empty"
                 cyc.store.save()
-            # the hotel occupancy sweep: after the intake (operator, 01:45), the first plate parked and the claw empty, before the rotation
-            if c.layout()["vision"].get("survey", True):
-                seen_empty, seen_full = survey(cyc, taught)
-                if not c.layout()["vision"].get("veto", False):              # tonight the camera's word changes nothing: the ledger drives, the verdicts are logged
-                    seen_empty, seen_full = set(), set()
+            elif st.grip == "none":
+                sweep_now()                                                                        # no plate to bring in: the sweep before the rotation starts
             passes = 0
             while not stopped():
                 have = set(bench.loaded_slots(c.layout()))
