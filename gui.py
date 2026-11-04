@@ -34,7 +34,7 @@ ASPECT = 4 / 3                    # width / height of both cameras at the full f
 REQUEST = (640, 480)              # the full 4:3 field at the size it is shown: one picture pixel per screen pixel, nothing resampled here
 MODEL_W = 560                     # the 3D view between the cameras: two 640 frames and this fit a 1920 screen
 CAM = REQUEST                     # (the 16:9 modes are a crop of the sensor; 1280x960 and 3280x2464 show the same field as this)
-PERIOD_S = 0.6
+PERIOD_S = 0.12                   # about 8 frames a second per camera: a 640x480 frame takes ~30 ms on the kept connection (operator, 2026-11-04 02:40)
 BG, PANEL, FG, MUTED, BAD, GOOD, ACCENT = "#0e0f11", "#16181b", "#e6e8eb", "#6b7280", "#d4574a", "#5aa874", "#4c8dff"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 STEP = re.compile(r"^\s{2,}(user|computer|polar|nova|squid) : (.*)$")
@@ -870,7 +870,7 @@ class App:
         self.model.draw(self.poll)
         if self.follow and self.log.yview()[1] < 0.999:       # a resize pushed the end out of view: back to it
             self.log.see("end")
-        self.root.after(200, self.tick)
+        self.root.after(100, self.tick)
 
 
 def main():
