@@ -1,21 +1,21 @@
 {
- "station": "C7",
+ "station": "A7",
  "state": "full",
  "pose": [
   191.986,
-  -134.243,
+  134.022,
   312.278,
   0.0,
   -0.0,
-  0.001
+  -0.0
  ],
  "view_pose": [
   191.986,
-  -134.243,
+  134.022,
   312.278,
   0.0,
   -0.0,
-  0.001
+  -0.0
  ],
  "size": [
   1280,
@@ -25,6 +25,5 @@
   "front": "scan_camera"
  },
  "source": "loop",
- "at": "2026-11-04 01:35:11",
- "relabelled": "the sweep labelled it by the ledger (empty); the plates of column C were still in (operator, 01:40)"
+ "at": "2026-11-04 01:42:09"
 }
