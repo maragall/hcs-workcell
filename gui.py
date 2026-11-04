@@ -7,6 +7,7 @@ child process; this window only shows it and answers it. Stop kills the child: t
     python gui.py --selftest              one frame from each camera, one drawn window, one question answered; then exits
 """
 import base64
+import glob
 import math
 import json
 import os
@@ -104,6 +105,61 @@ class Feed(threading.Thread):
             time.sleep(max(0.0, PERIOD_S - (time.time() - t0)))
 
 
+class Detector:
+    """Live occupancy on the camera feeds. When the arm stands at a station's recorded viewing pose (reference_images/occupancy/<station>/
+    *.json, within 5 mm), the frame of that station's camera is judged against the station's empty pictures (perception/occupancy.py) and the
+    verdict is drawn on the feed (the region, full / empty / unsure, score against noise) and kept for the model. Nothing here moves the arm."""
+    COLOUR = {"full": "#d8c76a", "empty": "#8fd18f", "unsure": "#ff6b6b"}
+
+    def __init__(self):
+        self.views, self.stations, self.last = {}, {}, {}
+        self.scanned = 0.0
+
+    def scan(self):
+        """The stations with a recorded viewing pose; re-read every 30 s so a recording made while the window runs shows up."""
+        if time.time() - self.scanned < 30.0:
+            return
+        self.scanned = time.time()
+        try:
+            from perception import occupancy as occ
+        except Exception:
+            return
+        for d in glob.glob(os.path.join(occ.REFS, "*")):
+            name = os.path.basename(d)
+            js = sorted(glob.glob(os.path.join(d, "*.json")))
+            if not os.path.isdir(d) or not js:
+                continue
+            try:
+                j = json.load(open(js[-1], encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if j.get("view_pose") and (name not in self.views or self.views[name][2] != len(js)):
+                self.views[name] = (j["view_pose"], occ.camera_for(name), len(js))
+                self.stations.pop(name, None)                                  # new pictures: the references are read again
+
+    def station_at(self, pose):
+        self.scan()
+        for name, (vp, cam, _) in self.views.items():
+            if max(abs(pose[i] - vp[i]) for i in range(3)) <= 5.0:
+                return name, cam
+        return None, None
+
+    def judge(self, name, frame):
+        from perception import occupancy as occ
+        st = self.stations.get(name)
+        if st is None:
+            try:
+                st = occ.Station.load(name)
+            except Exception:
+                st = False
+            self.stations[name] = st
+        if not st or not st.empties:
+            return None
+        v = st.verdict(frame)
+        self.last[name] = (v, time.time())
+        return v, st.roi
+
+
 class PosePoll(threading.Thread):
     """The arm's pose, jaw and module angle from the controller's own channel (BRCAPI, port 56788), 5 times a second. It does not touch the
     vendor SDK, so it runs beside the setup; a drag by hand shows the same way as a commanded move."""
@@ -165,6 +221,7 @@ class Model:
         self.ox, self.oy = w / 2 - self.scale * (u0 + u1) / 2, h / 2 + self.scale * (v0 + v1) / 2
         self.route, self.planning = None, None
         self.plates, self._state_seen = [], (0.0, 0.0)
+        self.seen = {}                                                       # station -> (verdict, time): what the detector last saw
         self.mesh = self._load_mesh()
         self.polar_cfg = layout.get("polar", {}).get("ext_axis", {"zero_reading": 0.0, "direction": 1})
         self.module_pad = self._module_pad()
@@ -293,6 +350,42 @@ class Model:
             plates.append(("seat", scope, s[0] + 186.5 * math.cos(yaw), s[1] + 186.5 * math.sin(yaw), s[2] - 25.0, s[5]))
         self.plates = plates
 
+    def _station_frame(self, station, module_deg):
+        """Centre, top and angle of a station's plate footprint, for the detector's outline: a slot's tray, the module's pad, a microscope seat."""
+        cx0, cy0, _, _, _, z1 = self.module_pad
+        if station == "polar":
+            return cx0, cy0, z1, math.radians(module_deg)
+        F = self.layout["fixtures"]
+        if station in F and F[station].get("pose"):
+            s = F[station]["pose"]
+            yaw = math.radians(s[5])
+            return s[0] + 186.5 * math.cos(yaw), s[1] + 186.5 * math.sin(yaw), s[2] - 25.0, yaw + math.pi / 2
+        for b in self.boxes:
+            if b["k"] != "tray":
+                continue
+            cx, cy = (b["x"][0] + b["x"][1]) / 2, (b["y"][0] + b["y"][1]) / 2
+            col = "A" if cy > 60 else ("B" if cy > -60 else "C")
+            if f"{col}{round((b['z'][0] - 58.1) / 38) + 1}" == station:
+                return cx, cy, b["z"][1], 0.0
+        return None
+
+    def _draw_seen(self, module_deg):
+        """The detector's last verdict per station (within the last 10 minutes): an outline around the station's plate footprint, yellow full,
+        green empty, red unsure."""
+        L, S, H = self.PLATE
+        for station, (v, at) in list(self.seen.items()):
+            if time.time() - at > 600:
+                continue
+            fr = self._station_frame(station, module_deg)
+            if not fr:
+                continue
+            cx, cy, top, ang = fr
+            c, s_ = math.cos(ang), math.sin(ang)
+            corners = [(cx + u * c - w * s_, cy + u * s_ + w * c, z) for z in (top - 2, top + H + 2) for w in (-S / 2 - 4, S / 2 + 4) for u in (-L / 2 - 4, L / 2 + 4)]
+            self.wire(corners, Detector.COLOUR.get(v.state, "#ffffff"), "dyn")
+            p = self.P(cx, cy, top + H + 2)
+            self.canvas.create_text(p[0], p[1] - 6, anchor="s", fill=Detector.COLOUR.get(v.state, "#ffffff"), font=("Consolas", 9), text=f"{station}: {v.state}", tags="dyn")
+
     def _draw_plates(self, module_deg):
         L, S, H = self.PLATE
         cx0, cy0, _, _, _, z1 = self.module_pad
@@ -384,6 +477,7 @@ class Model:
         module_deg = self._draw_module(poll.module)
         self._refresh_plates()
         self._draw_plates(module_deg)
+        self._draw_seen(module_deg)
         self._draw_claw(pose, jaw)
         self._draw_arm(pose, poll.joints)
         grip = next((k for k, (lo, hi) in self.bands.items() if jaw is not None and lo - 0.6 <= jaw <= hi + 0.6), None)
@@ -434,6 +528,7 @@ class App:
         r.grid_rowconfigure(3, weight=1)
         self.photos = [None, None]
         self.drawn = [(0.0, None), (0.0, None)]
+        self.det, self.judged_at = Detector(), 0.0
         self.panels = []
         for i, label in enumerate(labels):
             f = tk.Frame(r, bg=BG)
@@ -651,6 +746,41 @@ class App:
             self.button(self.buttons, f"Resume at {name}", lambda: self.start(extra)).pack(side="right")
         self.button(self.buttons, "Start over", lambda: self.start(list(self.argv)), "#3a3f47").pack(side="right", padx=(0, 8))
 
+    def detect(self):
+        """At a station's viewing pose: judge the newest frame of that station's camera, draw the region and the verdict on that feed."""
+        for img, _, _ in self.panels:
+            img.delete("occ")
+        p = self.poll
+        if p is None or p.pose is None or time.time() - p.at > 2.0:
+            return
+        name, cam = self.det.station_at(p.pose)
+        if not name:
+            return
+        i = 0 if cam == "down" else 1
+        feed = self.feeds[i]
+        if feed.frame is None or time.time() - feed.at > 3.0:
+            return
+        if self.judged_at != feed.at:
+            try:
+                got = self.det.judge(name, feed.frame)
+            except Exception as e:
+                got = None
+                self.show_log(f"occupancy {name}: {e}", "bad")
+            self.judged_at = feed.at
+            if got:
+                self.last_verdict = (name, got[0], got[1])
+                self.model.seen[name] = (got[0], time.time())
+        lv = getattr(self, "last_verdict", None)
+        if not lv or lv[0] != name:
+            return
+        _, v, roi = lv
+        img = self.panels[i][0]
+        pw, ph = self.cam
+        colour = Detector.COLOUR.get(v.state, "#ffffff")
+        img.create_rectangle(roi[0] * pw, roi[1] * ph, roi[2] * pw - 1, roi[3] * ph - 1, outline=colour, width=2, tags="occ")
+        img.create_text(roi[0] * pw + 6, roi[1] * ph + 4, anchor="nw", fill=colour, font=("Consolas", 12, "bold"), tags="occ",
+                        text=f"{name}: {v.state}   score {v.score:.2f} / noise {v.noise:.2f}" + ("" if getattr(self.det.stations.get(name), 'calibrated', True) else "*"))
+
     def tick(self):
         try:
             while True:
@@ -679,6 +809,7 @@ class App:
             else:
                 served = "" if (feed.frame.shape[1], feed.frame.shape[0]) == REQUEST else f"   box sent {feed.frame.shape[1]}x{feed.frame.shape[0]}"
                 state.configure(text=("live" if age < 3 else f"last picture {age:.0f} s ago") + served, fg=MUTED)
+        self.detect()
         self.model.draw(self.poll)
         if self.follow and self.log.yview()[1] < 0.999:       # a resize pushed the end out of view: back to it
             self.log.see("end")
