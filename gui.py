@@ -845,7 +845,7 @@ def main():
     v = lay["vision"]
     feeds = [Feed(v["host"], v["port"], v["down_camera"], v.get("led", 0)),
              Feed(v["host"], v["port"], v["front_camera"], int(v.get("front_led", v.get("led", 0))))]
-    labels = ("Gripper camera", "Front camera")
+    labels = ("Down camera", "Gripper camera")          # the operator's names: the down camera looks straight down from the claw, the gripper camera looks forward along the fingers
     argv = [a for a in sys.argv[1:] if a not in ("--view", "--selftest")]
     if "--selftest" in sys.argv:
         for f in feeds:
