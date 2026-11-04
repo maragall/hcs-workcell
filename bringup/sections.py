@@ -601,12 +601,21 @@ class Bringup:
             F = c.layout()["fixtures"]
             st = cyc.store.s
             taught = [x for x in F["hotel"].get("active_slots", []) if reachable(cyc, x)]
-            holes = [x for x in taught if x not in set(bench.loaded_slots(c.layout())) and st.contents.get(x) != "full"]
             lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
             moves = 0
             if lo <= c.robot.jaw() <= hi:                                                  # a plate in the hand at the long-edge width: the ledger can be stale
                 st.plate_at, st.grip, st.step_done = "gripper", "long_edges", True
                 cyc.store.save()
+            # one occupancy sweep with the empty claw before any plate moves (vision.survey, on by default). The camera can only rule a slot
+            # out: a parking place needs the ledger and the camera to say empty, a pick needs the ledger's full and no confident empty from the
+            # camera. A disagreement is a log line and a skipped slot, never a move.
+            seen_empty, seen_full = survey(cyc, taught) if c.layout()["vision"].get("survey", True) else (set(), set())
+
+            def parking_places():
+                have = set(bench.loaded_slots(c.layout()))
+                return [x for x in taught if x not in have and st.contents.get(x) != "full" and x not in seen_full]
+
+            holes = parking_places()
             intake = st.plate_at == "gripper" or st.contents.get("module") == "full" or st.plate_at in ("polar", self.scope)
             if len(holes) < (2 if intake else 1):
                 raise Refused(f"the test needs {2 if intake else 1} empty taught slot(s){' (one for the module plate, one for the rotation to start from)' if intake else ''} and has {holes}: "
@@ -637,8 +646,8 @@ class Bringup:
             passes = 0
             while not stopped():
                 have = set(bench.loaded_slots(c.layout()))
-                full = [x for x in taught if x in have]
-                holes = [x for x in taught if x not in have and st.contents.get(x) != "full"]
+                full = [x for x in taught if x in have and x not in seen_empty]           # the camera's confident "empty" vetoes a pick
+                holes = parking_places()
                 if not holes:
                     raise Refused("the rotation has no empty taught slot to start from: free one (put its plate in an untaught slot) and run: "
                                   "python cli.py setup --from \"test\"")
@@ -654,42 +663,58 @@ class Bringup:
                     self._acquire()
                     self.guard(lambda: cyc._run_steps(cyc._steps(dest)[0]))
                     self.edit(lambda L, dest=dest: bench.set_loaded(L, list(bench.loaded_slots(L)) + [dest]))
+                    seen_empty.discard(dest)
                     holes.append(slot)
                     moves += 1
+                    if c.layout()["vision"].get("check_module_after_park", True):      # the plate is parked, the claw is empty: is the module clear for the next one? (shown, logged, no gate tonight)
+                        seat_check(cyc, "polar")
             return {"stopped": "by request, between plates", "passes": passes, "plates moved": moves}
 
-        def look():
-            """The occupancy check the operator can watch: the empty claw at the microscope's and the module's viewing poses (tools/view_pose.py),
-            the down camera judged against each seat's empty pictures, the verdict printed and drawn in the window. Record only: the
-            rotation runs whatever it says."""
+        def seat_check(cyc, station):
+            """The empty claw at a seat's viewing pose (tools/view_pose.py), the down camera judged against the seat's empty pictures, the
+            verdict printed and drawn in the window; back to the hover after. Returns full / empty / unsure, or None without a view or a
+            reference. Never stops the run."""
             from tools.view_pose import from_tool_frame, to_view
-            self.ready()
-            cyc = self.cyc()
-            cyc.safety.profile = SpeedProfile(**c.layout()["speeds"][self.speed])
             F = c.layout()["fixtures"]
             st = cyc.store.s
+            view = (F.get(station) or {}).get("view", {}).get("tool_offset")
+            if not view or st.grip != "none":
+                return None
+            seat = F["polar"]["pose_at_0"]["pose"] if station == "polar" else F[station]["pose"]
+            target = from_tool_frame(seat, *view)
+            truth = "full" if (st.plate_at == station or st.contents.get("module" if station == "polar" else station) == "full") else "empty"
+            self.guard(lambda: cyc.move_to("polar.pose_at_0" if station == "polar" else station))
+            self.guard(lambda: to_view(cyc, station, target))
+            got = cyc._collect("occupancy", station, truth, "down", judge=True)
+            print(f"   {'module' if station == 'polar' else station}: the camera says {got[1] if got else 'nothing (no reference)'}; the ledger says {truth}")
+            time.sleep(1.5)                                                       # long enough to read in the window
+            hover = offset(seat, [0, 0, F["polar" if station == "polar" else station]["hover_mm"]])
+            self.guard(lambda: cyc._move("L", [hover[0], hover[1], target[2]] + list(hover[3:]), f"{station}: back over the seat", cyc.safety.profile.contact))
+            self.guard(lambda: cyc._move("L", hover, f"{station}: down to the hover", cyc.safety.profile.contact))
+            return got[0] if got else None
+
+        def survey(cyc, taught):
+            """One sweep with the empty claw before any plate moves: the microscope view, the module view, then every taught slot's mouth.
+            Vision only removes options: a slot is a parking place only if the ledger and the camera both say empty, a pick only if the
+            ledger says full and the camera does not say empty. Returns (slots the camera calls empty, slots it calls full)."""
+            st = cyc.store.s
+            seen_empty, seen_full = set(), set()
             if st.grip != "none":
-                print("   a plate is in the claw: no look around")
-                return {}
-            out = {}
+                print("   a plate is in the claw: no survey")
+                return seen_empty, seen_full
+            print("   occupancy survey (the camera, record only; it can rule a slot out, never in)")
             for station in ("microscope", "polar"):
-                view = (F.get(station) or {}).get("view", {}).get("tool_offset")
-                if not view:
-                    print(f"   {station}: no viewing pose taught (python tools/view_pose.py go {station}); skipped")
-                    continue
-                seat = F["polar"]["pose_at_0"]["pose"] if station == "polar" else F[station]["pose"]
-                target = from_tool_frame(seat, *view)
-                truth = "full" if (st.plate_at == station or st.contents.get("module" if station == "polar" else station) == "full") else "empty"
-                self.guard(lambda: cyc.move_to("polar.pose_at_0" if station == "polar" else station))
-                self.guard(lambda: to_view(cyc, station, target))
-                verdict = cyc._collect("occupancy", station, truth, "down", judge=True)
-                out[station] = verdict or "no verdict"
-                print(f"   {station}: the camera says {out[station]} (the ledger says {truth})")
-                time.sleep(2.0)                                                   # long enough to read it in the window
-                hover = offset(seat, [0, 0, F["polar" if station == "polar" else station]["hover_mm"]])
-                self.guard(lambda: cyc._move("L", [hover[0], hover[1], target[2]] + list(hover[3:]), f"{station}: back over the seat", cyc.safety.profile.contact))
-                self.guard(lambda: cyc._move("L", hover, f"{station}: down to the hover", cyc.safety.profile.contact))
-            return out
+                seat_check(cyc, station)
+            for slot in taught:
+                target = cyc._hotel_geometry(slot)[1]
+                self.guard(lambda slot=slot: cyc._hotel_go_to_approach(slot, f"survey {slot}"))
+                self.guard(lambda slot=slot, target=target: cyc._square_up(target, f"survey {slot}"))
+                truth = "full" if slot in bench.loaded_slots(c.layout()) else "empty"
+                got = cyc._collect("occupancy", slot, truth, "front", judge=True)
+                verdict = got[0] if got else None
+                (seen_empty if verdict == "empty" else seen_full if verdict == "full" else set()).add(slot)
+                print(f"   {slot}: the camera says {got[1] if got else 'nothing (no reference)'}; the ledger says {truth}")
+            return seen_empty, seen_full
 
         # The occupancy survey (the empty claw at the slot mouths and the two viewing poses, tools/occupancy_record.py and `look` above) is not
         # a setup step: put into the test on 2026-11-04 01:01 it moved the arm away from the microscope between the seat proof and the first pick

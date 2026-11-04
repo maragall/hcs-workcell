@@ -81,7 +81,7 @@ class Gates:
                 if st.empties:
                     v = st.verdict(cv2.imdecode(np.frombuffer(jpg, np.uint8), cv2.IMREAD_COLOR))
                     self.tele.log("occupancy", station, v.state, truth=state, agree=(v.state == state), score=round(v.score, 2), noise=round(v.noise, 2))
-                    return f"{v.state} ({v.score:.2f} against noise {v.noise:.2f})"
+                    return v.state, f"{v.state} ({v.score:.2f} against noise {v.noise:.2f})"
         except Exception as e:
             self.tele.log("collect", station, f"{kind} {state}: not recorded: {str(e)[:80]}")
         return None
