@@ -657,4 +657,38 @@ class Bringup:
                     moves += 1
             return {"stopped": "by request, between plates", "passes": passes, "plates moved": moves}
 
-        return Section("test", [Step("polar", "the rotation, for ever: the module's plate through the microscope into an empty slot, then every plate in a taught slot to the microscope and into the slot empty the longest", unattended(rotate), moves=True)])
+        def look():
+            """The occupancy check the operator can watch: the empty claw at the microscope's and the module's viewing poses (tools/view_pose.py),
+            the down camera judged against each seat's empty pictures, the verdict printed and drawn in the window. Record only: the
+            rotation runs whatever it says."""
+            from tools.view_pose import from_tool_frame, to_view
+            self.ready()
+            cyc = self.cyc()
+            cyc.safety.profile = SpeedProfile(**c.layout()["speeds"][self.speed])
+            F = c.layout()["fixtures"]
+            st = cyc.store.s
+            if st.grip != "none":
+                print("   a plate is in the claw: no look around")
+                return {}
+            out = {}
+            for station in ("microscope", "polar"):
+                view = (F.get(station) or {}).get("view", {}).get("tool_offset")
+                if not view:
+                    print(f"   {station}: no viewing pose taught (python tools/view_pose.py go {station}); skipped")
+                    continue
+                seat = F["polar"]["pose_at_0"]["pose"] if station == "polar" else F[station]["pose"]
+                target = from_tool_frame(seat, *view)
+                truth = "full" if (st.plate_at == station or st.contents.get("module" if station == "polar" else station) == "full") else "empty"
+                self.guard(lambda: cyc.move_to("polar.pose_at_0" if station == "polar" else station))
+                self.guard(lambda: to_view(cyc, station, target))
+                verdict = cyc._collect("occupancy", station, truth, "down", judge=True)
+                out[station] = verdict or "no verdict"
+                print(f"   {station}: the camera says {out[station]} (the ledger says {truth})")
+                time.sleep(2.0)                                                   # long enough to read it in the window
+                hover = offset(seat, [0, 0, F["polar" if station == "polar" else station]["hover_mm"]])
+                self.guard(lambda: cyc._move("L", [hover[0], hover[1], target[2]] + list(hover[3:]), f"{station}: back over the seat", cyc.safety.profile.contact))
+                self.guard(lambda: cyc._move("L", hover, f"{station}: down to the hover", cyc.safety.profile.contact))
+            return out
+
+        return Section("test", [Step("polar", "look at the microscope seat and the module from above: the occupancy check (record only)", look, moves=True),
+                                Step("polar", "the rotation, for ever: the module's plate through the microscope into an empty slot, then every plate in a taught slot to the microscope and into the slot empty the longest", unattended(rotate), moves=True)])

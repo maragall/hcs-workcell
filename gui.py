@@ -136,6 +136,16 @@ class Detector:
             if j.get("view_pose") and (name not in self.views or self.views[name][2] != len(js)):
                 self.views[name] = (j["view_pose"], occ.camera_for(name), len(js))
                 self.stations.pop(name, None)                                  # new pictures: the references are read again
+        try:                                                                   # the seats' viewing poses follow the taught seat (fixtures.<station>.view.tool_offset), not the recording
+            from tools.view_pose import from_tool_frame
+            F = json.load(open(os.path.join(HERE, "layout.json"), encoding="utf-8"))["fixtures"]
+            for name in ("polar", "microscope"):
+                off = (F.get(name) or {}).get("view", {}).get("tool_offset")
+                if off and name in self.views:
+                    seat = F["polar"]["pose_at_0"]["pose"] if name == "polar" else F[name]["pose"]
+                    self.views[name] = (from_tool_frame(seat, *off), self.views[name][1], self.views[name][2])
+        except Exception:
+            pass
 
     def station_at(self, pose):
         self.scan()

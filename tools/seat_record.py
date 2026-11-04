@@ -89,10 +89,55 @@ def go(station):
         tele.close()
 
 
-def record(station, state):
-    layout, tele, robot, st, store, cyc = setup()
+def hold():
+    """Keep the arm enabled with the jaw open while the operator seats and tilts the plate: at disconnect the controller drops enable and the
+    unpowered fingers drift onto the plate (00:20 2026-11-04, jaw 28.5 -> 24.7). Ends when runs/HOLD_STOP exists."""
+    layout = R.load_layout()
+    tele = Telemetry(os.path.join(R.RUNS, "seat_record"))
+    robot, st = R.connect_robot_readonly(layout, tele.log)
+    stop = os.path.join(R.RUNS, "HOLD_STOP")
+    if os.path.exists(stop):
+        os.remove(stop)
     try:
-        pose = robot.pose()
+        if st.drag:
+            robot.drag(False)
+        robot.enable()
+        robot.jaw_to(29.0)
+        print("holding: enabled, jaw open; create runs/HOLD_STOP to end", flush=True)
+        while not os.path.exists(stop):
+            time.sleep(1.0)
+            if not robot.state().enabled:
+                robot.enable()
+            if robot.jaw() < 28.0:
+                robot.jaw_to(29.0)
+        os.remove(stop)
+    finally:
+        robot.disconnect()
+        tele.close()
+
+
+def pose_now(layout):
+    """Pose (mm, deg) and jaw from the controller's JSON port: no SDK connection, so `hold` keeps its own."""
+    import math
+    from devices.controller import Brcapi
+    b = Brcapi(layout["robot"]["ip"], log=None, wait_s=6.0)
+    b.connect()
+    try:
+        p = b.pose_mm_rad()
+        j = b.joints()
+        return [p[0], p[1], p[2], math.degrees(p[3]), math.degrees(p[4]), math.degrees(p[5])], float(j[1][0])
+    finally:
+        b.close()
+
+
+def record(station, state):
+    layout = R.load_layout()
+    tele = Telemetry(os.path.join(R.RUNS, "seat_record"))
+    from devices.fake_arm import SimRobot                                    # only for the geometry (seat_of); the pose comes from the JSON port
+    pose, jaw = pose_now(layout)
+    store = StateStore(os.path.join(R.HERE, "state_microscope.json"))
+    cyc = Cycle(layout, SimRobot(pose), nova.vision_box(layout, tele.log), tele, store, "supervised", os.path.join(R.RUNS, "seat_record"), R.REFS)
+    try:
         seat, _, _ = seat_of(cyc, layout, station)
         far = max(abs(pose[i] - seat[i]) for i in range(3))
         if far > 5.0:
@@ -108,14 +153,13 @@ def record(station, state):
                 if led:
                     box.led(cam, led)
                 open(os.path.join(d, f"{state}_{stamp}_{label}.jpg"), "wb").write(box.frame(cam, SIZE[0], SIZE[1], 90, None, 0))
-        json.dump({"station": station, "state": state, "pose": [round(x, 3) for x in pose], "jaw": round(robot.jaw(), 2), "size": SIZE,
+        json.dump({"station": station, "state": state, "pose": [round(x, 3) for x in pose], "jaw": round(jaw, 2), "size": SIZE,
                    "cameras": {k: cams[k][0] for k in cams}, "at": time.strftime("%Y-%m-%d %H:%M:%S")},
                   open(os.path.join(d, f"{state}_{stamp}.json"), "w", encoding="utf-8"), indent=1)
         labels = sorted({f.rsplit("_", 2)[0] for f in os.listdir(d) if f.endswith(".json")})
         n = {s: sum(f.startswith(s + "_") and f.endswith(".json") for f in os.listdir(d)) for s in labels}
         print(f"recorded {station} {state}: {d}\\{state}_{stamp}_(front|down).jpg   ({station}: " + ", ".join(f"{k} {v}" for k, v in n.items()) + ")", flush=True)
     finally:
-        robot.disconnect()
         tele.close()
 
 
@@ -141,7 +185,9 @@ def leave(station):
 
 if __name__ == "__main__":
     a = sys.argv[1:]
-    if len(a) == 2 and a[0] in ("go", "leave"):
+    if a == ["hold"]:
+        hold()
+    elif len(a) == 2 and a[0] in ("go", "leave"):
         {"go": go, "leave": leave}[a[0]](a[1])
     elif len(a) == 3 and a[0] == "record" and a[2].replace("_", "").isalnum():     # flat, tilted, q1 .. q15 (the lip-edge types), anything the operator names
         record(a[1], a[2].lower())

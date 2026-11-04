@@ -46,7 +46,20 @@ class StateStore:
         tmp = self.path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(asdict(self.s), f, indent=2)
-        os.replace(tmp, self.path)
+        for attempt in range(20):
+            try:
+                os.replace(tmp, self.path)
+                return
+            except PermissionError:
+                # Windows refuses the replace while another process has the file open for reading (the window reads it every 200 ms;
+                # 2026-11-04 00:49 it cost a pick). Wait a moment and try again.
+                time.sleep(0.05)
+        with open(self.path, "w", encoding="utf-8") as f:       # last resort: write in place
+            json.dump(asdict(self.s), f, indent=2)
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
     def begin(self, step: str):
         self.s.step, self.s.step_done = step, False
