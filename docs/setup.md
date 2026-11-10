@@ -55,3 +55,31 @@ Run `python cli.py setup`. The script ends with `READY`.
     - gripper grabbing a real plate by short edges
 - Planner: microscope seat ↔ rotation module routes
 - Upload routes and microscope seat to BioyondWorks
+
+# Running jobs
+
+## Demo
+
+Run `python demo.py`. The arm takes the plate from A1 to the microscope and back.
+
+## Your own script
+
+```python
+from polar import Polar
+
+arm = Polar()
+
+arm.move("A1", "microscope")
+arm.move("microscope", "A1")
+```
+
+- `arm.move(source, destination)` picks the plate at the source and places it at the destination.
+- `arm.pick(place)` and `arm.place(place)` do one half each.
+- A place is a hotel slot (`"A1"` to `"C9"`), `"module"`, or the name of an instrument you taught.
+- Each call returns when the arm is done. It raises an error with the reason if it cannot do it.
+
+## Jobs in a nutshell
+
+- The script sends one job to the arm: source, destination
+- The arm runs the stored routes and the entry and seating procedures
+- The arm replies done, or the reason it stopped
