@@ -35,4 +35,4 @@ Run `python cli.py setup`. The script ends with `READY`.
     - slot-exit procedure
 - Calibrate cameras:
     - Run aruco intrinsic and extrinsic calibration
-    - Upload to the camera box
+    - Upload values to BioyondWorks
