@@ -9,9 +9,6 @@
 - Close BioyondWorks.
 
 ## Hardware
-
-![workcell](img/cell_model.png)
-
 1. Connect the power cable and the emergency stop to the arm. Turn on the main switch at the back. Wait until the status light is steady.
 2. Connect the PC to port 1 of the controller with a network cable.
 3. Screw the hotel onto the platform. The slots face the arm.
