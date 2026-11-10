@@ -32,7 +32,7 @@ Run `python cli.py setup`. The script ends with `READY`.
     - rotation module seat positions
     - long-edge grip, short-edge grip, and grip torque probe procedure
     - routes from each slot ↔ rotation module
-    - slot-exit procedure
+    - hotel slot exit/entry procedure
 - Calibrate cameras:
     - Run aruco intrinsic and extrinsic calibration
     - Upload values to BioyondWorks
