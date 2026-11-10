@@ -36,3 +36,26 @@ Run `python cli.py setup`. The script ends with `READY`.
 - Calibrate cameras:
     - Run aruco intrinsic and extrinsic calibration
     - Upload values to BioyondWorks
+
+# Teaching
+
+## Hardware
+
+![workcell with microscope](img/cell_model_microscope.png)
+
+1. Place the microscope next to the platform.
+2. Place a real plate in the microscope's plate holder.
+
+## Teaching
+
+1. Run `python cli.py teach`. The arm goes loose.
+2. Move the arm by hand until the gripper grabs the plate by its short edges.
+3. Press Enter. The script ends with `READY`.
+
+## Teaching and route planning script in a nutshell
+
+- User teaches microscope seat
+    - gripper grabbing a real plate by short edges
+- Planner runs and uploads route: microscope seat ↔ rotation module
+
+Test: take the plate from the microscope to the rotation module.

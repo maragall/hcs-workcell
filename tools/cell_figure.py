@@ -26,6 +26,9 @@ def boxes():
     P0 = L["fixtures"]["polar"]["pose_at_0"]["pose"]
     h = json.load(open(os.path.join(HERE, "hardware.json"), encoding="utf-8"))["cad"]["rotation_module"]
     out.append((tuple(h["plate_seat_x_r"]), tuple(h["plate_seat_y_r"]), (48.0, P0[2] - 12.0)))   # module pad, from the platform top
+    if "--microscope" in sys.argv:                                   # the instrument's box, as the GUI draws it
+        m = L["volumes"]["obstacles"]["microscope"]
+        out.append((tuple(m["x"]), tuple(m["y"]), (max(m["z"][0], -47.0), m["z"][1])))
     return out
 def prism(a, b, w, h, z):
     """A box from point a to point b (x, y), w wide, from z to z + h: eight corners, the axis-aligned box's corner order."""
