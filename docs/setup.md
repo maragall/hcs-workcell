@@ -1,4 +1,4 @@
-# Setup
+# Workflow
 
 ## Prerequisites
 
