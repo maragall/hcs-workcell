@@ -29,7 +29,7 @@ Run `python cli.py setup`. The script ends with `READY`.
 
 - Upload some preset knowledge to the arm:
     - hotel slot positions
-    - rotation module seat position
+    - rotation module seat positions
     - long-edge grip, short-edge grip, and grip torque probe procedure
     - routes from each slot ↔ rotation module
     - slot-exit procedure
