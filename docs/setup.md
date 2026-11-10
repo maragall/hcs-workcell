@@ -57,5 +57,3 @@ Run `python cli.py setup`. The script ends with `READY`.
 - User teaches microscope seat
     - gripper grabbing a real plate by short edges
 - Planner runs and uploads route: microscope seat ↔ rotation module
-
-Test: take the plate from the microscope to the rotation module.
