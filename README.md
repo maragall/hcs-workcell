@@ -1,100 +1,45 @@
-# hcs-workcell
+# Polar workcell
 
-Plate transfer cell on the Bioyond Nova SCARA arm: microscope stage, rotation module (the arm's own axis; `polar` in the code), plate hotel.
-Vision-gated, state-persisted, built to run unattended for days and to log the data that later
-prediction models train on.
+Setup script for the Bioyond Polar arm with a plate hotel and a rotation module.
 
-## Documents
+Guides in `docs/`: [setup](docs/setup.md), teaching and route planning, demo script.
 
-- `docs/REPLICATION.md`: rebuild the cell from hardware to an unattended loop, step by step.
-- `docs/VENDOR_SDK.md`: what the vendor .NET SDK really does (measured).
-- `DESIGN.md`: gates, damage prevention, tolerance model, data contract, failure cases, tests.
-- `ANALYSIS.md`: results of the first 90-hour unattended run and the plan derived from it.
-- `STATUS.md`, `review_queue.py`: current state and decisions awaiting review.
 
-## Architecture
+## Prerequisites
 
-![hcs-workcell architecture](docs/architecture.png)
+- BioyondWorks, installed on the PC.
+- The Bioyond Python package (a .whl file). Contact us or Bioyond to get it.
+- Python 3.10 or newer.
+- Run `.\install.ps1 -SdkWheel <path to the .whl file>`.
+- Close BioyondWorks.
 
-One repo, four parts we write, each calling only the boxes below it. `run.py` is the main loop (asyncio: one
-task per microscope, one arm shared, a list of where every plate is). `layout.json` is the positions file: every
-pose, floor, speed, limit, route and plate type, data not code, changed by editing it or by `cli.py record-pose`.
-`procedures/` are the arm moves with the checks between them. `perception/` turns a photo into a verdict and
-imports no device. `devices/` is one thin file per machine plus a fake for each. `routes/` plans the waypoints
-between two positions. The dashed boxes are the good-to-haves, each in its first working form. Nova SDK and
-Squid are used as they come. Trained models for `perception/` come from cephla-hub, a separate project.
+## Hardware
 
-## Cycle
+![workcell](docs/img/cell_model.png)
 
-```
-microscope --pick(short edges)--> polar@0 --rotate 90--> pick(long edges) --> hotel slot
-hotel slot --pick(long edges)--> polar@90 --rotate 0--> pick(short edges) --> microscope
-```
+1. Connect the power cable and the emergency stop to the arm. Turn on the main switch at the back. Wait until the status light is steady.
+2. Connect the PC to port 1 of the controller with a network cable.
+3. Screw the hotel onto the platform. The slots face the arm.
+4. Load the plates into the hotel. Start at A1.
 
-Every fixture visit: travel, hover, vision check, lower, jaw action, jaw verification, lift, image.
+![hotel](docs/img/hotel_matrix.png)
 
-## Layout
+5. Place the ArUco plate on the rotation module.
 
-Each box calls only the boxes below it. The figure and the reasoning live in AI-docs/hcs-workcell.
+## Setup
 
-```
-run.py                     the main loop, asyncio: one task per microscope, one arm shared, a list of where every plate is
-cli.py                     teaching, references, tests and one-microscope runs; positions, occupancy, goto
-layout.json                the positions file: every pose, floor, speed, limit, route and plate type. Data, not code.
+Run `python cli.py setup`. The script ends with `READY`.
 
-procedures/                the arm moves, with the checks between them
-  cycle.py                 Cycle: pick, place, the step tables, outbound, inbound, run (one plate change on one microscope)
-  motion.py                its arm moves, each checked; move_to(position)   grasp.py   its jaw: open, close, judge, centre
-  gates.py                 its camera and health checks      hotel.py       its hotel slots: climb, slide, pick, place; plate_order
-  corrector.py             bounded recovery actions        safety.py      speed profiles, workspace box, z floors
-  state.py                 where the plate is (ledger)     telemetry.py   JSONL events + images per cycle
-  recorder.py              camera video per run            plates.py      plate types: jaw widths, grab height
-  positions.py             load/save the positions file    preflight.py   what must be taught before a run
+## Setup script in a nutshell
 
-perception/                photo in, verdict out. No device imports.
-  lower_check.py           clear_to_lower, seating, grip: correlation against reference photos, enforced once trained
-  occupancy.py             slot occupancy detector: two classes per slot, self-tested, enforced once ready
-  predictor.py             pre-step checks and drift statistics
-  hub.py                   cephla-hub: serve a pinned model; record every gate's photo, verdict and the step's outcome (opt-in)
-
-devices/                   one thin file per machine, plus a fake for each
-  nova.py                  the arm and the vision box, one import; arm(layout, sim=True) gives the fake
-  arm.py                   the only module touching the vendor robot SDK      fake_arm.py    simulator with fault injection
-  vision_box.py            vision box TCP client                             controller.py  Lua jobs on the controller
-  stage.py                 rotation module (the arm's own axis; `polar` in the code)                            squid.py       Squid+ (call names to confirm)
-  fake_squid.py            waits and does nothing                            rail.py        stub for a future farm
-
-routes/                    waypoints between two positions
-  plan.py                  plan(from, to): a taught route, else lift / travel at routes.safe_z_mm / lower, checked
-  trajectory.py            hand-guided capture, multi-demo normalisation
-
-lua/                       the program on the arm's controller (Bioyond template + our mod_Cell, data_cell, data_plate)
-tests/                     rig.py (fake vision box, simulator layout), test_sim.py (one microscope), test_run.py (two microscopes, one arm),
-                           test_routes.py, test_occupancy.py, test_plates.py, test_hub.py
-```
-
-## Commissioning order
-
-1. `python cli.py status`
-2. Teach poses while hand-guiding: `python cli.py record-pose microscope`, `polar.pose_at_0`, `polar.pose_at_90`
-3. Record each route 2 to 3 times: `python cli.py trace microscope_to_polar` (stop: create `runs/trace.stop`), then `python cli.py normalise microscope_to_polar`; same for `polar_to_hotel`
-4. Record "safe to lower" references at each fixture hover: `python cli.py record-ref microscope plate_present` (3 or more each) for states `plate_present` and `empty`, plus `gripper short_edges` / `gripper long_edges` from the front camera
-5. Set the microscope region box and z floor in `layout.json`
-6. `python cli.py run --mode supervised --slot A1 --cycles 1`
-7. Only after the acceptance tests in DESIGN.md: `--mode unsupervised`
-
-## Teaching quickly
-
-`python teach_daemon.py` holds the one SDK connection and records a pose per word written to `runs/teach_cmd.txt`
-(`A1`, `polar.pose_at_90`, `microscope`, `drag`, `undrag`, `status`, `quit`); `python record_slot.py A3` does one
-hotel slot without the daemon. Both store pose, joints, jaw, stage reading and a frame from each camera under
-`reference_images/teach/`. Hotel rows above 1 are reached by retreating to `fixtures.hotel.climb_x`, climbing with
-the column only, and sliding in at carry height; `--slot random` draws from `fixtures.hotel.active_slots`.
-
-A pick that stalls wider than the plate starts a tactile centering search (`fixtures.<name>.grasp_search`): the seat
-is walked in small steps along z, yaw, x and y until the fingers meet the plate at its width, and the working pose
-is written back to `layout.json`.
-
-## Tests
-
-`python tests/test_sim.py` runs the full cycle, a refused move, a missed grasp, a blocked lowering and a half-finished resume, all offline.
+- Upload some preset knowledge to the arm:
+    - hotel slot positions
+    - rotation module seat position
+    - long-edge grip, short-edge grip, and grip torque probe procedure
+    - routes from each slot ↔ rotation module
+    - slot-exit procedure
+- Calibrate cameras:
+    - Run aruco intrinsic and extrinsic calibration
+        - Upload to the camera box
+    - optional test script
+        - for each slot ↔ rotation module
