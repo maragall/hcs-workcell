@@ -53,4 +53,5 @@ Run `python cli.py setup`. The script ends with `READY`.
 
 - User teaches microscope seat
     - gripper grabbing a real plate by short edges
-- Planner runs and uploads route: microscope seat ↔ rotation module
+- Planner: microscope seat ↔ rotation module routes
+- Upload routes and microscope seat to BioyondWorks
