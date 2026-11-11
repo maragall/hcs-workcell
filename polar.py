@@ -24,18 +24,60 @@ from typing import Optional
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-__all__ = ["Polar", "PolarError"]
+__all__ = ["Polar", "PolarError", "Microscope"]
 
 
 class PolarError(Exception):
     """The arm did not do what was asked. The message says why; the arm is left where it stopped."""
 
 
+class Microscope:
+    """A running Squid (Settings > Enable MCP Control Server), for the plate change:
+
+        scope = Microscope()
+        scope.wait()                      # until the acquisition has finished
+        scope.home()                      # the stage to its home position, where the arm reaches the holder
+        arm.move("microscope", "A1")
+        arm.move("A3", "microscope")
+        scope.back()                      # the stage back to where the acquisition ended
+
+    `acquire(path)` starts an acquisition saved by the Squid GUI (acquisition.yaml). The seat must have been taught with the stage homed."""
+
+    def __init__(self, name: str = "microscope"):
+        from run import positions
+        from utils.devices.squid_link import SquidError, SquidLink
+        self.name, self._SquidError = name, SquidError
+        self._link = SquidLink(name, (positions.load().get("squid") or {}).get(name) or {})
+
+    def _do(self, fn, *a):
+        try:
+            return fn(*a)
+        except self._SquidError as e:
+            raise PolarError(str(e)) from e
+
+    def wait(self) -> None:
+        self._do(self._link.wait)
+
+    def home(self) -> None:
+        self._do(self._link.home)
+
+    def back(self) -> None:
+        self._do(self._link.back)
+
+    def acquire(self, path: str) -> None:
+        self._do(self._link.acquire, path)
+
+    def parked(self) -> bool:
+        return self._do(self._link.parked)
+
+
 class Polar:
-    def __init__(self, check_occupancy: bool = False, speed: str = "stress", plate_at: Optional[str] = None):
+    def __init__(self, check_occupancy: bool = False, speed: str = "stress", plate_at: Optional[str] = None, microscope: Optional[Microscope] = None):
         """check_occupancy: look at a seat with the camera before placing on it (optional, off).
         speed: a profile of layout.json speeds.
-        plate_at: where the plate is now, when this is the first run or it was moved by hand: a place name, or "none"."""
+        plate_at: where the plate is now, when this is the first run or it was moved by hand: a place name, or "none".
+        microscope: a Microscope. With it the arm goes to that instrument only while its stage stands homed."""
+        self._scope = microscope
         from run import positions
         from utils.devices import nova
         from run import motion
@@ -93,6 +135,7 @@ class Polar:
             grip = "long_edges" if s.polar_angle == 90 else "short_edges"
             self._pick_module(grip)
         else:
+            self._stage_homed(place)
             self._do(lambda: self._cyc._pick(place, F[place]["pose"], F[place], "short_edges", None))
 
     def place(self, place: str) -> None:
@@ -110,6 +153,7 @@ class Polar:
         elif kind == "module":
             self._place_module()
         else:
+            self._stage_homed(place)
             self._regrip("short_edges")
             self._do(lambda: self._cyc._place(place, F[place]["pose"], F[place], place, None))
 
@@ -139,6 +183,10 @@ class Polar:
         if place in self.instruments:
             return "instrument"
         raise PolarError(f"unknown place {place!r}: a slot ({', '.join(sorted(h.get('taught', {}))[:3])}, ...), 'module', or one of {self.instruments}")
+
+    def _stage_homed(self, place: str) -> None:
+        if self._scope is not None and self._scope.name == place and not self._scope.parked():
+            raise PolarError(f"the stage of {place} is not at its home position: call home() on it first")
 
     def _where(self) -> str:
         at = self._store.s.plate_at

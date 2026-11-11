@@ -59,7 +59,8 @@ Then load the plates into the hotel. Start at A1.
 ![workcell with microscope](docs/img/cell_model_microscope.png)
 
 1. Place the microscope next to the platform, at least 20 cm from the arm's base. The plate holder must be within 39 cm of the arm's axis.
-2. Place a real plate in the microscope's plate holder.
+2. Start Squid and home the stage. The arm reaches the plate holder only with the stage homed.
+3. Place a real plate in the microscope's plate holder.
 
 ## Teaching
 
@@ -96,3 +97,26 @@ arm.move("microscope", "A1")
 - `plate_at` says where the plate is when the script starts. Leave it out and the arm remembers from the last run.
 - A place is a hotel slot (`"A1"` to `"B9"`), `"module"`, or the name of an instrument you taught. Column C does not work yet.
 - Each call returns when the arm is done. It raises an error with the reason if it cannot do it.
+
+## With a running microscope
+
+In Squid, tick Settings > Enable MCP Control Server.
+
+```python
+from polar import Polar, Microscope
+
+scope = Microscope()
+arm = Polar(plate_at="microscope", microscope=scope)
+
+scope.wait()
+scope.home()
+arm.move("microscope", "A1")
+arm.move("A3", "microscope")
+scope.back()
+```
+
+- `scope.wait()` returns when the acquisition has finished.
+- `scope.home()` homes the stage, so the arm can reach the plate holder.
+- `scope.back()` takes the stage back to where the acquisition ended.
+- `scope.acquire(path)` starts an acquisition saved by Squid (`acquisition.yaml`).
+- The arm refuses to go to the microscope while its stage is not homed.

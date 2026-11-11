@@ -111,8 +111,7 @@ def check_sdk(out: List[Result], env: Env, sim: bool) -> None:
         out.append(Result("PASS", "arm SDK", "not needed for the simulator"))
         return
     try:
-        env.import_module("clr")
-        sdk = env.import_module("BioyondSDK")
+        sdk = env.import_module("BioyondSDK")                 # as utils/devices/arm.py loads it
         getattr(sdk, "RobotSDKFactory")
     except Exception as e:
         out.append(Result("FAIL", "arm SDK", f"cannot load the vendor SDK ({type(e).__name__})",
@@ -151,12 +150,18 @@ def check_files(out: List[Result], layout_path: str, hardware_path: str):
 
 def check_credentials(out: List[Result], layout: Optional[dict]) -> None:
     ssh = (layout or {}).get("vision", {}).get("ssh") or {}
-    if ssh.get("user") and ssh.get("password"):
+    local = {}
+    try:
+        with open(os.path.join(HERE, "nova_ssh.local.json"), encoding="utf-8") as f:      # where vision/calibration/upload.py reads it
+            local = json.load(f)
+    except (OSError, ValueError):
+        pass
+    if (ssh.get("user") or local.get("user")) and (ssh.get("password") or local.get("password") or ssh.get("key_path") or local.get("key_path")):
         out.append(Result("PASS", "box upload login", "set (not shown)"))
     else:
-        out.append(Result("WARN", "box upload login", "vision.ssh is not set: the camera files cannot be uploaded to the box",
-                          "set vision.ssh.user and vision.ssh.password in layout.json (never commit them); only the camera "
-                          "calibration upload needs them"))
+        out.append(Result("WARN", "box upload login", "no login for the camera box: the camera files cannot be uploaded to it",
+                          'write {"user": "...", "password": "..."} into nova_ssh.local.json in the top folder (git ignores it); '
+                          "only the camera calibration upload needs it"))
 
 
 def check_cell(out: List[Result], layout: Optional[dict], env: Env, probe_sdk_port: bool) -> None:
@@ -230,7 +235,7 @@ def check(layout_path: Optional[str] = None, hardware_path: Optional[str] = None
           sim: bool = False, probe_sdk_port: bool = False, env: Optional[Env] = None) -> List[Result]:
     layout_path = layout_path or os.path.join(HERE, "run", "layout.json")
     hardware_path = hardware_path or os.path.join(os.path.dirname(layout_path), "hardware.json")
-    runs_dir = runs_dir or os.path.join(os.path.dirname(layout_path), "runs")
+    runs_dir = runs_dir or os.path.join(HERE, "runs")
     env = env or Env()
     out: List[Result] = []
     check_python(out)

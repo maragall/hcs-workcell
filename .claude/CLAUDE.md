@@ -16,11 +16,13 @@ setup/   teach/   run/   vision/   utils/   docs/
 Imports go one way: utils.devices < run.planner, vision < run < setup, teach, polar.py < cli.py and the scripts in utils/.
 Nothing imports `cli`, and no `__init__.py` holds code.
 
-- `polar.py`: the driver language. `Polar().move(source, destination)`, `pick`, `place`, `where`. Places are slots ("A1"), "module",
+- `polar.py`: the driver language. `Polar().move(source, destination)`, `pick`, `place`, `where`; `Microscope()` (`wait`, `home`,
+  `back`, `acquire`) talks to a running Squid through its control server (`utils/devices/squid_link.py`, TCP 5050). Places are slots ("A1"), "module",
   or a taught instrument. `demo.py` is the example.
 - `cli.py`: `python cli.py setup | teach NAME | doctor | status | positions`.
 - `run/layout.json`: the positions file, every number. Data, not code. `run/hardware.json`: the CAD numbers.
-- `setup/` (`python cli.py setup`, ends with READY): `sections.py` is the three sections in order: connect, preset (the arm's program
+- `setup/` (`python cli.py setup`, ends with READY): `sections.py` is the four sections in order: connect, places (`places.py`: the module's two seats and six hotel slots shown by hand, the seats' yaw by force, the hotel fitted,
+  routes planned again), preset (the arm's program
   written, parsed, uploaded, read back), cameras (`cameras.py`). `runner.py` prints the steps, `cell.py` is the two devices and the
   positions file, `doctor.py` the read-only check of the PC, `sim.py` the fakes for `--sim`.
 - `teach/seat.py` (`python cli.py teach NAME`): the arm goes loose, the user seats the gripper on the plate in the instrument, Enter;
