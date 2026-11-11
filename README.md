@@ -40,8 +40,8 @@ Then load the plates into the hotel. Start at A1.
 ## Setup script in a nutshell
 
 - User shows the arm eight places with the ArUco plate:
-    - rotation module seats, short edges and long edges; the arm then finds each seat's angle by force
     - six hotel slots; the hotel is fitted through them
+    - rotation module seats, short edges and long edges; the arm then finds each seat's angle by force
 - Planner: routes from each slot ↔ rotation module
 - Upload to the arm:
     - hotel slot positions
@@ -64,8 +64,8 @@ Then load the plates into the hotel. Start at A1.
 ## Teaching
 
 1. Run `python cli.py teach`. The script sends the microscope's stage to Squid's loading position, then the arm goes loose.
-2. Move the arm by hand until the gripper grabs the plate by its short edges.
-3. Press Enter. The script ends with `READY`.
+2. Fit the gripper onto the plate's short edges until the finger pads sit in the plate's grooves.
+3. Press Enter. The arm lifts above the seat and the script ends with `READY`.
 
 ## Teaching and route planning script in a nutshell
 

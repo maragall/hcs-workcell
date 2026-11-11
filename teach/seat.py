@@ -138,9 +138,16 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
         if st.moving:
             print("the arm is moving: wait until it stands still, then run again")
             return 2
-        robot.drag(True)                                  # the jaw is left as it is (setup/hand.py loosen): it must stand open around the plate
-        print(f"the arm is loose (jaw at {robot.jaw():.1f}): move it by hand until the gripper grabs the plate by its short edges")
-        ask("press Enter when the gripper holds the plate: ")
+        g = layout["gripper"]
+        if st.drag:
+            robot.drag(False)
+        if not robot.state().enabled and not robot.enable():
+            print("the arm could not be enabled to set the jaw: python cli.py recover")
+            return 2
+        robot.jaw_to(round(float(g["plate_width"]["short_edges"]) + 0.1, 2))      # a hair wider than the plate, as the setup does: the pads slide into its grooves
+        robot.drag(True)
+        print(f"the arm is loose (jaw at {robot.jaw():.1f}): fit the gripper onto the plate's short edges until the pads sit in the grooves")
+        ask("press Enter when the pads sit in the grooves: ")
         layout = positions.load()
         try:
             node = record(robot, layout, name)
@@ -153,7 +160,11 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
         if not robot.enable():
             print("the seat is stored, but the arm could not be enabled again: python cli.py recover")
             return 2
-        print("the arm is locked")
+        # the arm ends at a known place, the hover over the seat, with the jaw open: the next job starts from there, not from where the hand was
+        robot.set_speed(0.1)
+        robot.jaw_to(float(((node.get("open_width") or {}).get("short_edges")) or g["open"]["short_edges"]))
+        robot.move_linear(list(node["hover"]["pose"]))
+        print("the arm is locked, above the seat")
     finally:
         robot.disconnect()
     entries = plan_instrument_routes(layout, name)
