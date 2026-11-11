@@ -217,9 +217,19 @@ class VendorRobot:
         from utils.devices import clamp as _clamp
         return _clamp.read(self.ip)
 
+    @staticmethod
+    def _plain_console() -> None:
+        """The vendor library colours the terminal while it transfers a program and leaves it coloured: what we print next came out red."""
+        try:
+            from System import Console
+            Console.ResetColor()
+        except Exception:
+            pass
+
     def download_program(self, folder: str) -> None:
         """The Lua project on the controller, the user's files only (data.lua, mod_*.lua), into `folder`. Moves nothing."""
         r = self._r.DownloadProgramAsync(str(folder))
+        self._plain_console()
         if getattr(r, "Result", r) is False:
             raise RobotFault(f"the controller refused the program download into {folder}")
 
@@ -227,6 +237,7 @@ class VendorRobot:
         """Replace the Lua project on the controller with the files of `folder`; the controller's fixed entry calls mod_Socket().
         The program must be stopped. Moves nothing."""
         r = self._r.UploadProgramAsync(str(folder))
+        self._plain_console()
         if getattr(r, "Result", r) is False:
             raise RobotFault(f"the controller refused the program upload from {folder}")
 
