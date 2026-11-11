@@ -59,12 +59,12 @@ Then load the plates into the hotel. Start at A1.
 ![workcell with microscope](docs/img/cell_model_microscope.png)
 
 1. Place the microscope next to the platform, at least 20 cm from the arm's base. The plate holder must be within 39 cm of the arm's axis.
-2. Start Squid and home the stage. The arm reaches the plate holder only with the stage homed.
+2. Start Squid and tick Settings > Enable MCP Control Server.
 3. Place a real plate in the microscope's plate holder.
 
 ## Teaching
 
-1. Run `python cli.py teach`. The arm goes loose.
+1. Run `python cli.py teach`. The script homes the microscope's stage, then the arm goes loose.
 2. Move the arm by hand until the gripper grabs the plate by its short edges.
 3. Press Enter. The script ends with `READY`.
 
