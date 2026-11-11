@@ -255,7 +255,7 @@ def cmd_setup(args):
     runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else prompt_mod.ask,
                     stop=cell.stop_event, on_section_done=save_known_good)
     bring = Bringup(cell, squid, runner.ask, confirm_stage=args.confirm_stage, speed=getattr(args, "speed", "stress"))
-    todo = [bring.shuffle(args.moves, getattr(args, "speed", "stress"), getattr(args, "probe", 0))] if getattr(args, "shuffle", False) else bring.sections()
+    todo = bring.sections()
     stopped = runner.run(todo, args.start, args.step, pause_at_user=args.auto, skip=args.skip.split(",") if args.skip else None,
                          stop_after=args.stop_after)
     cell.frames.stop()
@@ -266,7 +266,7 @@ def cmd_setup(args):
     if stopped:
         print(f"\nstopped in '{stopped}'. Fix what it said, then: python cli.py setup --from \"{stopped}\"")
         return 2
-    print("\nsetup done")
+    print("\nREADY")
     return 0
 
 
@@ -274,18 +274,6 @@ def cmd_teach(args):
     """Teach an instrument's seat by hand (arm loose, Enter) and plan its routes to the rotation module: teach/__init__.py."""
     from teach import seat as teach
     return teach.run(args.name, lambda layout: make_robot(layout, args, lambda *a: None))
-
-
-def cmd_shuffle(args):
-    """Random plates through the microscope into random empty taught slots, for ever: no setup. Stop: runs/STOP or Ctrl+C."""
-    args.shuffle = True
-    try:
-        os.remove(os.path.join(RUNS, "STOP"))          # the last run's stop request does not stop this one
-    except OSError:
-        pass
-    return cmd_setup(args)
-
-
 
 
 def cmd_doctor(args):
@@ -378,11 +366,6 @@ def main():
     p.set_defaults(fn=cmd_setup, moves=0)
     p = sub.add_parser("teach", help="arm loose; move it by hand onto the plate in the instrument's holder, Enter: seat and routes to the module stored")
     p.add_argument("name", nargs="?", default="microscope"); p.set_defaults(fn=cmd_teach)
-    p = sub.add_parser("shuffle", help="random plates through the microscope into random empty taught slots, for ever (occupancy = fixtures.hotel.loaded)")
-    p.add_argument("--sim", action="store_true"); p.add_argument("--moves", type=int, default=0, help="stop after this many moves (default: for ever)")
-    p.add_argument("--probe", type=int, default=0, help="every N moves, photograph every slot's approach with the hand empty and with a plate in it (data for the classifiers)")
-    p.add_argument("--speed", default="stress", choices=("stress", "fast", "supervised"), help="speed profile from layout.json (default stress; supervised when models are in the loop)")
-    p.set_defaults(fn=cmd_shuffle, start=None, list=False, yes=False, acquisition_s=0.0, auto=False, stop_after=None, confirm_stage=False, skip=None, step=0, hotel_size=None)
     p = sub.add_parser("doctor", help="check this PC and the cell are ready (read-only)")
     p.add_argument("--sim", action="store_true"); p.set_defaults(fn=cmd_doctor)
     p = sub.add_parser("recover", help="after a hard stop or controller fault: clear errors, enable, leave the arm loose")

@@ -217,6 +217,19 @@ class VendorRobot:
         from devices import clamp as _clamp
         return _clamp.read(self.ip)
 
+    def download_program(self, folder: str) -> None:
+        """The Lua project on the controller, the user's files only (data.lua, mod_*.lua), into `folder`. Moves nothing."""
+        r = self._r.DownloadProgramAsync(str(folder))
+        if getattr(r, "Result", r) is False:
+            raise RobotFault(f"the controller refused the program download into {folder}")
+
+    def upload_program(self, folder: str) -> None:
+        """Replace the Lua project on the controller with the files of `folder`; the controller's fixed entry calls mod_Socket().
+        The program must be stopped. Moves nothing."""
+        r = self._r.UploadProgramAsync(str(folder))
+        if getattr(r, "Result", r) is False:
+            raise RobotFault(f"the controller refused the program upload from {folder}")
+
     def drag(self, on: bool):
         """Hand-guiding on or off, in this order: toggle, let the controller settle, re-enable after.
         The caller closes the jaw first; the toggle snaps the gripper."""

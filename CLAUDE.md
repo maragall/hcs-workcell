@@ -11,8 +11,10 @@ imports `cli` or `tools`, and no `__init__.py` holds code.
 
 - `polar/` (`api.py`): the driver language. `Polar().move(source, destination)`, `pick`, `place`, `where`. Places are slots ("A1"), "module",
   or a taught instrument. `demo.py` is the example; `tools/test_api.py` runs every method on the arm.
-- `setup/` (`python cli.py setup`): the one-time setup of the arm as a terminal program. `runner.py` prints the steps,
-  `sections.py` is the sections in order, `cameras.py` the camera calibration steps, `cell.py` the two devices and the positions file, `doctor.py` the read-only check of the PC.
+- `setup/` (`python cli.py setup`, ends with READY): the one-time setup of the arm. `sections.py` is the three sections in order:
+  connect, preset (`lua.py` writes the arm's program from `layout.json` and `preset/routes.json`, parses it with the vendor's Lua,
+  backs up what is on the arm, uploads through the SDK, reads back and compares), cameras (`cameras.py`). `runner.py` prints the steps,
+  `cell.py` is the two devices and the positions file, `doctor.py` the read-only check of the PC.
 - `teach/` (`seat.py`, `python cli.py teach NAME`): the arm goes loose, the user seats the plate in the instrument by its short edges, Enter;
   the seat is recorded and its routes to the rotation module are planned and stored in `preset/routes.json`.
 - `run/`: the arm moves with the checks between them. `Cycle` (`cycle.py`) is one class whose methods are grouped by file:
@@ -27,7 +29,12 @@ imports `cli` or `tools`, and no `__init__.py` holds code.
   the upload to the camera box). Vision never stops the loop unless a gate is enforced; occupancy checks are optional and off.
 - `devices/`: one thin file per machine and a fake for each. `arm.py` is the vendor SDK, `controller.py` BRCAPI, `clamp.py` the
   force close, `vision_box.py` the camera box.
-- `layout.json`: the positions file. Data, not code. `preset/`: the stored routes. `lua/`: what runs on the controller.
+- `layout.json`: the positions file. Data, not code. `preset/`: the stored routes.
+- `lua/`: what runs on the controller. `polar/mod_Polar.lua` executes a whole pick, place or module turn (jobs 31..34 through the
+  system variables) from the table POLAR that `setup/lua.py` appends to `data.lua`; `torque_probe/mod_TorqueProbe.lua` is the jaw's
+  force close and torque readout, served by the same loop. `tests/test_lua.py` runs the program offline against a recording stand-in;
+  `tools/test_lua.py` runs one job at a time on the arm. Speeds and blending in the Lua are not calibrated yet (`layout.json lua`).
+  The `polar` API still drives the arm from the PC; it does not call these jobs yet.
 - `tools/`: standalone scripts (tests on the arm, figures, measurements). `tests/`: offline tests on the fakes.
 - `docs/`: `workflow.md` is the guide; `INCIDENTS.md` and `VENDOR_SDK.md` are records.
 

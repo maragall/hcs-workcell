@@ -2796,5 +2796,13 @@
         "seen_from_z": 412
       }
     }
+  },
+  "lua": {
+    "profile": "supervised",
+    "zone_mm": -1,
+    "v_linear": 2000,
+    "v_joint": 100,
+    "jaw_v": 50,
+    "_note": "the program on the arm (setup/lua.py, lua/polar/mod_Polar.lua). profile: the speeds entry a job uses unless it names another; each of its fractions x100 is the controller's speed scale. zone_mm: blend radius between two straight legs of a stored route, -1 = stop at every point. v_linear and v_joint are the vendor program's own move speeds on this arm (VAR2 and VAR1 of its data.lua); jaw_v is the torque probe's default. NOT YET CALIBRATED against the PC-driven speeds: tools/test_lua.py speed measures it."
   }
 }

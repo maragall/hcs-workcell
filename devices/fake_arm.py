@@ -145,6 +145,16 @@ class SimRobot:
         held = abs(self._jaw - getattr(self, "_clamp_width", -1.0)) < 0.01
         return {"torque": getattr(self, "_clamp_torque", 0.0) if held else 0.0, "width": self._jaw}
 
+    def download_program(self, folder):
+        import os
+        import shutil
+        for n in os.listdir(getattr(self, "program", "") or folder):
+            if getattr(self, "program", None):
+                shutil.copyfile(os.path.join(self.program, n), os.path.join(folder, n))
+
+    def upload_program(self, folder):
+        self.program = folder
+
     def drag(self, on: bool):
         self.faults.drag_on = bool(on)
 
