@@ -298,7 +298,7 @@ class Motion:
             # the ledger says a plate is in the claw; the jaw says whether that is still true (a stopped run leaves the ledger behind:
             # 2026-11-03 the plate had been put down and the jaw read 29, the ledger still said short_edges)
             jaw = self.robot.jaw()
-            bands = list(self.L["gripper"].get("accept_band", {}).values())
+            bands = [v for k, v in self.L["gripper"].get("accept_band", {}).items() if not k.startswith("_")]     # the node carries a _note string beside the two bands (ValueError at the nest, 2026-11-08)
             held, why = True, f"the jaw reads {jaw:.2f}"
             if bands and not any(lo - 0.6 <= jaw <= hi + 0.6 for lo, hi in bands):
                 held, why = False, f"the jaw reads {jaw:.2f}, outside every plate width"

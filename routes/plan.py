@@ -26,8 +26,9 @@ from routes_opt import fk
 
 SINGULAR_MM = 60.0     # a wrist this close to the arm's own axis cannot make a straight move
 FREE_AIR_LIFT_MM = 20.0   # over a zone's free_above_z by this much when the arm goes in or out sideways
-FOLD_MM = 60.0          # a target this close to the axis (the folded nest, the B column's approach) is reached by a joint move, not a straight one
+FOLD_MM = 60.0          # a target this close to the axis (the B column's entry point) is reached by a joint move, not a straight one
 UNFOLD_MM = 100.0      # where the joint move unfolds the arm to, along the line to the target
+ENTRY_ZONE_MM = 30.0   # a held plate square to the solid hotel with its front edge this close to the hotel's front stands at a slot's entry point
 
 
 @dataclass
@@ -130,6 +131,92 @@ def _through_the_free_air(layout: dict, safety: Safety, here: List[float], targe
     return None
 
 
+def _at_entry(vol: Volumes, p: List[float]) -> bool:
+    """A plate in the claw, square to a solid hotel, its front edge within ENTRY_ZONE_MM of the hotel's front: a slot's entry point."""
+    h = vol.obstacles.get("hotel") or {}
+    ahead = [x[1] for x, _, held in vol.footprint if held]
+    return bool(h.get("solid") and ahead and abs(fk.wrap180(p[5])) <= vol.front_yaw_tol
+                and p[0] + max(ahead) >= h["x"][0] - ENTRY_ZONE_MM and h["y"][0] <= p[1] <= h["y"][1])
+
+
+def _turn_in_place(vol: Volumes, joints: Optional[List[float]], a: List[float], b: List[float], label: str) -> Optional[List[float]]:
+    """The wrist stays at a, the claw turns to b's yaw: joint 4 alone, the short way, or the long way when the short one leaves the
+    joint's range or meets something. Every 2 degrees of the turn is checked with the claw and the plate. Returns the end joints (None
+    when the planner does not know the arm's joints: then both elbow branches are checked)."""
+    if joints is None:
+        vol.check_joint_leg(a, b, label)
+        return None
+    turn = fk.wrap180(b[5] - fk.fk(joints)[5])
+    why = None
+    for t in (turn, turn - 360.0 if turn > 0 else turn + 360.0):
+        try:
+            return vol.check_joint_leg(a, b, label, joints_a=list(joints[:4]), joints_b=list(joints[:3]) + [joints[3] + t])
+        except SafetyViolation as e:
+            why = why or e
+    raise why
+
+
+def end_joints(route: "Route", here: List[float], joints: List[float], lim=None) -> List[float]:
+    """The joints the arm has at the end of a planned route that started at `here` with `joints`: a joint leg ends at its target, a
+    straight leg keeps the elbow branch and turns the wrist by the joints' own direction."""
+    cj, prev = list(joints[:4]), here
+    for i, p in enumerate(route.poses):
+        if i in route.joint_targets:
+            cj = list(route.joint_targets[i][:4])
+        else:
+            cj = jt.leg_joints(prev, p, fk.elbow_sign(cj), lim, cj)[1]
+        prev = p
+    return cj
+
+
+def _entry_turns(layout: dict, safety: Safety, vol: Volumes, here: List[float], target: List[float], holding: Optional[str]) -> Route:
+    """The one way a carried plate reaches or leaves a slot's entry point, the same for every column (operator, 2026-11-10: column B's
+    route turned the plate while its front was 16 mm inside the hotel). The wrist travels with the plate pointing sideways or away from
+    the hotel; the turn to the slot's yaw is a turn in place at the entry point, joint 4 alone, and a route from an entry point begins
+    with that turn before the wrist moves. The yaws tried: the plate toward the arm's side of the cell, the other side, straight back;
+    the other end's own yaw instead of one of these when it is within 5 degrees of it (the module seat at -90.75: no extra small turn)."""
+    leave, arrive = _at_entry(vol, here), _at_entry(vol, target)
+
+    def sides(p, other):
+        toward = -90.0 if p[1] > fk.MODEL["y0"] else 90.0
+        return [other[5] if abs(fk.wrap180(other[5] - y)) <= 5.0 else y for y in (toward, -toward, 180.0)]
+
+    why = []
+    for ya in (sides(here, target) if leave else [None]):
+        for yb in (sides(target, here) if arrive else [None]):
+            tag = ", ".join(f"{k} the entry point at yaw {y:.0f}" for k, y in (("from", ya), ("to", yb)) if y is not None)
+            try:
+                poses, targets, start, s, cj = [], {}, here, safety, vol.start_joints
+                goal = (list(target[:5]) + [yb]) if arrive else list(target)
+                if arrive:
+                    safety.check_target(target, "the entry point")
+                    if cj is not None and vol.branch is not None and not leave:      # the cheap check first: the last turn, from the joints the wrist will have there
+                        _turn_in_place(vol, jt.pose_joints(goal, vol.branch, None, vol.lim), goal, target, "turn at the entry point")
+                if leave:
+                    out = list(here[:5]) + [ya]
+                    end = _turn_in_place(vol, cj, here, out, "turn at the entry point")
+                    poses.append(out)
+                    if end is not None:
+                        targets[0], s, cj = list(end), _Fixed(safety, end), end
+                    start = out
+                rest = lift_travel_lower(layout, s, start, goal, holding)
+                targets.update(rest.shifted(len(poses)))
+                poses += rest.poses
+                if arrive:
+                    if cj is not None:
+                        cj = end_joints(rest, start, cj, vol.lim)
+                    end = _turn_in_place(vol, cj, goal, target, "turn at the entry point")
+                    poses.append(list(target))
+                    if end is not None:
+                        targets[len(poses) - 1] = list(end)
+            except (SafetyViolation, ValueError) as e:
+                why.append(f"{tag}: {e}")
+                continue
+            return Route("lift-travel-lower", poses, joint_targets=targets)
+    raise SafetyViolation("no way to carry the plate to or from the entry point with the turn in place there, for any yaw tried:\n  "
+                          + "\n  ".join(why))
+
+
 def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: List[float],
                       holding: Optional[str] = None) -> Route:
     """Without a taught route: lift, travel, lower. With `routes.safe_z_mm` the travel is at that height; without it the
@@ -143,15 +230,18 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
         zone_route = _through_the_free_air(layout, safety, here, target, holding)
         if zone_route is not None:
             return zone_route
+    if safe_z is None and vol.active and (_at_entry(vol, here) or _at_entry(vol, target)):
+        return _entry_turns(layout, safety, vol, here, target, holding)
     x0, y0 = fk.MODEL["x0"], fk.MODEL["y0"]
     if safe_z is None and vol.active and math.dist(target[:2], (x0, y0)) < FOLD_MM:
-        # the target is beside the arm's own axis (the folded nest): a straight move cannot end there. Plan to a point
+        # the target is beside the arm's own axis: a straight move cannot end there. Plan to a point
         # UNFOLD_MM out, where the arm is unfolded, and fold in with one joint move that keeps the claw and links clear.
+        # The claw keeps the target's yaw over the whole fold (both ends have it, the joints are interpolated). With a plate the
+        # target handed in here is the entry point with the plate turned sideways (_entry_turns): the plate never points into the hotel
+        # while the wrist travels, and the turn to the slot's yaw follows in place.
         toward = math.degrees(math.atan2(here[1] - y0, here[0] - x0))
-        nest = layout.get("routes", {}).get("nest") or {}
-        tj = nest.get("joints_at_teach") if nest.get("pose") and math.dist(nest["pose"][:3], target[:3]) < 1.0 else None
         branch0 = vol.branch
-        why = None
+        why = []                                   # every candidate's own reason: the last one alone misled a diagnosis (2026-11-09)
         for ang in dict.fromkeys([toward, 90.0, 135.0, 45.0, 180.0, 0.0, -45.0]):
             cand = [x0 + UNFOLD_MM * math.cos(math.radians(ang)), y0 + UNFOLD_MM * math.sin(math.radians(ang)), target[2]] \
                 + list(target[3:])
@@ -161,16 +251,16 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
                 route = lift_travel_lower(layout, safety, here, cand, holding)
                 # the arm reaches `cand` on the branch it is on; the fold is a joint move from there to the target's joints
                 arrive = jt.pose_joints(cand, branch0, None, vol.lim) if branch0 is not None else None
-                end = vol.check_joint_leg(cand, target, "fold", joints_b=tj, joints_a=arrive,
-                                          branch_b=None if tj else branch0)
+                end = vol.check_joint_leg(cand, target, "fold", joints_a=arrive, branch_b=branch0)
             except (SafetyViolation, ValueError) as e:
-                why = e
+                why.append(f"from {ang:.0f} deg: {e}")
                 continue
             route.poses.append(list(target))
-            if vol.start_joints is not None or tj:
+            if vol.start_joints is not None:
                 route.joint_targets[len(route.poses) - 1] = list(end)
             return route
-        raise SafetyViolation(f"no way to fold the arm in to the pose beside its own axis: {why}")
+        raise SafetyViolation("no way to fold the arm in to the pose beside its own axis, from any direction tried:\n  "
+                              + "\n  ".join(why))
     withdrawn = None
     if vol.active:
         try:
@@ -194,9 +284,12 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
         have = vol.start_joints is not None
         own = vol.branch
         branches = ([own] + [b for b in (1, -1) if b != own]) if have else [None]
-        why = None
+        why = []                                   # every candidate's own reason, as the fold lists them
+        carried = bool(holding and (vol.obstacles.get("hotel") or {}).get("solid"))
         for ang in dict.fromkeys([toward, 90.0, 135.0, 45.0, 180.0, 0.0, -45.0]):
             for yaw in dict.fromkeys([here[5], target[5], 0.0, 90.0, -90.0, 180.0]):
+                if carried and yaw != here[5] and abs(fk.wrap180(yaw)) < 90.0:
+                    continue                       # a carried plate is not turned toward the hotel while the arm unfolds
                 for branch in branches:
                     cand = [x0 + UNFOLD_MM * math.cos(math.radians(ang)), y0 + UNFOLD_MM * math.sin(math.radians(ang)), here[2]] \
                         + list(here[3:5]) + [yaw]
@@ -205,14 +298,15 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
                         safety.check_target(cand, "unfold")
                         rest = lift_travel_lower(layout, _Fixed(safety, end) if have else safety, cand, target, holding)
                     except (SafetyViolation, ValueError) as e:
-                        why = e
+                        first = str(e).split("\n")[0]
+                        why.append(f"to {ang:.0f} deg, yaw {yaw:.0f}" + (f", branch {branch}" if branch else "") + f": {first}")
                         continue
                     route = Route("lift-travel-lower", [cand] + rest.poses, joint_targets=rest.shifted(1))
                     if have:
                         route.joint_targets[0] = list(end)
                     return route
         raise SafetyViolation("no way to unfold the arm from beside its own axis without the claw meeting the hotel or the "
-                              f"pillar, or leaving the joints' range: {why}")
+                              "pillar, or leaving the joints' range, for any direction tried:\n  " + "\n  ".join(why))
     if safe_z is None:
         z = max(here[2], target[2])
         up = list(here[:2]) + [z] + list(here[3:])
@@ -252,31 +346,6 @@ def lift_travel_lower(layout: dict, safety: Safety, here: List[float], target: L
             cj = jb
         prev = p
     return route
-
-
-def _via_nest(layout: dict, safety: Safety, here: List[float], target: List[float], holding: Optional[str]) -> Route:
-    """The arm cannot get there on the branch it is on (its straight legs leave the joints' range, or the target is reachable only
-    on the other elbow branch). The two branches meet only in the folded pose, where j3 passes through 0: the nest, taught by the
-    operator, is one. A joint leg from where the arm stands to the nest's own joints, then a route from the nest (a folded start
-    unfolds to either branch). Both joint legs are checked sample by sample against the claw, the links and the joint limits and
-    carry the joints to drive to."""
-    nest = layout.get("routes", {}).get("nest") or {}
-    nj, npose = nest.get("joints_at_teach"), nest.get("pose")
-    if not nj or not npose:
-        raise SafetyViolation("routes.nest has no joints_at_teach: the way through the folded pose is not known")
-    if not safety.joints:
-        raise SafetyViolation("the arm's joints are not known: cannot plan a branch change")
-    vol = Volumes(layout, safety, holding, _CACHE)
-    if vol.active:
-        vol.settle(here)
-    end = vol.check_joint_leg(here, list(npose), "to the nest", start_actual=True, joints_b=nj)
-    poses = [list(npose)]
-    targets = {0: list(end)}
-    if math.dist(npose[:3], target[:3]) > 1.0:
-        rest = lift_travel_lower(layout, _Fixed(safety, list(nj)), list(npose), target, holding)
-        poses += rest.poses
-        targets.update(rest.shifted(1))
-    return Route("via-the-nest", poses, joint_targets=targets)
 
 
 _HEADING: Optional[List[float]] = None      # the vector of the move that last stopped the arm; a withdraw backs out against it first
@@ -369,12 +438,4 @@ def _route_key(layout, safety, here, target, holding):
 
 
 def _plan(layout, safety, here, target, holding):
-    try:
-        return lift_travel_lower(layout, safety, here, target, holding)
-    except SafetyViolation as direct:
-        if not (safety.joints and layout.get("routes", {}).get("nest")):
-            raise
-        try:
-            return _via_nest(layout, safety, here, target, holding)
-        except SafetyViolation as hub:
-            raise SafetyViolation(f"{direct}; and through the nest: {hub}")
+    return lift_travel_lower(layout, safety, here, target, holding)

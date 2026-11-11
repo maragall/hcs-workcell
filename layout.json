@@ -74,7 +74,7 @@
       "enforce": "auto",
       "_note": "down camera at the clear pose above the stage, before it rotates: the plate must look seated and nothing else in view. References collected by the cell per direction (to_0, to_90); auto: blocks once auto_refs are collected"
     },
-    "_marker_note": "the marker tab (aruco标定板 drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
+    "_marker_note": "the marker tab (aruco\u6807\u5b9a\u677f drawing): 40 mm ArUco on a 42x60 mm steel tab, two countersunk holes 30 mm apart. Decoded from the drawing with OpenCV as DICT_ARUCO_ORIGINAL id 682; the box is addressed with aruco_marker_id 1 and that works on this cell, so the box numbers markers its own way. Read by the vision box only (get_aruco_pose, get_pose_offset), never by the SDK or BioyondWorks",
     "calibration": {
       "auto_teach_camera": {
         "marker": "ok",
@@ -99,7 +99,8 @@
       "mm": 2.0
     },
     "_calibration_limits_note": "5 px / 1 mm: the solver reaches 3 px and 0.38 mm on the real captures; 0.5 px is not reachable with the poses a plan can show the tag from (synthetic captures with 0.3 px noise stop near 2.3 px)",
-    "led_percent": 15
+    "led_percent": 15,
+    "collect": true
   },
   "gripper": {
     "open": {
@@ -107,15 +108,15 @@
       "long_edges": 8.2
     },
     "closed": {
-      "short_edges": 22.9,
-      "long_edges": 2.1
+      "short_edges": 21.38,
+      "long_edges": 0.46
     },
     "tolerance": 0.1,
     "stall_lag": 0.3,
     "_note": "open is per grip: the microscope holder limits how wide the fingers may be when descending",
     "readings": {
-      "long_edges_on_plate": 1.45,
-      "short_edges_on_plate": 22.4,
+      "long_edges_on_plate": 1.46,
+      "short_edges_on_plate": 22.38,
       "empty_closed": -0.04,
       "short_edges_on_wall": 22.37,
       "long_edges_on_wall": 1.5,
@@ -139,24 +140,25 @@
     "_tolerances": "grasp 0.08 (fresh grasp, measured sd 0.007); release 0.3 (0.6 mm, a carried plate may settle)",
     "accept_band": {
       "short_edges": [
-        23.7,
-        24.4
+        21.88,
+        22.88
       ],
       "long_edges": [
-        2.8,
-        3.5
-      ],
-      "_note": "2026-10-22 new plate, grips read by hand in drag mode (operator): short 24.87, long 3.68; band = closed -0.1/+0.5 (short) and -0.1/+1.05 (long) as for the production plate. Opens widened by the same 2.5 / 2.2 so the clearance per side stays the same. Fixture signatures (microscope grasp_width) cleared: learned again by the first picks."
+        0.96,
+        1.96
+      ]
     },
     "_short_grip_2026_11_02": "measured with tools/measure_short_grip.py: the jaw follows the command to 24.01 and meets the plate at 23.91 (refuses 23.75). The old closed width 24.83 (a hand reading) was 0.92 mm wider than the plate: nothing was clamped, every close read back its own command, empty or loaded. plate_width is what the pads read on the plate (what a grasp is judged against); closed is the command, 1.0 mm under it (the holding torque is capped, so the depth does not change the force); band = width -0.2/+0.5. An empty close reads 22.9, far outside.",
     "plate_width": {
-      "short_edges": 23.9
+      "short_edges": 22.38,
+      "long_edges": 1.46
     },
     "_long_grip_2026_11_02": "measured with tools/measure_short_grip.py --grip long_edges on the plate on the module at 90: the jaw follows the command to 3.20 and meets the plate at 2.99 (refuses 2.70). The old closed width 3.71 (hand reading 3.68) was 0.7 mm wider: the plate was never clamped, it floated 0.35 mm per side in the claw, which with 1.4 mm to spare between the B-column posts gave the intermittent slide-in collisions. plate_width 3.0, command 2.1, band width -0.2/+0.5; an empty close reads 2.1.",
     "clamp_limit": 0.5,
     "clamp_speed": 20,
     "_clamp_2026_11_02": "force close through the controller's Lua probe (devices/clamp.py): the jaw closes toward `closed` under a torque limit of 0.5 and stops at the plate; held = torque at the limit AND the jaw above the command AND near plate_width (0.7). Short edges measured: stops 24.03 at 0.5, -0.50 torque, unchanged after a 30 mm lift and 3 s. 0.5 is the highest limit the probe accepts.",
-    "_plate_width_note": "learned by the first holding force clamp of each grip (procedures/grasp.py _learn_width): where the pads stop on this plate under clamp_limit; closed = the clamp command, 1 mm under it; accept_band +-0.5. No grips step in the setup: delete plate_width (and the grip's closed) for a new plate or new fingers."
+    "_plate_width_note": "learned by the first holding force clamp of each grip (procedures/grasp.py _learn_width): where the pads stop on this plate under clamp_limit; closed = the clamp command, 1 mm under it; accept_band +-0.5. No grips step in the setup: delete plate_width (and the grip's closed) for a new plate or new fingers.",
+    "_practice_plate_2026_11_09": "ArUco practice plate, force close at limit 0.5 (runs/force_close_practice_*.json): on the plate the jaw stops at 22.38 (short) and 1.46 (long) with torque -0.50; empty it reaches the command (21.4, 0.5) with torque +0.56 and +0.36. closed = width - 1.0, band = +-0.5."
   },
   "speeds": {
     "supervised": {
@@ -183,6 +185,13 @@
     "stress": {
       "travel": 0.5,
       "approach": 0.25,
+      "contact": 0.1,
+      "jaw_step": 0.5,
+      "jaw_pause": 0.1
+    },
+    "overdrive": {
+      "travel": 0.8,
+      "approach": 0.4,
       "contact": 0.1,
       "jaw_step": 0.5,
       "jaw_pause": 0.1
@@ -264,12 +273,12 @@
   "fixtures": {
     "microscope": {
       "pose": [
-        106.175,
-        298.354,
-        260.261,
+        215.002,
+        360.314,
+        261.559,
         0.0,
-        0.0,
-        90.715
+        -0.0,
+        89.047
       ],
       "hover_mm": 66.7,
       "approach": {
@@ -287,8 +296,8 @@
       },
       "aruco_reference": "microscope_ref",
       "aruco_marker_id": 1,
-      "taught_at": "2026-11-03 01:10:19",
-      "jaw_at_teach": 24.604,
+      "taught_at": "2026-11-10 01:07:24",
+      "jaw_at_teach": 22.48,
       "vendor_teach": {
         "name": "microscope-short",
         "pick_method": "long",
@@ -297,20 +306,20 @@
       },
       "hover": {
         "pose": [
-          106.175,
-          298.354,
-          326.961,
+          215.002,
+          360.314,
+          328.259,
           0.0,
-          0.0,
-          90.715
+          -0.0,
+          89.047
         ],
-        "derived_from_seat": "2026-11-03 01:10:19"
+        "derived_from_seat": "2026-11-10 01:07:24"
       },
       "joints_at_teach": [
-        224.54,
-        49.768,
-        -94.55,
-        134.632
+        222.96,
+        54.228,
+        -136.207,
+        171.025
       ],
       "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\microscope",
       "grasp_search": {
@@ -441,67 +450,72 @@
       },
       "previous_pose_2026_11_03": {
         "pose": [
-          105.56,
-          297.487,
-          260.107,
+          115.915,
+          297.625,
+          260.58,
           0.0,
           0.0,
-          90.279
+          93.619
         ]
-      }
+      },
+      "view": {
+        "pose": [
+          98.557,
+          377.026,
+          431.722,
+          0.0,
+          -0.0,
+          93.505
+        ],
+        "tool_offset": [
+          81.51,
+          13.48,
+          170.22
+        ],
+        "taught_at": "2026-11-03 23:23:35",
+        "_note": "the down camera's viewing pose over this station: taught by hand (tools/view_pose.py); tool_offset = forward, left, up from the station's taught pose, in the claw's frame"
+      },
+      "previous_pose_2026_11_04": {
+        "pose": [
+          312.005,
+          305.691,
+          103.275,
+          0.0,
+          0.0,
+          -91.347
+        ]
+      },
+      "stage_axis_at_teach": -0.439
     },
     "polar": {
       "pose_at_0": {
         "pose": [
-          312.024,
-          305.696,
-          68.877,
+          307.48,
+          303.92,
+          65.672,
           0.0,
           -0.0,
-          -91.34
+          -90.0
         ],
-        "taught_at": "2026-10-28 20:12:19",
-        "jaw_at_teach": 24.836,
-        "vendor_teach": {
-          "name": "polar0-short",
-          "pick_method": "long",
-          "id": "53241ce6-1732-4ce6-834a-e5837a9d7b02",
-          "workspace": "autoteach"
-        },
-        "joints_at_teach": [
-          30.278,
-          32.138,
-          -126.919,
-          3.441
-        ],
-        "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\polar_pose_at_0",
-        "stage_axis_at_teach": 89.684
+        "taught_at": "2026-11-09 23:44:07",
+        "jaw_at_teach": 22.38,
+        "joints_at_teach": null,
+        "stage_axis_at_teach": 89.808,
+        "taught_how": "arm locked, module commanded to exact 0, force close 0.5 on the ArUco practice plate (2026-11-09 23:33)"
       },
       "pose_at_90": {
         "pose": [
-          315.92,
-          305.855,
-          67.868,
+          309.934,
+          305.304,
+          64.5,
           0.0,
-          -0.0,
-          -92.159
+          0.0,
+          -90.75
         ],
-        "taught_at": "2026-10-29 00:15:23",
-        "jaw_at_teach": 3.889,
-        "vendor_teach": {
-          "name": "polar90-wide",
-          "pick_method": "wide",
-          "id": "f49e6c43-a5f2-4731-82ad-d37e54e30380",
-          "workspace": "autoteach"
-        },
-        "joints_at_teach": [
-          29.269,
-          32.328,
-          -128.331,
-          3.844
-        ],
-        "stage_axis_at_teach": -0.099,
-        "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\polar_pose_at_90",
+        "taught_at": "2026-11-09 23:44:07",
+        "jaw_at_teach": 1.53,
+        "joints_at_teach": null,
+        "stage_axis_at_teach": -0.192,
         "_before_back_grip_2026_10_22": [
           312.41,
           305.828,
@@ -510,7 +524,8 @@
           -0.0,
           -91.0933
         ],
-        "_back_grip_note": "2026-10-22 new plate is gripped 31.675 mm further back along its long axis (operator; same shift as the hotel slots in world x). At the stage at 90 the tool x points along world -y (yaw -91), so the shift is +y: the fingers hold the plate nearer its far end."
+        "_back_grip_note": "2026-10-22 new plate is gripped 31.675 mm further back along its long axis (operator; same shift as the hotel slots in world x). At the stage at 90 the tool x points along world -y (yaw -91), so the shift is +y: the fingers hold the plate nearer its far end.",
+        "taught_how": "by force, 2026-11-10: module exact 90, plate lying free in the seat, force close at each trial yaw, every motor's torque read. From -91.0 to -90.5 the module is not displaced (motor torque within +-0.6, sign not repeatable: friction); at -90.0 its motor is at full torque (-1.0), at -89 it is pushed 0.6 deg. -90.75 is the middle of the free range. Wrist turned about the plate, 187.5 ahead. runs/module_seat_yaw_by_torque*.json"
       },
       "hover_mm": 34.4,
       "clear_mm": 60,
@@ -551,7 +566,7 @@
         "_note": "yaw removed: the wrist is near its limit at the stage seat and yaw moves were refused (22:27 loop, collision stop 22:57)"
       },
       "grasp_width": {
-        "short_edges": 24.88
+        "short_edges": 22.38
       },
       "_grasp_note_2026_10_22": "new plate, plate hand-centered on the stage at 0 then regripped 4x by the arm: 24.87/24.88/24.87/24.88 (flat, square); equals the hand reading 24.87",
       "place_lift_mm": {
@@ -559,7 +574,16 @@
         "long_edges": 0.0
       },
       "_place_lift_note": "2026-11-02: short-edge place into the module releases 1.5 mm above the pick height (operator saw it lower too hard). Long edges 0: I had applied the 1.5 to both grips without evidence for the long-edge place; reverted when the operator found the long-edge grip too loose.",
-      "plate_on_module": true
+      "view": {
+        "tool_offset": [
+          81.51,
+          13.48,
+          170.22
+        ],
+        "deduced_from": "microscope",
+        "taught_at": "2026-11-03 23:23:35",
+        "_note": "the same viewing geometry as the microscope (forward, left, up from the seat pose in the claw frame); the height is the lift limit at the microscope, used for both"
+      }
     },
     "hotel": {
       "approach": {
@@ -586,121 +610,121 @@
       ],
       "taught": {
         "A1": [
-          291.986,
-          134.022,
-          77.278,
+          293.208,
+          133.89,
+          73.726,
           0.0,
           -0.0,
           0.0
         ],
         "A9": [
-          291.986,
-          134.022,
-          381.278,
+          290.513,
+          133.89,
+          377.726,
           0.0,
           -0.0,
           0.0
         ],
         "B1": [
-          291.986,
-          -0.11,
-          77.278,
+          293.198,
+          -0.376,
+          73.726,
           0.0,
           -0.0,
           0.0
         ],
         "C1": [
-          291.986,
-          -134.243,
-          77.278,
+          293.892,
+          -134.643,
+          73.726,
           0.0,
           -0.0,
           0.0
         ],
         "C9": [
-          291.986,
-          -134.243,
-          381.278,
+          291.196,
+          -134.643,
+          377.726,
           0.0,
           -0.0,
           0.0
         ],
         "A3": [
-          291.986,
-          134.022,
-          153.278,
+          292.534,
+          133.89,
+          149.726,
           0.0,
           -0.0,
           0.0
         ],
         "A5": [
-          291.986,
-          134.022,
-          229.278,
+          291.861,
+          133.89,
+          225.726,
           0.0,
           -0.0,
           0.0
         ],
         "A7": [
-          291.986,
-          134.022,
-          305.278,
+          291.187,
+          133.89,
+          301.726,
           0.0,
           -0.0,
           0.0
         ],
         "B3": [
-          291.986,
-          -0.11,
-          153.278,
+          292.524,
+          -0.376,
+          149.726,
           0.0,
           -0.0,
           0.0
         ],
         "B5": [
-          291.986,
-          -0.11,
-          229.278,
+          291.85,
+          -0.376,
+          225.726,
           0.0,
           -0.0,
           0.0
         ],
         "B7": [
-          291.986,
-          -0.11,
-          305.278,
+          291.176,
+          -0.376,
+          301.726,
           0.0,
           -0.0,
           0.0
         ],
         "B9": [
-          291.986,
-          -0.11,
-          381.278,
+          290.502,
+          -0.376,
+          377.726,
           0.0,
           -0.0,
           0.0
         ],
         "C3": [
-          291.986,
-          -134.243,
-          153.278,
+          293.218,
+          -134.643,
+          149.726,
           0.0,
           -0.0,
           0.0
         ],
         "C5": [
-          291.986,
-          -134.243,
-          229.278,
+          292.544,
+          -134.643,
+          225.726,
           0.0,
           -0.0,
           0.0
         ],
         "C7": [
-          291.986,
-          -134.243,
-          305.278,
+          291.87,
+          -134.643,
+          301.726,
           0.0,
           -0.0,
           0.0
@@ -717,318 +741,303 @@
       "taught_detail": {
         "A1": {
           "pose": [
-            292.57,
-            139.941,
-            78.098,
+            292.568,
+            140.557,
+            74.634,
             0.0,
             -0.0,
-            0.0
+            -2.0547
           ],
           "joints_at_teach": [
-            39.499,
-            -17.017,
-            -65.896,
-            81.111
+            36.035,
+            -16.825,
+            -66.031,
+            80.802
           ],
-          "jaw_at_teach": 3.626,
-          "stage_axis_at_teach": -8.951,
-          "taught_at": "2026-10-31 01:46:08",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A1",
-          "raw_yaw_deg": -1.8027
+          "jaw_at_teach": 1.544,
+          "stage_axis_at_teach": 50.09,
+          "taught_at": "2026-11-08 17:43:39",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\A1"
         },
         "A9": {
-          "raw_yaw_deg": -0.356,
           "pose": [
-            290.983,
-            135.765,
-            381.11,
+            290.878,
+            133.935,
+            377.229,
             0.0,
             -0.0,
-            0.0
+            0.0446
           ],
           "joints_at_teach": [
-            342.511,
-            -18.262,
-            -64.573,
-            82.479
+            338.631,
+            -18.835,
+            -64.154,
+            83.034
           ],
-          "jaw_at_teach": 3.634,
-          "stage_axis_at_teach": -8.921,
-          "taught_at": "2026-10-31 02:07:16",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A9"
+          "jaw_at_teach": 1.463,
+          "stage_axis_at_teach": 50.098,
+          "taught_at": "2026-11-08 17:47:58",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\A9"
         },
         "C9": {
-          "raw_yaw_deg": 0.056,
           "pose": [
-            291.018,
-            -134.051,
-            386.67,
+            291.21,
+            -132.588,
+            377.191,
             0.0,
             -0.0,
-            0.0
+            -0.7313
           ],
           "joints_at_teach": [
-            348.071,
-            18.804,
-            64.215,
-            -82.963
+            338.592,
+            19.274,
+            63.955,
+            -83.96
           ],
-          "jaw_at_teach": 2.158,
-          "stage_axis_at_teach": -8.921,
-          "taught_at": "2026-10-31 02:17:42",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_C9"
+          "jaw_at_teach": 1.441,
+          "stage_axis_at_teach": 48.032,
+          "taught_at": "2026-11-08 17:55:38",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\C9"
         },
         "A3": {
-          "raw_yaw_deg": -1.583,
           "pose": [
-            290.07,
-            139.613,
-            154.976,
+            292.06,
+            140.489,
+            149.787,
             0.0,
             -0.0,
-            0.0
+            -2.036
           ],
           "joints_at_teach": [
-            116.377,
-            -17.017,
-            -65.174,
-            80.608
+            111.188,
+            -16.826,
+            -65.884,
+            80.674
           ],
-          "jaw_at_teach": 3.573,
-          "stage_axis_at_teach": -8.935,
-          "taught_at": "2026-10-31 01:49:28",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A3"
+          "jaw_at_teach": 1.55,
+          "stage_axis_at_teach": 50.1,
+          "taught_at": "2026-11-08 17:45:43",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\A3"
         },
         "A5": {
-          "raw_yaw_deg": -1.767,
           "pose": [
-            289.358,
-            139.515,
-            229.346,
+            293.192,
+            140.635,
+            226.335,
             0.0,
             -0.0,
-            0.0
+            -1.9427
           ],
           "joints_at_teach": [
-            190.747,
-            -17.017,
-            -64.968,
-            80.218
+            187.736,
+            -16.825,
+            -66.212,
+            81.094
           ],
-          "jaw_at_teach": 3.616,
-          "stage_axis_at_teach": -8.932,
-          "taught_at": "2026-10-31 02:04:06",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A5"
+          "jaw_at_teach": 1.862,
+          "stage_axis_at_teach": 50.098,
+          "taught_at": "2026-11-08 17:46:26",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\A5"
         },
         "A7": {
-          "raw_yaw_deg": -3.132,
           "pose": [
-            289.068,
-            144.92,
-            304.631,
+            291.184,
+            133.973,
+            303.483,
             0.0,
             -0.0,
-            0.0
+            -0.1003
           ],
           "joints_at_teach": [
-            266.032,
-            -15.321,
-            -66.103,
-            78.292
+            264.884,
+            -18.835,
+            -64.242,
+            82.977
           ],
-          "jaw_at_teach": 3.687,
-          "stage_axis_at_teach": -8.921,
-          "taught_at": "2026-10-31 02:06:11",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_A7"
+          "jaw_at_teach": 1.841,
+          "stage_axis_at_teach": 50.098,
+          "taught_at": "2026-11-08 17:47:13",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\A7"
         },
         "B1": {
-          "raw_yaw_deg": -5.477,
           "pose": [
-            294.023,
-            17.693,
-            77.645,
+            293.813,
+            2.339,
+            73.207,
             0.0,
             -0.0,
-            0.0
+            -0.937
           ],
           "joints_at_teach": [
-            39.046,
-            -59.004,
-            -49.97,
-            103.497
+            34.608,
+            -64.394,
+            -49.615,
+            113.072
           ],
-          "jaw_at_teach": 3.755,
-          "stage_axis_at_teach": -8.924,
-          "taught_at": "2026-10-31 02:08:19",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_B1"
+          "jaw_at_teach": 1.47,
+          "stage_axis_at_teach": 48.029,
+          "taught_at": "2026-11-08 17:48:54",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\B1"
         },
         "B3": {
-          "raw_yaw_deg": -5.351,
           "pose": [
-            293.104,
-            17.045,
-            153.344,
+            292.478,
+            2.929,
+            149.555,
             0.0,
             -0.0,
-            0.0
+            -1.0166
           ],
           "joints_at_teach": [
-            114.745,
-            -59.346,
-            -49.66,
-            103.655
+            110.956,
+            -64.393,
+            -49.197,
+            112.574
           ],
-          "jaw_at_teach": 3.796,
-          "stage_axis_at_teach": -8.924,
-          "taught_at": "2026-10-31 02:09:08",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_B3"
+          "jaw_at_teach": 1.469,
+          "stage_axis_at_teach": 48.032,
+          "taught_at": "2026-11-08 17:49:33",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\B3"
         },
         "B5": {
-          "raw_yaw_deg": 0.31,
           "pose": [
-            291.116,
-            -1.144,
-            230.073,
+            291.962,
+            3.153,
+            225.912,
             0.0,
             -0.0,
-            0.0
+            -1.1008
           ],
           "joints_at_teach": [
-            191.474,
-            -66.016,
-            -48.762,
-            115.088
+            187.313,
+            -64.394,
+            -49.036,
+            112.329
           ],
-          "jaw_at_teach": 3.523,
-          "stage_axis_at_teach": -8.924,
-          "taught_at": "2026-10-31 02:09:55",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_B5"
+          "jaw_at_teach": 1.472,
+          "stage_axis_at_teach": 48.029,
+          "taught_at": "2026-11-08 17:50:09",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\B5"
         },
         "B7": {
-          "raw_yaw_deg": -0.133,
           "pose": [
-            289.3,
-            -0.319,
-            303.727,
+            290.917,
+            3.602,
+            301.326,
             0.0,
             -0.0,
-            0.0
+            -1.3671
           ],
           "joints_at_teach": [
-            265.128,
-            -66.017,
-            -48.19,
-            114.074
+            262.727,
+            -64.394,
+            -48.71,
+            111.737
           ],
-          "jaw_at_teach": 3.584,
-          "stage_axis_at_teach": -8.921,
-          "taught_at": "2026-10-31 02:11:55",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_B7"
+          "jaw_at_teach": 1.472,
+          "stage_axis_at_teach": 48.032,
+          "taught_at": "2026-11-08 17:50:42",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\B7"
         },
         "B9": {
-          "raw_yaw_deg": 3.24,
           "pose": [
-            288.818,
-            -11.832,
-            378.188,
+            290.33,
+            3.848,
+            378.13,
             0.0,
             -0.0,
-            0.0
+            -1.2442
           ],
           "joints_at_teach": [
-            339.59,
-            -70.07,
-            -48.173,
-            121.483
+            339.53,
+            -64.395,
+            -48.527,
+            111.678
           ],
-          "jaw_at_teach": 3.77,
-          "stage_axis_at_teach": -8.921,
-          "taught_at": "2026-10-31 02:12:36",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_B9"
+          "jaw_at_teach": 1.476,
+          "stage_axis_at_teach": 48.029,
+          "taught_at": "2026-11-08 17:51:09",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\B9"
         },
         "C1": {
-          "raw_yaw_deg": 0.517,
           "pose": [
-            291.923,
-            -135.61,
-            74.46,
+            294.209,
+            -135.637,
+            74.326,
             0.0,
             -0.0,
-            0.0
+            0.3647
           ],
           "joints_at_teach": [
-            35.861,
-            18.347,
-            64.787,
-            -82.616
+            35.727,
+            18.421,
+            65.395,
+            -83.452
           ],
-          "jaw_at_teach": 3.624,
-          "stage_axis_at_teach": -8.921,
-          "taught_at": "2026-10-31 02:13:29",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_C1"
+          "jaw_at_teach": 1.467,
+          "stage_axis_at_teach": 48.032,
+          "taught_at": "2026-11-08 17:52:18",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\C1"
         },
         "C3": {
-          "raw_yaw_deg": 0.47,
           "pose": [
-            292.231,
-            -135.645,
-            150.822,
+            292.824,
+            -134.144,
+            149.413,
             0.0,
             -0.0,
-            0.0
+            -0.0771
           ],
           "joints_at_teach": [
-            112.223,
-            18.348,
-            64.875,
-            -82.753
+            110.814,
+            18.842,
+            64.711,
+            -83.629
           ],
-          "jaw_at_teach": 3.628,
-          "stage_axis_at_teach": -8.918,
-          "taught_at": "2026-10-31 02:13:57",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_C3"
+          "jaw_at_teach": 1.467,
+          "stage_axis_at_teach": 48.029,
+          "taught_at": "2026-11-08 17:53:02",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\C3"
         },
         "C5": {
-          "raw_yaw_deg": 0.496,
           "pose": [
-            292.63,
-            -135.774,
-            229.74,
+            293.255,
+            -136.346,
+            225.155,
             0.0,
             -0.0,
-            0.0
+            0.4161
           ],
           "joints_at_teach": [
-            191.141,
-            18.322,
-            65.008,
-            -82.833
+            186.556,
+            18.166,
+            65.295,
+            -83.045
           ],
-          "jaw_at_teach": 3.564,
-          "stage_axis_at_teach": -8.924,
-          "taught_at": "2026-10-31 02:14:39",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_C5"
+          "jaw_at_teach": 1.506,
+          "stage_axis_at_teach": 48.032,
+          "taught_at": "2026-11-08 17:53:35",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\C5"
         },
         "C7": {
-          "raw_yaw_deg": 2.762,
           "pose": [
-            290.147,
-            -143.31,
-            305.675,
+            291.286,
+            -132.698,
+            301.168,
             0.0,
             -0.0,
-            0.0
+            -0.4118
           ],
           "joints_at_teach": [
-            267.075,
-            15.869,
-            66.016,
-            -79.123
+            262.569,
+            19.242,
+            63.998,
+            -83.652
           ],
-          "jaw_at_teach": 3.628,
-          "stage_axis_at_teach": -8.918,
-          "taught_at": "2026-10-31 02:15:32",
-          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\hotel_C7"
+          "jaw_at_teach": 1.471,
+          "stage_axis_at_teach": 48.032,
+          "taught_at": "2026-11-08 17:54:54",
+          "teach_frames": "C:\\Users\\ASUS\\Downloads\\bioyond-arm-setup\\nova_cell\\reference_images\\teach\\C7"
         }
       },
       "pre_slot": {
@@ -1061,7 +1070,12 @@
         "B3",
         "B5",
         "B7",
-        "B9"
+        "B9",
+        "C1",
+        "C3",
+        "C5",
+        "C7",
+        "C9"
       ],
       "_climb_note": "rows above 1: retreat from the junction (row-1 approach point) to x=climb_x in free air in front of the rack, climb with the column only, slide in at carry height. climb_x = the operator via point x (2026-10-19). B and C columns wait for the FK-based planner: their approach points lie close to the shoulder axis at (126,0)",
       "rows": [
@@ -1097,20 +1111,26 @@
       },
       "seat_yaw_deg": 0.0,
       "grid": {
-        "x": 290.986,
-        "y_B": -0.11,
-        "column_pitch": 134.132,
-        "z_row1": 77.278,
+        "x": 293.198,
+        "x_column_mm": {
+          "A": 0.01,
+          "B": 0.0,
+          "C": 0.694
+        },
+        "x_lean_per_mm": -0.00887,
+        "y_B": -0.376,
+        "column_pitch": 134.266,
+        "z_row1": 73.726,
         "row_pitch": 38.0,
         "yaw": 0.0,
-        "pivot_mm": 189.16,
+        "pivot_mm": 186.37,
         "overrides": {},
-        "x_trim_mm": 1.0,
-        "_x_trim_note": "2026-11-02 operator: plates were dropped into slots 1 mm too close to the x origin; every seat moves +1.0 mm along the slot"
+        "x_trim_mm": 0.0
       },
       "lip_mm": 3.0,
       "_lift_note": "2026-11-01: lift 7 mm = lip 3 + 1.5 clearance + margin; the operator: lips are 0.3 cm and 25 mm dropped in from too high. Only the trays of the rows in use are modelled (volumes.obstacles.hotel.parts): the plate slid in 25 mm above a seat for a day, which a tray 30 mm above the seat would have stopped.",
-      "_active_note": "2026-11-02: columns A and B only. The module and the microscope are taught on the elbow branch j3 < 0, A and B too; column C is on the other branch (j3 > 0). Coming back from C the arm reaches the module on that branch and the planner has no route to the microscope from there (it stopped the shuffle 00:21). C comes back when the arm is swung to the taught branch while it is empty."
+      "_active_note": "2026-11-02: columns A and B only. The module and the microscope are taught on the elbow branch j3 < 0, A and B too; column C is on the other branch (j3 > 0). Coming back from C the arm reaches the module on that branch and the planner has no route to the microscope from there (it stopped the shuffle 00:21). C comes back when the arm is swung to the taught branch while it is empty.",
+      "_active_slots_note": "2026-11-08 operator: column C is in the loop (the elbow-branch return via the nest is in Cycle since 11-04)"
     },
     "microscope_2": {
       "pose": null,
@@ -1154,6 +1174,8 @@
     "margin_mm": 10.0,
     "obstacles": {
       "hotel": {
+        "solid": true,
+        "margin_mm": 1.0,
         "x": [
           412.6,
           550.6
@@ -2096,6 +2118,22 @@
           703.0
         ],
         "links": false
+      },
+      "microscope": {
+        "x": [
+          51.3,
+          384.9
+        ],
+        "y": [
+          434.1,
+          659.5
+        ],
+        "z": [
+          -50.0,
+          221.6
+        ],
+        "links": false,
+        "_note": "from the seat taught 2026-11-10 01:07:24: 330 x 220 mm box centred under the plate, top 15 mm under the fingertips at the seat (the stage holder above it is where the claw grips); the bounding box of the rotated rectangle"
       }
     },
     "claw": {
@@ -2141,8 +2179,8 @@
           42.6
         ],
         "z": [
-          -10.7,
-          6.2
+          -7.63,
+          6.87
         ]
       },
       "short_edges": {
@@ -2156,7 +2194,8 @@
         ]
       },
       "hotel_front_allowance_mm": 0.0,
-      "_note_2026_10_29": "long_edges x moved -31.675: the plate is gripped at the middle, its centre about 188 ahead of the wrist"
+      "_note_2026_10_29": "long_edges x moved -31.675: the plate is gripped at the middle, its centre about 188 ahead of the wrist",
+      "_note_2026_11_09": "long_edges z: the ArUco practice plate (14.50 tall) as the hotel was taught with it on 2026-11-08: seat z 73.726, tray top 66.1, so the plate's bottom is 7.63 under the wrist z. The old [-10.7, 6.2] put the seated plate 6 mm inside the tray and the carried plate 1 mm over the lip, which refused every fold in to column B."
     },
     "axis_keepout_mm": 60.0
   },
@@ -2169,24 +2208,7 @@
       "polar.pose_at_90"
     ],
     "_note": "routes.plan: a taught trajectory <a>_to_<b> wins; otherwise lift to safe_z_mm, travel, lower. null = refuse. positions: the named places move_to knows, used to pick the taught route from wherever the arm is",
-    "nest": {
-      "pose": [
-        126.03,
-        4.27,
-        232.712,
-        0.0,
-        -0.0,
-        0.332
-      ],
-      "joints_at_teach": [
-        194.11,
-        0.21,
-        -1.22,
-        1.35
-      ],
-      "taught_at": "2026-10-27 23:21:21",
-      "_note": "The nest, taught by the operator by hand: a safe pose the planner reaches from anywhere and where the arm goes after any fault (python cli.py recover --nest). The hotel view: the front camera looks along the claw. For an empty claw. clear of the hotel and pillar with the full margin"
-    }
+    "_safe_z_note": "2026-11-04 03:15: left at null (the planner searches around the volumes); a fixed travel height makes the first leg out of the nest a straight vertical move at the arm axis, which is refused. The protection against the 03:00 sweep into the hotel front is MOUTH_CLEAR_MM 40 in procedures/hotel.py."
   },
   "trajectories": {
     "polar_to_hotel": {
@@ -2685,23 +2707,23 @@
     },
     "microscope_hover": {
       "hand_pose": [
-        106.175,
-        298.354,
-        260.261,
+        110.545,
+        297.238,
+        259.329,
         0.0,
         -0.0,
-        90.7148
+        92.0022
       ],
       "seat": [
-        106.175,
-        298.354,
-        260.261,
+        110.545,
+        297.238,
+        259.329,
         0.0,
         0.0,
-        90.715
+        92.002
       ],
-      "from_taught_mm": 1.1,
-      "at": "2026-11-03 01:10:19"
+      "from_taught_mm": null,
+      "at": "2026-11-04 02:54:41"
     },
     "module_view": [
       310.937,

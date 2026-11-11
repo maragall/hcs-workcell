@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Stored routes</title>
+<style>
+html,body{margin:0;height:100%;background:#fff;color:#111;font:13px Arial,sans-serif}
+#v{position:absolute;inset:0}
+#p{position:absolute;top:8px;left:8px;width:260px;background:#ffffffee;border:1px solid #999;padding:8px;max-height:94%;overflow:auto}
+#p h3{margin:8px 0 3px;font-size:13px}label{display:block;margin:2px 0}.sw{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px}
+#tip{position:absolute;bottom:8px;left:8px;background:#ffffffee;border:1px solid #999;padding:4px 8px}
+</style></head><body>
+<div id="v"></div>
+<div id="p">
+<b>Stored routes</b> <span id="when"></span><br>Drag to turn, wheel to zoom, right-drag to pan.
+<h3>Show</h3>
+<label><input type="checkbox" id="plate" checked> with a plate</label>
+<label><input type="checkbox" id="empty"> empty claw</label>
+<label><input type="checkbox" id="fwd" checked> from the module</label>
+<label><input type="checkbox" id="back" checked> to the module</label>
+<label><input type="checkbox" id="centre"> the centre of the plate, not the wrist</label>
+<h3>Where</h3>
+<label><input type="checkbox" class="col" value="A" checked><span class="sw" style="background:#1f77b4"></span>column A</label>
+<label><input type="checkbox" class="col" value="B" checked><span class="sw" style="background:#2ca02c"></span>column B</label>
+<label><input type="checkbox" class="col" value="C" checked><span class="sw" style="background:#d62728"></span>column C, other elbow side</label>
+<label><input type="checkbox" class="col" value="m" checked><span class="sw" style="background:#9467bd"></span>microscope</label>
+<h3>Lines</h3>
+Solid: straight legs. Dotted: joint legs, drawn as the arc the arm drives. Small ball: the slot end of a route. Black ball: module seat.
+<h3>Routes</h3><div id="list"></div>
+</div>
+<div id="tip">wrist path</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const D=__DATA__;
+const T=(x,y,z)=>new THREE.Vector3(x,z,-y);
+const el=document.getElementById("v");
+const scene=new THREE.Scene();scene.background=new THREE.Color(0xffffff);
+const cam=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,1,6000);cam.position.set(-500,700,800);
+const ren=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});ren.setSize(innerWidth,innerHeight);el.appendChild(ren.domElement);
+const ctl=new THREE.OrbitControls(cam,ren.domElement);ctl.target.copy(T(250,120,200));ctl.update();
+addEventListener("resize",()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});
+const GREY={tray:0xbbbbbb,post:0x888888,hotel:0x999999,pillar:0x444444,platform:0xcccccc,microscope:0x9467bd};
+for(const b of D.boxes){const g=new THREE.BoxGeometry(b.x[1]-b.x[0],b.z[1]-b.z[0],b.y[1]-b.y[0]);
+  const m=new THREE.LineSegments(new THREE.EdgesGeometry(g),new THREE.LineBasicMaterial({color:GREY[b.k]||0x999999}));
+  m.position.copy(T((b.x[0]+b.x[1])/2,(b.y[0]+b.y[1])/2,(b.z[0]+b.z[1])/2));scene.add(m);
+  if(b.k==="tray"){const f=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0xdddddd,transparent:true,opacity:.35}));f.position.copy(m.position);scene.add(f);}}
+{const s=new THREE.Mesh(new THREE.SphereGeometry(6),new THREE.MeshBasicMaterial({color:0x000000}));s.position.copy(T(D.seat[0],D.seat[1],D.seat[2]));scene.add(s);}
+const COL={A:0x1f77b4,B:0x2ca02c,C:0xd62728,m:0x9467bd};
+const group=new THREE.Group();scene.add(group);
+document.getElementById("when").textContent=D.planned_at||"";
+function add(seg,joint,r){if(seg.length<2)return;const g=new THREE.BufferGeometry().setFromPoints(seg);const c=COL[r.group];
+  if(joint){group.add(new THREE.Points(g,new THREE.PointsMaterial({color:c,size:4,sizeAttenuation:false})));}
+  group.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:c,transparent:true,opacity:joint?.35:(r.holding==="empty"?.5:1)})));}
+function draw(){
+  while(group.children.length)group.remove(group.children[0]);
+  const q=id=>document.getElementById(id).checked, cols=[...document.querySelectorAll(".col")].filter(c=>c.checked).map(c=>c.value), centre=q("centre");
+  let n=0,html="";
+  for(const r of D.routes){
+    const plate=r.holding!=="empty";
+    if((plate&&!q("plate"))||(!plate&&!q("empty"))||(r.fwd&&!q("fwd"))||(!r.fwd&&!q("back"))||!cols.includes(r.group))continue;
+    n++;html+=r.key+" &middot; "+r.legs+" legs<br>";
+    const P=r.pts.map(p=>{let x=p[0],y=p[1];if(centre&&plate){const a=p[3]*Math.PI/180;x+=r.ahead*Math.cos(a);y+=r.ahead*Math.sin(a);}return {v:T(x,y,p[2]),j:p[4]};});
+    let seg=[P[0].v];
+    for(let i=1;i<P.length;i++){
+      if(P[i].j!==P[i-1].j&&seg.length>1){add(seg,P[i-1].j,r);seg=[P[i-1].v];}
+      seg.push(P[i].v);}
+    add(seg,P[P.length-1].j,r);
+    const e=new THREE.Mesh(new THREE.SphereGeometry(3),new THREE.MeshBasicMaterial({color:COL[r.group]}));e.position.copy(r.fwd?P[P.length-1].v:P[0].v);group.add(e);
+  }
+  document.getElementById("list").innerHTML=n+" shown<br>"+html;
+  document.getElementById("tip").textContent=centre?"centre of the plate (routes with a plate)":"wrist path";
+}
+document.querySelectorAll("input").forEach(i=>i.addEventListener("change",draw));draw();
+(function loop(){requestAnimationFrame(loop);ren.render(scene,cam)})();
+</script></body></html>

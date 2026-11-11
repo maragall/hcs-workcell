@@ -82,6 +82,13 @@ function probe_Publish()
   SetSysInVarI(5,probe_Round(LJ._ext1*100))
   SetSysInVarI(6,probe_Round(LN._ext1*1000))
   SetSysInVarI(8,probe_Round(LR._ext1*100))
+  -- every motor's normalised torque x1000 (2026-11-10: the contact force at a seat, axis by axis): lift, shoulder, elbow, wrist, module
+  SetSysInVarI(9,probe_Round(LN._j1*1000))
+  SetSysInVarI(10,probe_Round(LN._j2*1000))
+  SetSysInVarI(11,probe_Round(LN._j3*1000))
+  SetSysInVarI(12,probe_Round(LN._j4*1000))
+  SetSysInVarI(13,probe_Round(LN._ext2*1000))
+  SetSysInVarI(14,probe_Round(LJ._ext2*1000))
 end--functionend
 
 function probe_Reply(code,detail)

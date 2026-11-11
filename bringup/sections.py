@@ -22,7 +22,7 @@ import numpy as np
 import exercise
 from bringup import geometry
 from bringup.runner import Refused, Section, Step
-from bringup import bench, colour, hand
+from bringup import bench, cameras, colour, hand
 from procedures import cad_poses
 from procedures.corrector import StopSafe
 from procedures.cycle import Cycle
@@ -71,6 +71,7 @@ TAG_AHEAD_MM = 71.5              # both tag views are this far ahead of the grip
 SIZE_ROWS = (2, 4)                # rows where a 15-slot hotel has no shelf and a 30-slot one has
 VIEW_SEARCH_MM = ((0, 0), (25, 0), (-25, 0), (0, 25), (0, -25), (25, 25), (-25, -25), (25, -25), (-25, 25), (50, 0), (-50, 0))   # along, across the claw
 VIEW_LIFTS_MM = (0, 60, 120)      # heights above the seat hover the view is tried at (the camera has to focus on the plate)
+RESEATS = 1                       # re-grips at the module after the long-edge width is learned (grips.toml)
 
 
 def reachable(cyc: Cycle, slot: str) -> bool:
@@ -254,7 +255,7 @@ class Bringup:
         # module learns the other one before the first slot. Nothing stale from an earlier plate or earlier fingers can block them.
         self.edit(lambda L: L["gripper"].get("plate_width", {}).clear())
         cyc.checks.width.clear()
-        # the hotel occupancy (fixtures.hotel.loaded, from the sweep or the operator) is kept: plates may already sit in slots (2026-11-04 02:00);
+        # the hotel occupancy (fixtures.hotel.loaded, set by the operator) is kept: plates may already sit in slots (2026-11-04 02:00);
         # only the module/stage flags start clean
         self.edit(lambda L: (L["fixtures"]["polar"].pop("plate_on_module", None), L["fixtures"][self.scope].pop("plate_on_stage", None)))
         self.guard(lambda: cyc._pick(self.scope, F[self.scope]["pose"], F[self.scope], "short_edges", None))
@@ -270,6 +271,128 @@ class Bringup:
 
 
 
+    def module_view_pose(self, along: float = 0.0, across: float = 0.0, lift: float = 0.0) -> List[float]:
+        """The wrist pose that puts the down camera over the module's plate: the taught seat's wrist pose moved along
+        the claw. The camera looks `camera_ahead_of_wrist_mm` ahead of the wrist, the plate centre is
+        `module_wrist_to_plate_mm` ahead of it at the seat (both in hardware.json, from the CAD)."""
+        claw = cad_poses.load_hardware()["claw"]
+        taught = self.cyc()._position("polar.pose_at_0")
+        yaw = math.radians(taught[5])
+        d, n = (math.cos(yaw), math.sin(yaw)), (-math.sin(yaw), math.cos(yaw))
+        shift = claw["module_wrist_to_plate_mm"] - claw["camera_ahead_of_wrist_mm"] + along
+        return [taught[0] + shift * d[0] + across * n[0], taught[1] + shift * d[1] + across * n[1], taught[2] + lift, 0.0, 0.0, taught[5]]
+
+    def centre_on_tag(self, tries: int = 4, tol_px: int = 150, max_move_mm: float = 12.0):
+        """Put the down camera right over the plate tag before a capture plan, which is a grid around where the arm is: two small
+        probe moves give how the tag moves in the picture per mm, then the wrist goes where the tag is in the middle. No camera
+        calibration is needed (it is what is being solved for)."""
+        import cv2
+        import numpy as np
+        c, v = self.cell, self.cell.layout()["vision"]
+        cyc = self.cyc()
+
+        def tag():
+            data = c.vision.frame_full(v["down_camera"], v["led"])
+            gray = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_GRAYSCALE) if data else None
+            if gray is None:
+                return None
+            try:
+                from calibration import marker
+                corners = marker.detect(gray, None)
+            except Exception:
+                return None
+            h, w = gray.shape
+            return corners.mean(axis=0), np.array([w / 2.0, h / 2.0]), corners
+
+        start = list(c.robot.pose())
+
+        def nudge(dx, dy):
+            h = c.robot.pose()
+            self.guard(lambda: cyc.go_to([h[0] + dx, h[1] + dy, h[2], h[3], h[4], h[5]], "centre on tag"))
+
+        def drift():
+            h = c.robot.pose()
+            return math.hypot(h[0] - start[0], h[1] - start[1])
+
+        for _ in range(tries):
+            got = tag()
+            if got is None:
+                raise Refused("the down camera does not see the whole tag to centre on it: is the aruco plate on the module, tag up?")
+            at, mid = got[0], got[1]
+            if np.linalg.norm(at - mid) <= tol_px:
+                return got[2]
+            cols = []
+            for ux, uy in ((1.0, 0.0), (0.0, 1.0)):
+                for sign in (1.0, -1.0):                  # the other way when the tag is near the picture's edge and leaves it
+                    dx, dy = 5.0 * sign * ux, 5.0 * sign * uy
+                    nudge(dx, dy)
+                    moved = tag()
+                    nudge(-dx, -dy)
+                    if moved is not None:
+                        cols.append((moved[0] - at) / (5.0 * sign))
+                        break
+                else:
+                    raise Refused("the tag left the picture on a small test move both ways: centre the hand over the plate by hand "
+                                  "and run again")
+            J = np.array(cols).T                       # pixels per mm: columns are x and y of the wrist
+            if abs(np.linalg.det(J)) < 1e-6:
+                raise Refused("the tag did not move in the picture on test moves: is the camera reading a live picture?")
+            step = np.linalg.solve(J, mid - at)
+            if drift() + float(np.hypot(*step)) > max_move_mm:           # the tag is whole in the picture: good enough, and the claw
+                return got[2]                                              # is near the hotel on this side
+            try:
+                nudge(float(np.clip(step[0], -40, 40)), float(np.clip(step[1], -40, 40)))
+            except Refused:
+                return got[2]
+        got = tag()
+        if got is None or np.linalg.norm(got[0] - got[1]) > 3 * tol_px:
+            raise Refused("could not centre the camera over the tag in 4 tries")
+        return got[2]
+
+    def view_for_capture(self) -> dict:
+        """Centre over the tag, go straight up until the camera is VIEW_DISTANCE_MM above it (so the whole tag stays in the picture over
+        the capture grid), centre again, and say where the tag is: {"tag_xy", "dist_mm"} for the capture plan's visibility check."""
+        import numpy as np
+        c, cyc = self.cell, self.cyc()
+        f_px = 2632.0                                         # the vendor lens: a tag's side in pixels gives its distance
+        corners = self.centre_on_tag()
+        side = float(np.mean([np.linalg.norm(corners[i] - corners[(i + 1) % 4]) for i in range(4)]))
+        dist = f_px * 40.0 / side
+        if abs(dist - VIEW_DISTANCE_MM) > 3.0:
+            h = c.robot.pose()
+            self.guard(lambda: cyc.go_to([h[0], h[1], h[2] + (VIEW_DISTANCE_MM - dist), h[3], h[4], h[5]], "capture height"))
+            corners = self.centre_on_tag()
+            side = float(np.mean([np.linalg.norm(corners[i] - corners[(i + 1) % 4]) for i in range(4)]))
+            dist = f_px * 40.0 / side
+        p, yaw = c.robot.pose(), math.radians(c.robot.pose()[5])
+        ahead = cad_poses.load_hardware()["claw"]["camera_ahead_of_wrist_mm"]
+        return {"tag_xy": [p[0] + ahead * math.cos(yaw), p[1] + ahead * math.sin(yaw)], "dist_mm": dist}
+
+    def view_module(self) -> List[float]:
+        """Take the camera over the module's plate and read the marker: the CAD pose first, then a small cross of
+        offsets (the camera's sideways offset from the claw is not known). Remembers where it read."""
+        c, v = self.cell, self.cell.layout()["vision"]
+        cyc = self.cyc()
+        stored = self.setup_node(c.layout()).get("module_view")
+        tries = [self.found["module_view"]] if self.found.get("module_view") else ([stored] if stored else [])
+        tries += [self.module_view_pose(a, b, z) for z in VIEW_LIFTS_MM for a, b in VIEW_SEARCH_MM]
+        last = "no pose tried"
+        for pose in tries:
+            try:
+                self.guard(lambda pose=pose: cyc.go_to(pose, "module view"))
+            except Refused as e:                  # a candidate the safety check refuses is skipped, not fatal
+                last = str(e)
+                continue
+            try:
+                if any(c.vision.aruco_pose(v["down_camera"], 1, None, v["led"]).pixel) or cameras._local_reads(c, v["down_camera"], v["led"]):
+                    self.found["module_view"] = pose
+                    self.edit(lambda L, pose=pose: self.setup_node(L).update(module_view=[round(float(x), 3) for x in pose]))
+                    return pose
+            except Exception:
+                pass
+        raise Refused("the down camera cannot read the aruco plate over the module: is the practice plate on the module, "
+                      f"marker up, and the lens clean? (last refusal: {last})")
+
     @staticmethod
     def guard(fn):
         """Run a motion step: the cell's own refusals become the setup's, with the message."""
@@ -284,7 +407,9 @@ class Bringup:
 
     # ------------------------------------------------------------------ the sections
     def sections(self) -> List[Section]:
-        return [self.connect(), self.seat(), self.microscope(), self.test()]       # the stage and slot look-arounds were camera checks: out
+        # the pre-nuke workflow without the hotel (operator, 2026-11-08): no hotel size, no slot survey; the hotel seats are taught
+        # by hand (tools/teach_daemon.py, fitted by tools/fit_hotel_grid.py) and the occupancy is the operator's list
+        return [self.connect(), self.cameras(), self.seat(), self.microscope(), self.grips(), self.test()]
 
     # ---- Connect system modules
     def connect(self) -> Section:
@@ -301,37 +426,95 @@ class Bringup:
             self.squid.home()
             return {"stage": "homed"}
 
-        def module_to_zero():
-            """The rotation module at 0 deg when the cell starts (operator, 2026-11-04 02:30), read from its own axis. Not while the claw stands
-            over the module below its clear height: then it is left to the first pick or place there, which turns it (Cycle._polar_ensure)."""
-            import math
+        def module_to_0():
             self.ready()
-            cyc = self.cyc()
-            if cyc.polar.driver != "ext_axis":
-                return {"module": "no axis to read"}
-            real = cyc.polar.read_angle()
+            c = self.cyc()
+            self.guard(lambda: c.move_to("polar.pose_at_0"))
+            # the axis reading, never the assumed angle: a stop or a hand left the module at 15.56 deg (2026-11-02 02:54), the assumed 0 skipped the
+            # turn and the short-edge pads closed on a plate turned 15 degrees
+            real = c.polar.read_angle()
             real = real - 360.0 * round(real / 360.0)
-            F = self.cell.layout()["fixtures"]["polar"]
-            P0 = F["pose_at_0"]["pose"]
-            here = self.cell.robot.pose()
-            over = math.hypot(here[0] - P0[0], here[1] - P0[1]) < 120.0 and here[2] < P0[2] + F["hover_mm"] + F["clear_mm"]
-            if abs(real) <= 0.3:
-                cyc.store.s.polar_angle = cyc.polar.angle = 0
-                cyc.store.save()
-                return {"module": f"at 0 ({real:+.2f} deg)"}
-            if over:
-                return {"module": f"reads {real:+.1f} deg; the claw is over it, left for the first pick or place to turn"}
-            cyc.polar.rotate_to(0)
-            err = cyc.polar.read_angle()
-            err = err - 360.0 * round(err / 360.0)
-            cyc.store.s.polar_angle = cyc.polar.angle = 0
-            cyc.store.save()
-            return {"module": f"turned from {real:+.1f} to 0 ({err:+.2f} deg)"}
+            if abs(real) > 1.0 or c.polar.angle != 0:
+                self.guard(lambda: c._polar_rotate(0, self.cell.layout()["fixtures"]["polar"]["pose_at_90"]["pose"]))
+            return {"module": "0 deg", "was": round(real, 2)}
+
+        def hover():
+            self.ready()
+            self.view_module()
+
+        def to_nest():
+            self.ready()
+            self.guard(self.cyc().go_nest)
 
         return Section("connect", [
             Step("computer", "search ports", search_ports),
             Step("squid", "home stage", home, moves=True),
-            Step("polar", "turn the rotation module to 0 deg", module_to_zero, moves=True)])
+            Step("polar", "arm to the nest (a pose in the clear in front of the hotel; also where it goes after any fault)", to_nest, moves=True),
+            Step("user", "put the aruco plate on the rotation module, tag up, and press Enter"),
+            Step("polar", "rotation module to 0 deg", module_to_0, moves=True),
+            Step("polar", "hover hand onto rotation module centroid", hover, moves=True)])
+
+    # ---- cameras.toml
+    def cameras(self) -> Section:
+        c = self.cell
+
+        def node():
+            L = c.layout()
+            return L["vision"].get("calibration", {}).get(L["vision"]["down_camera"], {})
+
+        def detect():
+            cameras.read_marker(c, "down")
+            if node().get("marker") != "ok":
+                raise Refused("the down camera cannot read the aruco plate: clean the lens, check the plate is flat under the hand")
+            self.view_module()                                # start from the module view, not wherever the last run left the wrist
+            view = self.view_for_capture()
+            got = self.guard(lambda: cameras.pictures(c, False, "down", view))
+            return {"pictures": sum(got.values()), "captured_at": _stamp()}
+
+        def solve():
+            res = cameras.solve(c, "down")
+            r = next(iter(res.values()))
+            self.found["camera"] = r
+            return {"error_px": r["px"], "error_mm": r["mm"]}
+
+        def limits():
+            r = self.found.get("camera")
+            if not r or not r["ok"]:
+                lim = c.layout()["vision"].get("calibration_limits") or {}
+                raise Refused(f"calibration error {r and r['px']} px / {r and r['mm']} mm is above "
+                              f"{lim.get('px', cameras.LIMIT_PX)} px / {lim.get('mm', cameras.LIMIT_MM)} mm: nothing uploaded, run again")
+
+        def upload():
+            try:
+                cameras.upload(c, "down")
+            except Exception as e:                            # no login, no route to the box, a refused file: the box keeps the calibration it has (the aruco servo needs none)
+                c.note(f"not uploaded ({type(e).__name__}): {e}")
+                self.found["upload_skipped"] = True
+                return {"uploaded_at": "skipped, no box login"}
+            at = node().get("uploaded_at")
+            if not at:
+                raise Refused("the box did not take the files")
+            return {"uploaded_at": at}
+
+        def validate():
+            if self.found.get("upload_skipped") or str(node().get("uploaded_at", "")).startswith("skipped"):      # the box never got the calibration: nothing for it to check
+                c.note("validate skipped: the calibration was not uploaded (no box login)")
+                return {"check_mm": "skipped, not uploaded", "checked_at": _stamp()}
+            self.ready()
+            self.guard(lambda: cameras.check(c, "down"))
+            mm = node().get("checked_mm")
+            if mm is None:
+                c.note("validate: the box could not read the aruco from two poses; carrying on (the arm does not use the box's calibration)")
+                return {"check_mm": "not read", "checked_at": _stamp()}
+            if mm > cameras.limit_mm(c.layout()):
+                c.note(f"validate WARNING: the aruco moved {mm} mm between two poses 20 mm apart (limit {cameras.limit_mm(c.layout())}); carrying on, check the calibration after the demo")
+            return {"check_mm": mm, "checked_at": node().get("checked_at")}
+
+        return Section("cameras.toml", [
+            Step("nova", "detect aruco with the down camera", detect, moves=True),
+            Step("computer", "solve intrinsic (lens) and extrinsic (camera-to-gripper) calibration together", solve),
+            Step("computer", "refuse if px > 5.0 or mm > 2.0", limits),
+            Step("computer", "re-upload to nova, which restarts", upload)])
 
 
 
@@ -378,6 +561,74 @@ class Bringup:
             ])
 
 
+
+    # ---- grips.toml
+    def grips(self) -> Section:
+        """The long-edge grip, by force at the module (the short-edge one was learned at the seat proof): the plate goes from the holder to
+        the module, the module turns to 90, the first holding clamp on the long edges learns the width (procedures/grasp.py _learn_width),
+        one re-grip proves it, and the plate stays on the module at 0 deg, where the test's way in expects it."""
+        c = self.cell
+
+        def poses():
+            F = c.layout()["fixtures"]["polar"]
+            return F, F["pose_at_0"]["pose"], F["pose_at_90"]["pose"]
+
+        def to_module():
+            """The plate is in the holder (the seat was just proved): microscope to the module along the microscope's taught way and the planner."""
+            self.ready()
+            cyc = self.cyc()
+            st = cyc.store.s
+            st.plate_at, st.grip, st.step_done = self.scope, "none", True
+            cyc.store.save()
+            steps = cyc._steps("A1")[0][:2]                       # pick:microscope, place:polar (the slot's steps are not run)
+            self.guard(lambda: cyc._run_steps(steps))
+            return {"plate": "on the module at 0 deg"}
+
+        def long():
+            F, p0, p90 = poses()
+            cyc = self.cyc()
+            self.guard(lambda: cyc._polar_rotate(90, p0))
+            self.guard(lambda: cyc._pick("polar", p90, F, "long_edges", None, gate="polar@90"))
+            return {"long_edges held at": round(c.robot.jaw(), 2)}
+
+        def learned():
+            g = c.layout()["gripper"]
+            missing = [k for k in ("short_edges", "long_edges") if k not in g.get("plate_width", {})]
+            if missing:
+                raise Refused(f"no width learned for {', '.join(missing)}: that clamp never held the plate. Run again from \"grips.toml\"")
+            keys = ("short_edges", "long_edges")
+            return {"plate_width": {k: g["plate_width"][k] for k in keys}, "closed": {k: g["closed"][k] for k in keys},
+                    "accept_band": {k: g["accept_band"][k] for k in keys}}
+
+        def reseat():
+            F, p0, p90 = poses()
+            cyc = self.cyc()
+            seen = []
+            for _ in range(RESEATS):
+                self.guard(lambda: cyc._place("polar", p90, F, "polar", None, gate="polar@90"))
+                self.guard(lambda: cyc._pick("polar", p90, F, "long_edges", None, gate="polar@90"))
+                seen.append(round(c.robot.jaw(), 2))
+            lo, hi = c.layout()["gripper"]["accept_band"]["long_edges"]
+            bad = [w for w in seen if not lo <= w <= hi]
+            if bad:
+                raise Refused(f"re-grip widths {seen} left the band {lo} to {hi}: the plate does not seat the same way each time")
+            return {"re-grip widths": seen, "spread": geometry.spread(seen)}
+
+        def put_back():
+            F, p0, p90 = poses()
+            cyc = self.cyc()
+            self.guard(lambda: cyc._place("polar", p90, F, "polar", None, gate="polar@90"))
+            self.guard(lambda: cyc._polar_rotate(0, p90))
+            cyc.store.s.contents["module"], cyc.store.s.contents[self.scope] = "full", "empty"     # the plate rests on the module: the test starts from it
+            cyc.store.save()
+            return {"plate": "on the module at 0 deg"}
+
+        return Section("grips.toml", [
+            Step("polar", "carry the plate from the microscope to the rotation module", to_module, moves=True),
+            Step("polar", "rotate module to 90, grip on the long edges, closing under the force limit (the first holding clamp learns the width)", long, moves=True),
+            Step("computer", "the widths the force clamps learned: plate_width, the clamp command 1 mm under it, the band +-0.5", learned),
+            Step("polar", "seat and re-grip the plate", reseat, moves=True),
+            Step("polar", "place plate back on the rotation module at 0 deg", put_back, moves=True)])
 
     # ---- shuffle
     def shuffle(self, limit: int = 0, speed: str = "stress", probe_every: int = 0) -> Section:
@@ -634,14 +885,21 @@ class Bringup:
             if lo <= c.robot.jaw() <= hi:                                                  # a plate in the hand at the long-edge width: the ledger can be stale
                 st.plate_at, st.grip, st.step_done = "gripper", "long_edges", True
                 cyc.store.save()
-            # one occupancy sweep with the empty claw before any plate moves (vision.survey, on by default). The camera can only rule a slot
-            # out: a parking place needs the ledger and the camera to say empty, a pick needs the ledger's full and no confident empty from the
-            # camera. A disagreement is a log line and a skipped slot, never a move.
-            seen_empty, seen_full = set(), set()                             # the sweep runs after the intake (below), with the empty claw
+            # where plates are comes from the ledger and the positions file only: the hotel occupancy sweep with the camera is out of the
+            # workflow (operator, 2026-11-08). The camera still takes its pictures at the slot mouths and the drop-in view at the module and
+            # the microscope; none of them chooses a slot or stops the run.
+            # the ledger's own record of the hotel (written at every place, cleared at every pick) outranks the positions file: a run that
+            # died between "in transit" and the pick (03:33, the SDK crash) left the plate in B3 and B3 out of `loaded`, and the next run
+            # found nothing to rotate
+            ledger_full = set(st.hotel) | ({st.plate_at.split(":", 1)[1]} if st.plate_at.startswith("hotel:") else set())
+            missing = sorted(x for x in ledger_full if x in taught and x not in bench.loaded_slots(c.layout()))
+            if missing:
+                print(f"   the ledger says {missing} hold a plate and the positions file did not: taking the ledger's word")
+                self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + missing))
 
             def parking_places():
                 have = set(bench.loaded_slots(c.layout()))
-                return [x for x in taught if x not in have and st.contents.get(x) != "full" and x not in seen_full]
+                return [x for x in taught if x not in have and st.contents.get(x) != "full"]
 
             holes = parking_places()
             intake = st.plate_at == "gripper" or st.contents.get("module") == "full" or st.plate_at in ("polar", self.scope)
@@ -653,16 +911,6 @@ class Bringup:
                 print(f"   a plate is in the hand by the long edges: scan, into {slot}")
                 self.guard(lambda: cyc._run_steps(cyc._steps(slot)[0][4:]))
                 self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))
-            def sweep_now():
-                """The hotel occupancy sweep with the empty claw (vision.survey). With vision.veto (default on) the camera's word counts:
-                a parking place needs the ledger and the camera to say empty, a pick needs no confident empty from the camera."""
-                nonlocal seen_empty, seen_full
-                if not c.layout()["vision"].get("survey", True):
-                    return
-                seen_empty, seen_full = survey(cyc, taught)
-                if not c.layout()["vision"].get("veto", True):
-                    seen_empty, seen_full = set(), set()
-
             if st.contents.get("module") == "full" or st.plate_at in ("polar", self.scope):          # also when a plate was in the hand: the module's is still to go
                 still_there = st.plate_at == self.scope and (st.step_done or (st.step == f"pick:{self.scope}" and st.grip == "none" and c.robot.jaw() > 20.0))
                 if still_there:                       # also a pick begun and abandoned with the claw still open: the plate never left the stage (03:08, 2026-11-04)
@@ -678,27 +926,26 @@ class Bringup:
                 self._acquire()
                 # stage -> module by the short edges, module to 90: the plate rests on the module and the claw is empty
                 self.guard(lambda: cyc._run_steps(cyc._steps(taught[0])[0][:3]))                  # pick:scope, place:polar, polar:90 (no slot in them)
-                # the hotel sweep now, before the long-edge pick: the parking place must be known empty before a plate goes to it (operator, 02:36)
-                sweep_now()
                 holes = parking_places()
                 if not holes:
-                    raise Refused("no taught slot that both the ledger and the camera call empty: free one by hand, then: python cli.py setup --from \"test\"")
+                    raise Refused("no empty taught slot for the module's plate: free one by hand, then: python cli.py setup --from \"test\"")
                 slot = holes.pop(random.randrange(len(holes)))
                 print(f"   the module's plate into {slot}")
                 self.guard(lambda: cyc._run_steps(cyc._steps(slot)[0][3:]))                       # pick:polar (long edges), place:hotel:<slot>
                 self.edit(lambda L: bench.set_loaded(L, list(bench.loaded_slots(L)) + [slot]))
                 st.contents["module"] = "empty"
                 cyc.store.save()
-            elif st.grip == "none":
-                sweep_now()                                                                        # no plate to bring in: the sweep before the rotation starts
             passes = 0
             while not stopped():
                 have = set(bench.loaded_slots(c.layout()))
-                full = [x for x in taught if x in have and x not in seen_empty]           # the camera's confident "empty" vetoes a pick
+                full = [x for x in taught if x in have]
                 holes = parking_places()
                 if not holes:
                     raise Refused("the rotation has no empty taught slot to start from: free one (put its plate in an untaught slot) and run: "
                                   "python cli.py setup --from \"test\"")
+                if not full:                          # nothing to rotate: say so and stop (a pass that does nothing spun 340 000 times in four minutes, 03:42)
+                    raise Refused(f"no plate in any taught slot (the positions file has {sorted(have) or 'none'} loaded): put a plate in a taught slot and set its occupancy, "
+                                  "then run: python cli.py setup --from \"test\"")
                 passes += 1
                 print(f"   rotation pass {passes} (stops when runs/STOP exists or with Ctrl+C)")
                 for slot in full:
@@ -711,7 +958,6 @@ class Bringup:
                     self._acquire()
                     self.guard(lambda: cyc._run_steps(cyc._steps(dest)[0]))
                     self.edit(lambda L, dest=dest: bench.set_loaded(L, list(bench.loaded_slots(L)) + [dest]))
-                    seen_empty.discard(dest)
                     holes.append(slot)
                     moves += 1
                     if c.layout()["vision"].get("check_seats_after_park", False):
@@ -744,36 +990,6 @@ class Bringup:
             self.guard(lambda: cyc._move("L", hover, f"{station}: down to the hover", cyc.safety.profile.contact))
             return got[0] if got else None
 
-        def survey(cyc, taught):
-            """One sweep with the empty claw before any plate moves: the microscope view, the module view, then every taught slot's mouth.
-            Vision only removes options: a slot is a parking place only if the ledger and the camera both say empty, a pick only if the
-            ledger says full and the camera does not say empty. Returns (slots the camera calls empty, slots it calls full)."""
-            st = cyc.store.s
-            seen_empty, seen_full = set(), set()
-            if st.grip != "none":
-                print("   a plate is in the claw: no survey")
-                return seen_empty, seen_full
-            # the seats are not looked at with the empty claw (operator, 01:25): the question about a seat is asked with the plate in hand,
-            # before lowering, from the front camera at the hover (tomorrow's check; tonight the loop records hover_held for it)
-            h = c.layout()["fixtures"]["hotel"]
-            # every column, taught or not: the hotel's state. The columns outside the taught set (C) go FIRST and the sweep ends in a taught
-            # column: coming back from C the arm is on the mirrored elbow branch, from which the planner has no route to the module (02:48)
-            cols = [x for x in h.get("columns", []) if not any(s.startswith(x) for s in h.get("active_slots", []))] + \
-                   [x for x in h.get("columns", []) if any(s.startswith(x) for s in h.get("active_slots", []))]
-            slots = [f"{col}{r}" for col in cols for r in h.get("rows", [])]
-            print(f"   hotel occupancy sweep over {slots} (the camera, record only)")
-            for slot in slots:
-                target = cyc._hotel_geometry(slot)[1]
-                self.guard(lambda slot=slot: cyc._hotel_go_to_approach(slot, f"survey {slot}"))
-                self.guard(lambda slot=slot, target=target: cyc._square_up(target, f"survey {slot}"))
-                truth = "full" if slot in bench.loaded_slots(c.layout()) else "empty"
-                got = cyc._collect("occupancy", slot, truth, "front", judge=True)
-                verdict = got[0] if got else None
-                (seen_empty if verdict == "empty" else seen_full if verdict == "full" else set()).add(slot)
-                print(f"   {slot}: the camera says {got[1] if got else 'nothing (no reference)'}; the ledger says {truth}")
-            return seen_empty, seen_full
-
-        # The occupancy survey (the empty claw at the slot mouths and the two viewing poses, tools/occupancy_record.py and `look` above) is not
-        # a setup step: put into the test on 2026-11-04 01:01 it moved the arm away from the microscope between the seat proof and the first pick
-        # and broke the proven flow (operator). It belongs to the start of a loop run, before any plate is in the claw.
+        # No hotel occupancy sweep: put into the test on 2026-11-04 01:01 it broke the proven flow, kept as a record-only pass that night, and
+        # taken out of the workflow on 2026-11-08 (operator). Where plates are is the ledger's and the positions file's word.
         return Section("test", [Step("polar", "the rotation, for ever: the module's plate through the microscope into an empty slot, then every plate in a taught slot to the microscope and into the slot empty the longest", unattended(rotate), moves=True)])

@@ -1,0 +1,58 @@
+{
+ "made": "2026-11-10 01:01:52",
+ "holding": "empty",
+ "z": 435.0,
+ "wrist": [
+  309.934,
+  305.304,
+  435.0,
+  0.0,
+  0.0,
+  -90.75
+ ],
+ "joints_plus_to_minus": [
+  [
+   396.40503184555314,
+   31.942188607838375,
+   -126.02009509713014,
+   3.327906489291763
+  ],
+  [
+   396.4,
+   10.0,
+   -5.0,
+   5.0
+  ],
+  [
+   396.4,
+   10.0,
+   5.0,
+   0.0
+  ],
+  [
+   396.4,
+   15.0,
+   15.0,
+   0.0
+  ],
+  [
+   396.4,
+   85.0,
+   75.0,
+   0.0
+  ],
+  [
+   396.4,
+   85.0,
+   125.0,
+   30.0
+  ],
+  [
+   396.40503184555314,
+   85.92697791558544,
+   126.01160088423762,
+   57.31142120017694
+  ]
+ ],
+ "note": "elbow side switch at the module with an empty claw: lift to z 435, these joint postures in order (reversed for the way back), lower. Checked offline at 1 degree steps against the pillar, hotel and microscope (scratch search.py)"
+}

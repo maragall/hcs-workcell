@@ -235,6 +235,11 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self._move("L", clear, "polar clear", prof.approach)
         self.polar.rotate_to(deg)
         err = (self.polar.read_angle() - deg + 180.0) % 360.0 - 180.0
+        if abs(err) > 0.1 and self.polar.driver == "ext_axis":
+            # rotate_to answers "already at 90" within its own, wider tolerance (the module stood at 89.6 on 2026-11-10 and the long edges were
+            # gripped 0.4 deg crooked, 1.95 against 1.46): command the exact reading
+            self.robot.ext_axis_to(int(self.L["polar"]["ext_axis"]["index"]), self.polar._axis_target(deg))
+            err = (self.polar.read_angle() - deg + 180.0) % 360.0 - 180.0
         self.tele.log("polar", "readback", deg=deg, err_deg=round(err, 3))
         self.store.s.polar_angle = self.polar.angle = deg
         self.store.save()

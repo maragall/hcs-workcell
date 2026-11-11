@@ -745,6 +745,7 @@ class App:
         if pm:
             self.model.planning = pm.group(1).strip()
         if clean.startswith("== "):
+            self.section = clean[3:].strip()
             self.show_log(clean, "step")
             self.now.configure(text=clean[3:])
         elif m:
@@ -765,6 +766,30 @@ class App:
         self.status.configure(text=text, fg=GOOD if code == 0 else BAD)
         hint = next((RESUME.search(t) for t in reversed(self.tail) if RESUME.search(t)), None)
         self.set_prompt_buttons_after_exit(hint)
+        self.relaunch_after_crash(code)
+
+    CRASH_RELAUNCH_S = 15
+    CRASH_RELAUNCHES_PER_HOUR = 3
+
+    def relaunch_after_crash(self, code):
+        """The setup process died without a word: no "stopped in", no REFUSED, no traceback, an exit code that is not one of ours. That is
+        the vendor SDK's .NET layer taking the process down (0xe0434352 in KERNELBASE, 2026-11-03 01:25 and 2026-11-04 03:33, both in the
+        long run). Only while the loop section was running, and at most a few times an hour: start again at that section after a pause,
+        the way the operator would. A refusal or a Python error leaves the buttons and waits for a person."""
+        section = getattr(self, "section", None)
+        if code in (0, 2, 3) or section != "test":
+            return
+        if any(k in t for t in self.tail for k in ("REFUSED", "Traceback", "stopped in", "STOP")):
+            return
+        now = time.time()
+        self.relaunches = [t for t in getattr(self, "relaunches", []) if now - t < 3600.0]
+        if len(self.relaunches) >= self.CRASH_RELAUNCHES_PER_HOUR:
+            self.show_log(f"the setup process died (exit {code}) for the {len(self.relaunches) + 1}th time this hour: not starting it again by itself", "bad")
+            return
+        self.relaunches.append(now)
+        self.show_log(f"the setup process died (exit {code}: a crash, not a refusal): starting again at the test in {self.CRASH_RELAUNCH_S} s "
+                      f"({len(self.relaunches)}/{self.CRASH_RELAUNCHES_PER_HOUR} this hour)", "bad")
+        self.root.after(int(self.CRASH_RELAUNCH_S * 1000), lambda: self.start(["--from", "test"]) if self.exited is not None else None)
 
     def set_prompt_buttons_after_exit(self, hint):
         for w in self.buttons.winfo_children():

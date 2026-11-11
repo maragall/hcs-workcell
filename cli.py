@@ -3,6 +3,7 @@ hcs-workcell command line (teaching, tests, one-microscope runs). The asyncio ma
 
   python cli.py status                              robot + vision state, read-only
   python cli.py record-pose NAME                    store the current robot pose under fixtures.<NAME> in layout.json
+  python cli.py teach [NAME]                        arm loose, hand it onto the plate in the microscope, Enter: seat + routes to the module stored
   python cli.py trace NAME                          record a hand-guided route (stop: create runs/trace.stop)
   python cli.py normalise NAME                      average all traces of NAME into a waypoint list in layout.json
   python cli.py record-ref FIXTURE STATE            save the down-camera view as a "safe to lower" reference
@@ -275,6 +276,12 @@ def cmd_setup(args):
     return 0
 
 
+def cmd_teach(args):
+    """Teach an instrument's seat by hand (arm loose, Enter) and plan its routes to the rotation module: bringup/teach.py."""
+    from bringup import teach
+    return teach.run(args.name, lambda layout: make_robot(layout, args, lambda *a: None))
+
+
 def cmd_shuffle(args):
     """Random plates through the microscope into random empty taught slots, for ever: no setup. Stop: runs/STOP or Ctrl+C."""
     args.shuffle = True
@@ -375,6 +382,8 @@ def main():
     p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the hotel you have, answers 'is there a slot here' for every row")
     p.add_argument("--speed", default="stress", choices=("supervised", "fast", "stress"), help="speed profile (layout.json speeds) of the test section; the setup steps stay at supervised")
     p.set_defaults(fn=cmd_setup, moves=0)
+    p = sub.add_parser("teach", help="arm loose; move it by hand onto the plate in the instrument's holder, Enter: seat and routes to the module stored")
+    p.add_argument("name", nargs="?", default="microscope"); p.set_defaults(fn=cmd_teach)
     p = sub.add_parser("shuffle", help="random plates through the microscope into random empty taught slots, for ever (occupancy = fixtures.hotel.loaded)")
     p.add_argument("--sim", action="store_true"); p.add_argument("--moves", type=int, default=0, help="stop after this many moves (default: for ever)")
     p.add_argument("--probe", type=int, default=0, help="every N moves, photograph every slot's approach with the hand empty and with a plate in it (data for the classifiers)")

@@ -33,7 +33,7 @@ def plate_order(layout: dict):
     return interleave(*([f"{col}{row}" for row in rows] for col, rows in loaded.items()))
 
 
-MOUTH_CLEAR_MM = 40.0        # planned mode: the claw (and the plate it carries) waits this far outside the first part of the hotel before it goes in and after it comes out. 5 until 2026-11-04 03:00: a planned leg out of a mouth went 24 mm toward the hotel while sweeping sideways and put the carried plate 18 mm inside the front (the model has no front members between trays); 40 keeps it out through such a leg
+MOUTH_CLEAR_MM = 5.0         # planned mode: the claw (and the plate it carries) waits this far outside the first part of the hotel before it goes in and after it comes out. The value the proven loop ran on. 40 for an hour on 2026-11-04 (a planned leg out of a mouth had swept the carried plate 18 mm inside the front): it put the B column's mouth 6 mm from the arm's own axis, where no plan with a plate exists, and stopped the loop twice (03:15, 03:16); back to 5 at 03:40
 MIN_LIFT_MM = 4.0           # least the plate is raised above its seat: the trays are flat, nothing to clear but the surface
 
 
@@ -156,20 +156,12 @@ class Hotel:
         return [min(approach[0], front - ahead - MOUTH_CLEAR_MM)] + list(approach[1:])
 
     def _hotel_leg(self, a: List[float], b: List[float], label: str) -> None:
-        """One leg between two poses on the slot's line: straight, or by joints where an end is beside the arm's own axis (the B
-        column's mouth is), where the controller refuses a straight move. The joints are checked against the hotel's parts and
-        the links first; if no path is found nothing moves."""
-        from routes.volumes import Volumes
-        from routes import plan as _plan
-        prof = self.safety.profile
-        grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
-        near = min(math.hypot(q[0] - _plan.fk.MODEL["x0"], q[1] - _plan.fk.MODEL["y0"]) for q in (a, b)) < _plan.SINGULAR_MM
-        if not near:
-            self._move("L", b, label, prof.approach)
-            return
-        v = Volumes(self.L, self.safety, grip if grip and grip != "none" else None)
-        jb = v.check_joint_leg(a, b, label, start_actual=True)
-        self._move_joints_to(b, label, prof.approach, joints=jb)
+        """One leg between two poses on the slot's line: always one straight move, the yaw held, the same for every column.
+        Until 2026-11-10 an end beside the arm's own axis (the B column's entry point, 29 mm from it) was reached by a joint move,
+        on the belief that the controller refuses a straight move there. The joint move swung the carried plate while it was still
+        30 mm inside the hotel (operator, B5). Measured that night with the empty claw: the straight move along B1's line to the
+        entry point and back is accepted and holds the yaw at 0.00."""
+        self._move("L", b, label, self.safety.profile.approach)
 
     def _hotel_row_change(self, slot: str, step: str, approach: List[float]) -> None:
         """Another row of the same column, from the approach point. There the plate's front is already between two trays, so a z
@@ -269,7 +261,6 @@ class Hotel:
         self._jaw_open("long_edges")
         self._move("L", carry, f"{step} lift off", prof.approach)
         self._move("L", approach, f"{step} slide out", prof.approach)
-        self._collect("occupancy", slot, "full", "front")               # a picture of the plate just set down, the claw empty at the approach (data; no verdict, no gate)
         self.store.s.hotel[slot] = self.store.s.plate_id
         self.store.done(plate_at=f"hotel:{slot}", grip="none", home_slot=slot)
         self._hotel_leave_approach(slot, step)
@@ -308,7 +299,6 @@ class Hotel:
                 self._move("L", top, f"{step} climb", prof.approach)
                 self._move("L", approach, f"{step} approach", prof.approach)
         self._square_up(approach, step)
-        self._collect("occupancy", slot, "full", "front")               # a picture of the slot as the ledger has it, before the pick (data for the morning; no verdict, no gate)
         self._jaw_open("long_edges")
         self._slide(carry, f"{step} slide in")                        # same path as the place, reversed
         self._descend(p, f"{step} lower onto plate")

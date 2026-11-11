@@ -63,6 +63,13 @@ class Volumes:
                 front: float = 0.0) -> bool:
         b = self.obstacles[name]
         mm = self.margin if m is None else m
+        if b.get("solid"):
+            # the obstacle is a box, whatever parts it lists (the hotel, operator's rule of 2026-11-10: a carried plate is never inside
+            # it; the slide along a slot's own line is the entry procedure's, not a planned leg). Its own margin, not the global one:
+            # the entry point stands 5 mm outside the front. The relaxed margin (m < 0) still shrinks it.
+            mm = m if (m is not None and m < 0) else float(b.get("margin_mm", self.margin))
+            return (b["x"][0] - mm + front <= x <= b["x"][1] + mm and b["y"][0] - mm <= y <= b["y"][1] + mm
+                    and z_hi >= b["z"][0] - mm and z_lo <= b["z"][1] + mm)
         if not (b["x"][0] - mm + front <= x <= b["x"][1] + mm and b["y"][0] - mm <= y <= b["y"][1] + mm
                 and z_hi >= b["z"][0] - mm and z_lo <= b["z"][1] + mm):
             return False
