@@ -24,7 +24,7 @@ def bring():
 def test_the_setup_is_connect_then_the_program_then_the_cameras():
     cell, b = bring()
     try:
-        assert [s.name for s in b.sections()] == ["connect", "preset", "cameras"]
+        assert [s.name for s in b.sections()] == ["connect", "places", "preset", "cameras"]
         assert not any(st.moves for st in b.preset().steps)                 # the upload moves nothing
     finally:
         cell.frames.stop()

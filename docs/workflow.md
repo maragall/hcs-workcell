@@ -1,3 +1,5 @@
+> Deprecated on 2026-11-10. The guide is the [README](../README.md); this page is no longer updated.
+
 # Workflow
 
 ## Prerequisites

@@ -13,6 +13,9 @@ from __future__ import annotations
 import json
 import math
 import os
+import shutil
+import subprocess
+import sys
 import time
 from typing import Callable, List, Optional
 
@@ -20,7 +23,7 @@ from typing import Callable, List, Optional
 from run import positions
 from run import lua
 from setup.runner import Refused, Section, Step
-from setup import cameras, hand
+from setup import cameras, hand, places
 from vision import colour
 from run import cad_poses
 from vision.corrector import StopSafe
@@ -261,8 +264,8 @@ class Bringup:
 
     # ------------------------------------------------------------------ the sections
     def sections(self) -> List[Section]:
-        # the setup is the arm only (docs/workflow.md): what the arm needs to know, uploaded; then the cameras. Instruments are taught after.
-        return [self.connect(), self.preset(), self.cameras()]
+        # the setup is the arm only: the places shown by hand, what the arm needs to know uploaded, then the cameras. Instruments are taught after.
+        return [self.connect(), self.places(), self.preset(), self.cameras()]
 
     # ---- Connect system modules
     def connect(self) -> Section:
@@ -293,6 +296,101 @@ class Bringup:
 
         self._module_to_0, self._hover = module_to_0, hover
         return Section("connect", [Step("computer", "search ports", search_ports)])
+
+    # ---- the places shown by hand
+    def places(self) -> Section:
+        """What differs from one workcell to the next, shown by hand with the ArUco plate: the module's two seats (their angle then found
+        by force) and six hotel slots (the hotel fitted through them as a rigid box). Then every route is planned again (setup/places.py)."""
+        c = self.cell
+        index = lambda: int(c.layout()["polar"]["ext_axis"]["index"])          # noqa: E731
+
+        def keep():
+            path = os.path.join(c.runs_dir, time.strftime("layout_before_places_%Y%m%d_%H%M%S.json"))
+            shutil.copyfile(c.layout_path, path)
+            return {"copy": path}
+
+        def clear_height() -> float:
+            F = c.layout()["fixtures"]["polar"]
+            return max(F["pose_at_0"]["pose"][2], F["pose_at_90"]["pose"][2]) + float(F["hover_mm"]) + float(F["clear_mm"])
+
+        def module_to(deg: int, grip: str):
+            def go():
+                self.ready()
+                L = c.layout()
+                self.guard(lambda: c.robot.ext_axis_to(index(), places.module_reading(L, deg)))
+                self.guard(lambda: c.robot.jaw_to(places.jaw_for(L, grip)))
+                return {"module": f"{deg} deg", "jaw": places.jaw_for(L, grip)}
+            return go
+
+        def seat(deg: int, grip: str):
+            def go():
+                key = "pose_at_0" if deg == 0 else "pose_at_90"
+                got = places.record(c.robot, c.layout())
+                self.ready()                                       # locks the arm where the hand left it
+                c.edit(lambda L: L["fixtures"]["polar"][key].update(got, taught_how="by hand, the pads in the plate's grooves"))
+                if c.sim:
+                    return {"seat": got["pose"][:3], "yaw": "not refined on the simulator"}
+                from utils.seat_torques import read
+                try:
+                    r = self.guard(lambda: places.refine_yaw(c.robot, c.layout(), grip, read, c.note))
+                except places.PlacesError as e:
+                    raise Refused(str(e))
+                c.edit(lambda L: L["fixtures"]["polar"][key].update(
+                    pose=r["pose"], taught_how=f"by hand, then the yaw by force: the module is left alone from {r['free_from']} to {r['free_to']} deg, "
+                                                f"the seat is the middle (the hand had {r['taught_yaw']:.2f})"))
+                here = c.robot.pose()
+                self.guard(lambda: c.robot.move_linear([here[0], here[1], clear_height()] + list(here[3:])))
+                return {"seat": [round(v, 2) for v in r["pose"][:3]], "yaw": r["pose"][5], "by hand": round(r["taught_yaw"], 2)}
+            return go
+
+        def slot(name: str):
+            def go():
+                got = places.record(c.robot, c.layout())
+                c.edit(lambda L: L["fixtures"]["hotel"].setdefault("taught_detail", {}).__setitem__(name, got))
+                return {name: [round(v, 1) for v in got["pose"][:3]], "jaw": got["jaw_at_teach"]}
+            return go
+
+        def lock():
+            self.ready()
+            return {"arm": "locked"}
+
+        def fit():
+            L = c.layout()
+            try:
+                got = places.fit_hotel(L)
+            except places.PlacesError as e:
+                raise Refused(str(e))
+            c.save(L)
+            return got
+
+        def plan():
+            if c.sim:
+                return {"routes": "not planned on the simulator"}
+            r = subprocess.run([sys.executable, "-X", "utf8", os.path.join(positions.ROOT, "utils", "plan_preset_routes.py")],
+                               capture_output=True, text=True, errors="replace", cwd=positions.ROOT)
+            last = (r.stdout.strip().splitlines() or [""])[-1]
+            if r.returncode != 0 or "planned" not in last:
+                raise Refused(f"the routes were not planned: {(r.stderr or r.stdout)[-300:]}")
+            return {"routes": last.split(" ->")[0], "instruments": "teach them again after the setup (python cli.py teach)"}
+
+        on = "slide the gripper onto the plate's {} edges until the pads sit in the grooves, then press Enter"
+        steps = [
+            Step("computer", "keep a copy of the positions file", keep),
+            Step("user", "put the aruco plate on the rotation module, tag up. The gripper must be in the open: out of the hotel, off the module. Press Enter"),
+            Step("polar", "rotation module to 0 deg, jaw just wider than the plate's short edges", module_to(0, "short_edges"), moves=True),
+            Step("user", on.format("short"), before=self.loosen),
+            Step("polar", "take that pose as the module's short-edge seat, then find its angle by force (the gripper closes on the plate nine times)", seat(0, "short_edges"), moves=True),
+            Step("polar", "rotation module to 90 deg, jaw just wider than the plate's long edges", module_to(90, "long_edges"), moves=True),
+            Step("user", on.format("long"), before=self.loosen),
+            Step("polar", "take that pose as the module's long-edge seat, then find its angle by force", seat(90, "long_edges"), moves=True)]
+        for name in places.SLOTS:
+            steps += [Step("user", f"put the aruco plate in slot {name}, pushed fully in. " + on.format("long"), before=self.loosen),
+                      Step("computer", f"take that pose as slot {name}", slot(name))]
+        steps += [Step("user", "pull the gripper straight back out of the hotel, clear of it, and press Enter", before=self.loosen),
+                  Step("computer", "lock the arm", lock),
+                  Step("computer", "fit the hotel through the six slots", fit),
+                  Step("computer", "plan every route slot <-> rotation module again (about 4 minutes)", plan)]
+        return Section("places", steps)
 
     # ---- the program on the arm
     def preset(self) -> Section:

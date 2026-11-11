@@ -2,45 +2,55 @@
 
 Setup script for the Bioyond Polar arm with a plate hotel and a rotation module.
 
-Guides in `docs/`: [workflow](docs/workflow.md): setup, teaching and route planning, running jobs.
-
-
 ## Prerequisites
 
 - BioyondWorks, installed on the PC.
 - The Bioyond Python package (a .whl file). Contact us or Bioyond to get it.
 - Python 3.10 or newer.
-- Run `.\setup\install.ps1 -SdkWheel <path to the .whl file>`.
+- Run `.\setup\install.ps1 -SdkWheel <path to the .whl file>`, then `.\.venv\Scripts\Activate.ps1`.
+- The camera box login, in a file `nova_ssh.local.json` in the top folder: `{"user": "...", "password": "..."}`.
 - Close BioyondWorks.
 
 ## Hardware
 
 1. Connect the power cable and the emergency stop to the arm. Turn on the main switch at the back. Wait until the status light is steady.
 2. Connect the PC to port 1 of the controller with a network cable.
-3. Screw the hotel onto the platform. The slots face the arm.
-4. Load the plates into the hotel. Start at A1.
-
-![hotel](docs/img/hotel_matrix.png)
-
-5. Place the ArUco plate on the rotation module.
+3. Screw the hotel onto the platform. The slots face the arm. Leave it empty.
+4. Place the ArUco plate on the rotation module.
 
 ## Setup
 
 Run `python cli.py setup`. The script ends with `READY`.
 
+The script asks you to show the arm eight places with the ArUco plate: the rotation module twice (short edges, then long edges), then slots A1, A9, B1, B9, C1 and C9.
+
+Each time:
+
+1. The arm goes loose.
+2. Slide the gripper onto the plate until the finger pads sit in the plate's grooves.
+3. Press Enter.
+
+![the gripper's front camera with the plate seated in A1](docs/img/teach_slot_front_camera.jpg)
+
+Then load the plates into the hotel. Start at A1.
+
+![hotel](docs/img/hotel_matrix.png)
+
 ## Setup script in a nutshell
 
-- Upload some preset knowledge to the arm:
+- User shows the arm eight places with the ArUco plate:
+    - rotation module seats, short edges and long edges; the arm then finds each seat's angle by force
+    - six hotel slots; the hotel is fitted through them
+- Planner: routes from each slot ↔ rotation module
+- Upload to the arm:
     - hotel slot positions
-    - rotation module seat position
+    - rotation module seat positions
     - long-edge grip, short-edge grip, and grip torque probe procedure
+    - hotel slot exit/entry procedure
     - routes from each slot ↔ rotation module
-    - slot-exit procedure
 - Calibrate cameras:
     - Run aruco intrinsic and extrinsic calibration
-        - Upload to the camera box
-    - optional test script
-        - for each slot ↔ rotation module
+    - Upload to the camera box
 
 # Teaching
 
@@ -48,7 +58,7 @@ Run `python cli.py setup`. The script ends with `READY`.
 
 ![workcell with microscope](docs/img/cell_model_microscope.png)
 
-1. Place the microscope next to the platform.
+1. Place the microscope next to the platform, at least 20 cm from the arm's base. The plate holder must be within 39 cm of the arm's axis.
 2. Place a real plate in the microscope's plate holder.
 
 ## Teaching
@@ -61,6 +71,28 @@ Run `python cli.py setup`. The script ends with `READY`.
 
 - User teaches microscope seat
     - gripper grabbing a real plate by short edges
-- Planner runs and uploads route: microscope seat ↔ rotation module
+- Planner: microscope seat ↔ rotation module routes
+- Upload routes and microscope seat to the arm
 
-Test: take the plate from the microscope to the rotation module.
+# Running jobs
+
+## Demo
+
+Run `python demo.py`. The arm takes the plate from A1 to the microscope and back.
+
+## Your own script
+
+```python
+from polar import Polar
+
+arm = Polar(plate_at="A1")
+
+arm.move("A1", "microscope")
+arm.move("microscope", "A1")
+```
+
+- `arm.move(source, destination)` picks the plate at the source and places it at the destination.
+- `arm.pick(place)` and `arm.place(place)` do one half each.
+- `plate_at` says where the plate is when the script starts. Leave it out and the arm remembers from the last run.
+- A place is a hotel slot (`"A1"` to `"B9"`), `"module"`, or the name of an instrument you taught. Column C does not work yet.
+- Each call returns when the arm is done. It raises an error with the reason if it cannot do it.
