@@ -336,8 +336,8 @@ class Bringup:
                 except places.PlacesError as e:
                     raise Refused(str(e))
                 c.edit(lambda L: L["fixtures"]["polar"][key].update(
-                    pose=r["pose"], taught_how=f"by hand, then the yaw by force: the module is left alone from {r['free_from']} to {r['free_to']} deg, "
-                                                f"the seat is the middle (the hand had {r['taught_yaw']:.2f})"))
+                    pose=r["pose"], taught_how=f"by hand, then the yaw by force: the module was left alone from {r['free_from']} to {r['free_to']} deg, "
+                                                f"the seat is the nearest of those to the hand's {r['taught_yaw']:.2f}, a little inside"))
                 here = c.robot.pose()
                 self.guard(lambda: c.robot.move_linear([here[0], here[1], clear_height()] + list(here[3:])))
                 return {"seat": [round(v, 2) for v in r["pose"][:3]], "yaw": r["pose"][5], "by hand": round(r["taught_yaw"], 2)}

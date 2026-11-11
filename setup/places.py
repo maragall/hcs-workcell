@@ -22,9 +22,8 @@ import numpy as np
 SLOTS = ["A1", "A9", "B1", "B9", "C1", "C9"]
 COLUMN = {"A": 1, "B": 0, "C": -1}                  # column A is +y, as in fixtures.hotel.grid
 SLIDE_ON_MM = 0.1                                   # the jaw this much wider than the plate while the arm is loose (22.48 around the 22.38 plate, 1.54 around 1.46)
-SWEEP_DEG = [-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0]
-STEP_DEG, REACH_DEG = 0.25, 3.0                     # when the free angles run to the edge of the sweep it goes on in these steps, to this far from the taught angle
-PUSHED_DEG, SATURATED = 0.05, 0.9                   # the module counts as twisted when it stands this far off its mark or its motor is this near full torque
+STEP_DEG, REACH_DEG, INSIDE_STEPS = 0.25, 2.0, 2    # the angles tried are this far apart, to this far from the taught one; the seat is up to this many steps inside the free angles
+PUSHED_DEG, FREE_TORQUE = 0.05, 0.5                 # the module counts as twisted when it stands this far off its mark or its motor holds with this share of its torque
 MAX_TURN_DEG, MAX_OFF_MM = 0.3, 1.5                 # a hotel turned more than this against the arm, or a slot this far off the box: refused
 
 
@@ -58,7 +57,8 @@ def plate_ahead(layout: dict, grip: str) -> float:
 def refine_yaw(robot, layout: dict, grip: str, read: Callable[[str, float], dict], say: Callable[[str], None] = lambda s: None) -> dict:
     """The arm stands locked at the hand-taught module seat, the plate lies in the module's clips. At each trial angle: jaw open,
     module exactly on its mark, the wrist turned about the plate, force close, read the module. Returns the seat (the wrist pose at
-    the middle of the angles where the module is not twisted) and the rows. Leaves the jaw open at that seat."""
+    the angle nearest the hand's where the module is not twisted, up to two steps inside those angles) and the rows. Leaves the jaw
+    open at that seat."""
     g, polar = layout["gripper"], layout["fixtures"]["polar"]
     deg = 0 if grip == "short_edges" else 90
     node = polar["pose_at_0" if deg == 0 else "pose_at_90"]
@@ -80,39 +80,35 @@ def refine_yaw(robot, layout: dict, grip: str, read: Callable[[str, float], dict
         off = abs(robot.ext_axis(index) - mark)
         t = read(layout["robot"]["ip"], 1.2)
         row = {"yaw": round(yaw, 3), "width": r["width"], "module_torque": t["module"][0], "module_off_deg": round(off, 3),
-               "free": off <= PUSHED_DEG and abs(t["module"][0]) < SATURATED}
+               "free": off <= PUSHED_DEG and abs(t["module"][0]) < FREE_TORQUE}
         say(f"yaw {row['yaw']:.2f}: module torque {row['module_torque']:+.2f}, off its mark {row['module_off_deg']:.2f} deg" + ("" if row["free"] else "  (twisted)"))
         return row
 
-    rows = []
-    for d in SWEEP_DEG:
-        rows.append(trial(seat[5] + d))
-        if len(rows) >= 3 and rows[-3]["free"] and not rows[-2]["free"] and not rows[-1]["free"]:
-            break                                    # past the free angles: the rest of the sweep would only twist the module again
-    while rows[0]["free"] and seat[5] - rows[0]["yaw"] < REACH_DEG - 1e-6:        # the hand was further off than the sweep: go on that way
-        rows.insert(0, trial(rows[0]["yaw"] - STEP_DEG))
-    while rows[-1]["free"] and rows[-1]["yaw"] - seat[5] < REACH_DEG - 1e-6:
-        rows.append(trial(rows[-1]["yaw"] + STEP_DEG))
-    runs, run = [], []
-    for row in rows:                                 # the longest unbroken stretch of angles where the module is left alone
-        if row["free"]:
-            run.append(row)
-        else:
-            runs.append(run)
-            run = []
-    runs.append(run)
-    best = max(runs, key=len)
+    # The seat is the angle nearest the hand's where clamping leaves the module alone, a little inside those angles. Not their middle:
+    # on the short-edge seat the module is twisted on one side only (2026-11-10: free from -89.56 down to -92 and beyond).
+    rows = [trial(seat[5])]
+    yaw, side = (seat[5], 0) if rows[0]["free"] else (None, 0)
+    k = 1
+    while yaw is None and k * STEP_DEG <= REACH_DEG + 1e-6:
+        for sgn in (-1, 1):
+            rows.append(trial(seat[5] + sgn * k * STEP_DEG))
+            if rows[-1]["free"]:
+                yaw, side = rows[-1]["yaw"], sgn
+                break
+        k += 1
+    for _ in range(INSIDE_STEPS if side else 0):
+        rows.append(trial(yaw + side * STEP_DEG))
+        if not rows[-1]["free"]:
+            break
+        yaw = rows[-1]["yaw"]
     robot.jaw_to(open_to)
     robot.ext_axis_to(index, mark)
-    if not best:
-        raise PlacesError("the module was twisted at every angle tried within 1 deg of the taught seat: the gripper was not square on the "
-                          "plate when the seat was taught. Teach this seat again")
-    if best[0] is rows[0] or best[-1] is rows[-1]:
-        raise PlacesError(f"the angles where the module is left alone run to the edge of what was tried ({best[0]['yaw']:.2f} .. {best[-1]['yaw']:.2f}): "
-                          f"the taught seat is more than {REACH_DEG:.0f} deg off. Teach this seat again")
-    yaw = (best[0]["yaw"] + best[-1]["yaw"]) / 2.0
+    if yaw is None:
+        raise PlacesError(f"the module was twisted at every angle tried within {REACH_DEG:.0f} deg of the taught seat: the gripper was not "
+                          "square on the plate when the seat was taught. Teach this seat again")
+    free = [r["yaw"] for r in rows if r["free"]]
     robot.move_linear(at(yaw))
-    return {"pose": at(yaw), "free_from": best[0]["yaw"], "free_to": best[-1]["yaw"], "taught_yaw": seat[5], "rows": rows}
+    return {"pose": at(yaw), "free_from": min(free), "free_to": max(free), "taught_yaw": seat[5], "rows": rows}
 
 
 def _seen(layout: dict, slot: str) -> np.ndarray:
