@@ -36,6 +36,10 @@ Windows blocks scripts by default; the first line allows them in that window onl
 3. Screw the hotel onto the platform. The slots face the arm. Leave it empty.
 4. Keep the ArUco plate at hand.
 
+Then load the plates into the hotel. Start at A1.
+
+![hotel](docs/img/hotel_matrix.png)
+
 ## Setup
 
 ```powershell
@@ -51,10 +55,6 @@ Each time:
 1. The arm goes loose.
 2. Fit the gripper onto the plate until the finger pads sit in the plate's grooves.
 3. Press Enter.
-
-Then load the plates into the hotel. Start at A1.
-
-![hotel](docs/img/hotel_matrix.png)
 
 ## Setup script in a nutshell
 
