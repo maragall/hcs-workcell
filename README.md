@@ -61,7 +61,7 @@ Then load the plates into the hotel. Start at A1.
 ![workcell with microscope](docs/img/cell_model_microscope.png)
 
 1. Place the microscope next to the platform, at least 20 cm from the arm's base. The plate holder must be within 39 cm of the arm's axis.
-2. Start Squid and tick Settings > Enable MCP Control Server.
+2. Start Squid. Tick Settings > Enable MCP Control Server and Settings > Enable MCP Python Exec.
 3. Place a real plate in the microscope's plate holder.
 
 ## Teaching
@@ -102,23 +102,19 @@ arm.move("microscope", "A1")
 
 ## With a running microscope
 
-In Squid, tick Settings > Enable MCP Control Server.
+In Squid, tick Settings > Enable MCP Control Server and Settings > Enable MCP Python Exec.
 
 ```python
 from polar import Polar, Microscope
 
+arm = Polar(plate_at="microscope")
 scope = Microscope()
-arm = Polar(plate_at="microscope", microscope=scope)
 
-scope.wait()
-scope.home()
 arm.move("microscope", "A1")
 arm.move("A3", "microscope")
-scope.back()
+scope.acquire("acquisition.yaml")
 ```
 
-- `scope.wait()` returns when the acquisition has finished.
-- `scope.home()` sends the stage to Squid's loading position, where the arm reaches the plate holder.
-- `scope.back()` takes the stage back to where the acquisition ended.
+- Before the arm goes to the microscope, it waits for the acquisition to finish and sends the stage to Squid's loading position.
+- After the arm has placed a plate there, the stage goes back to where the acquisition ended.
 - `scope.acquire(path)` starts an acquisition saved by Squid (`acquisition.yaml`).
-- The arm refuses to go to the microscope while its stage is not at the loading position.

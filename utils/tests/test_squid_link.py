@@ -16,7 +16,7 @@ from utils.devices.squid_link import SquidError, SquidLink  # noqa: E402
 
 
 class Stage:
-    pos, busy, log = [30.0, 40.0, 3.0], 0, []
+    pos, busy, log, slide, exec_on = [30.0, 40.0, 3.0], 0, [], None, True
 
 
 class Handler(socketserver.StreamRequestHandler):
@@ -29,11 +29,14 @@ class Handler(socketserver.StreamRequestHandler):
         elif cmd == "get_acquisition_status":
             S.busy = max(0, S.busy - 1)
             out = {"in_progress": S.busy > 0}
-        elif cmd == "move_to_loading_position":
-            S.pos = [0.5, 0.5, 0.1]
-            out = {}
-        elif cmd == "move_to_scanning_position":
-            S.pos = [20.0, 20.0, 3.0]
+        elif cmd == "python_exec" and not S.exec_on:
+            out = {"error": "python_exec is disabled. Enable it in the GUI first for security.", "enabled": False}
+        elif cmd == "python_exec" and "slide_position" in p["code"]:
+            out = {"result": S.slide or "unknown"}
+        elif cmd == "python_exec" and "btn_load_slide.clicked.emit()" in p["code"]:
+            S.log.append("button")
+            S.slide = "scanning" if S.slide == "loading" else "loading"
+            S.pos = [0.5, 0.5, 0.1] if S.slide == "loading" else [20.0, 20.0, 3.0]
             out = {}
         elif cmd == "move_to":
             S.pos = [p["x_mm"], p["y_mm"], p["z_mm"]]
@@ -48,7 +51,7 @@ class Handler(socketserver.StreamRequestHandler):
 def link():
     srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    Stage.pos, Stage.busy, Stage.log = [30.0, 40.0, 3.0], 0, []
+    Stage.pos, Stage.busy, Stage.log, Stage.slide, Stage.exec_on = [30.0, 40.0, 3.0], 0, [], None, True
     yield SquidLink("microscope", {"port": srv.server_address[1]})
     srv.shutdown()
     srv.server_close()
@@ -72,7 +75,21 @@ def test_the_stage_is_not_homed_under_a_running_acquisition(link):
     Stage.busy = 5
     with pytest.raises(SquidError, match="acquisition is running"):
         link.home()
-    assert "move_to_loading_position" not in Stage.log
+    assert "button" not in Stage.log
+
+
+def test_the_button_is_pressed_once_each_way(link):
+    link.home()
+    link.home()                                 # already at the loading position: not pressed again
+    assert Stage.log.count("button") == 1
+    link.back()
+    assert Stage.log.count("button") == 2 and Stage.pos == [30.0, 40.0, 3.0]    # back to where it stood before the first home()
+
+
+def test_python_exec_switched_off_says_which_tick(link):
+    Stage.exec_on = False
+    with pytest.raises(SquidError, match="Enable MCP Python Exec"):
+        link.home()
 
 
 def test_a_squid_that_is_not_running_says_how_to_start_the_server():

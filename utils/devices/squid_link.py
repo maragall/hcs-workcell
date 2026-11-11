@@ -1,12 +1,15 @@
 """A running Squid, through the control server its own GUI offers (Squid: Settings > Enable MCP Control Server; TCP port 5050,
-one JSON line in, one JSON line out; control/microscope_control_server.py in the Squid repo). Nothing of Squid is imported here.
+one JSON line in, one JSON line out; control/microscope_control_server.py in the Squid repo). Nothing of Squid is imported here and
+nothing is added to Squid. The loading position is reached by Squid's own button ("Move To Loading Position"), pressed through the
+server's python_exec command (Squid: Settings > Enable MCP Python Exec): the server has no command of its own for it, and the
+position lies outside the stage's travel limits, which only Squid's own procedure opens.
 
 What the plate change needs from the microscope:
     wait()      until the acquisition that is running has finished
-    home()      remember where the stage is, then run Squid's own loading procedure: the loading position (Squid's config,
+    home()      remember where the stage is, then press Squid's loading button: the loading position (Squid's config,
                 loading_x_mm, loading_y_mm) is where the arm reaches the plate holder
     parked()    the stage still stands where home() left it
-    back()      Squid's own return to the scanning position, then the stage back to where it was before home()
+    back()      press the button again (Squid's return to the scanning position), then the stage back to where it was before home()
     acquire(yaml_path)   start an acquisition saved by the GUI (acquisition.yaml)
 
 config (layout.json squid.<name>): host (default 127.0.0.1), port (default 5050), park_tolerance_mm (default 0.5).
@@ -55,6 +58,24 @@ class SquidLink:
             raise SquidError(f"{self.name}: Squid refused {command}: {reply.get('error')}")
         return reply.get("result")
 
+    def _py(self, code: str):
+        got = self._call("python_exec", code=code)
+        if isinstance(got, dict) and got.get("error"):
+            raise SquidError(f"{self.name}: {got['error']} Tick Settings > Enable MCP Python Exec in Squid")
+        return (got or {}).get("result")
+
+    def _slide(self, want: str, timeout_s: float) -> None:
+        """Squid's loading button, pressed until the stage is where `want` says ("loading" or "scanning"). The press is the button's
+        own signal, so Squid runs its procedure in its own thread and its button shows the new state."""
+        where = "result = gui.stageUtils.slide_position or 'unknown'"
+        if (self._py(where) == "loading") != (want == "loading"):
+            self._py("gui.stageUtils.btn_load_slide.clicked.emit()")
+            t0 = time.time()
+            while self._py(where) != want:
+                if time.time() - t0 > timeout_s:
+                    raise SquidError(f"{self.name}: the stage did not reach its {want} position in {timeout_s:.0f} s")
+                time.sleep(0.5)
+
     def position(self) -> tuple:
         p = self._call("get_position")
         return (float(p["x_mm"]), float(p["y_mm"]), float(p["z_mm"]))
@@ -73,8 +94,9 @@ class SquidLink:
     def home(self, timeout_s: float = 180.0) -> None:
         if not self.done():
             raise SquidError(f"{self.name}: an acquisition is running: wait for it before moving the stage")
-        self._before = self.position()
-        self._call("move_to_loading_position", timeout=timeout_s)
+        if self._py("result = gui.stageUtils.slide_position or 'unknown'") != "loading":      # already there: what was remembered stands
+            self._before = self.position()
+        self._slide("loading", timeout_s)
         x, y, _ = self.position()
         self._park = (x, y)
         self._log("squid", self.name, f"at the loading position {self._park}, was at {self._before}")
@@ -86,12 +108,11 @@ class SquidLink:
         return max(abs(x - self._park[0]), abs(y - self._park[1])) <= self.tolerance
 
     def back(self, timeout_s: float = 180.0) -> None:
-        if self._before is None:
-            raise SquidError(f"{self.name}: nowhere to go back to: home() has not been called")
-        x, y, z = self._before
-        self._call("move_to_scanning_position", timeout=timeout_s)
-        self._call("move_to", timeout=timeout_s, x_mm=x, y_mm=y, z_mm=z, blocking=True)
-        self._log("squid", self.name, f"back at {self._before}")
+        self._slide("scanning", timeout_s)
+        if self._before is not None:                # nothing remembered (the stage stood at the loading position from the start): Squid's scanning position
+            x, y, z = self._before
+            self._call("move_to", timeout=timeout_s, x_mm=x, y_mm=y, z_mm=z, blocking=True)
+        self._log("squid", self.name, f"back at {self._before or 'the scanning position'}")
 
     def acquire(self, yaml_path: str) -> dict:
         got = self._call("run_acquisition_from_yaml", timeout=120.0, yaml_path=yaml_path)
