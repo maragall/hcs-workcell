@@ -14,6 +14,7 @@ Setup script for the Bioyond Polar arm with a plate hotel and a rotation module.
 - Close BioyondWorks.
 
 ## Hardware
+![workcell with microscope](docs/img/cell_model_microscope.png)
 
 1. Connect the power cable and the emergency stop to the arm. Turn on the main switch at the back. Wait until the status light is steady.
 2. Connect the PC to port 1 of the controller with a network cable.
@@ -31,10 +32,6 @@ Each time:
 1. The arm goes loose.
 2. Fit the gripper onto the plate until the finger pads sit in the plate's grooves.
 3. Press Enter.
-
-<img src="docs/img/teach_slot_front_camera.jpg" width="400" alt="gripper camera image of the plate seating in slot A9">
-
-Gripper camera image of the plate seating in slot A9.
 
 Then load the plates into the hotel. Start at A1.
 
@@ -59,8 +56,6 @@ Then load the plates into the hotel. Start at A1.
 # Teaching
 
 ## Hardware
-
-![workcell with microscope](docs/img/cell_model_microscope.png)
 
 1. Place the microscope next to the platform, at least 20 cm from the arm's base. The plate holder must be within 39 cm of the arm's axis.
 2. Start Squid. Tick Settings > Enable MCP Control Server and Settings > Enable MCP Python Exec.
