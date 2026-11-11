@@ -325,19 +325,23 @@ class Bringup:
         def seat(deg: int, grip: str):
             def go():
                 key = "pose_at_0" if deg == 0 else "pose_at_90"
-                got = places.record(c.robot, c.layout())
-                self.ready()                                       # locks the arm where the hand left it
-                c.edit(lambda L: L["fixtures"]["polar"][key].update(got, taught_how="by hand, the pads in the plate's grooves"))
-                if c.sim:
-                    return {"seat": got["pose"][:3], "yaw": "not refined on the simulator"}
-                from utils.seat_torques import read
-                try:
-                    r = self.guard(lambda: places.refine_yaw(c.robot, c.layout(), grip, read, c.note))
-                except places.PlacesError as e:
-                    raise Refused(str(e))
+                while True:
+                    got = places.record(c.robot, c.layout())
+                    self.ready()                                   # locks the arm where the hand left it
+                    c.edit(lambda L: L["fixtures"]["polar"][key].update(got, taught_how="by hand, the pads in the plate's grooves"))
+                    if c.sim:
+                        return {"seat": got["pose"][:3], "yaw": "not refined on the simulator"}
+                    from utils.seat_torques import read
+                    try:
+                        r = self.guard(lambda: places.refine_yaw(c.robot, c.layout(), grip, read, c.note))
+                        break
+                    except places.PlacesError as e:                # this seat again, here: what was taught before it stays
+                        c.note(f"NOT TAKEN: {e}")
+                        self.loosen()
+                        self.ask(f"      fit the gripper onto the plate's {grip.split('_')[0]} edges again, then press Enter: ")
                 c.edit(lambda L: L["fixtures"]["polar"][key].update(
                     pose=r["pose"], taught_how=f"by hand, then the yaw by force: the module was left alone from {r['free_from']} to {r['free_to']} deg, "
-                                                f"the seat is the nearest of those to the hand's {r['taught_yaw']:.2f}, a little inside"))
+                                                f"found from how far each close pushed the module (the hand had {r['taught_yaw']:.2f})"))
                 here = c.robot.pose()
                 self.guard(lambda: c.robot.move_linear([here[0], here[1], clear_height()] + list(here[3:])))
                 return {"seat": [round(v, 2) for v in r["pose"][:3]], "yaw": r["pose"][5], "by hand": round(r["taught_yaw"], 2)}
