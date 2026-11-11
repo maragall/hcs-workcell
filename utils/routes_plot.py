@@ -1,5 +1,5 @@
 """docs/routes_3d.html: every stored route (run/preset/routes.json) drawn in the hotel model, for a look by eye. Offline, no hardware.
-The wrist path as stored, with joint legs traced through the arc the arm really drives, and the plate's centre for routes that carry one.
+The wrist path as stored, with joint legs traced through the arc the arm really drives, and the plate's far end (the edge that leads into the hotel) for routes that carry one.
     python utils/routes_plot.py"""
 import json
 import math
@@ -52,7 +52,7 @@ def trace(key, v):
         here = list(p)
     grip = holding if holding in HELD and isinstance(HELD[holding], dict) else "long_edges"
     return {"key": key, "group": other[0] if hotel else "m", "fwd": fwd, "holding": holding, "legs": len(v["poses"]),
-            "ahead": sum(HELD[grip]["x"]) / 2, "pts": [[round(x, 1) for x in q] for q in pts]}
+            "ahead": HELD[grip]["x"][1], "pts": [[round(x, 1) for x in q] for q in pts]}
 
 
 routes, skipped = [], []

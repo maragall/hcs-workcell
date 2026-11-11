@@ -15,7 +15,7 @@ html,body{margin:0;height:100%;background:#fff;color:#111;font:13px Arial,sans-s
 <label><input type="checkbox" id="empty"> empty claw</label>
 <label><input type="checkbox" id="fwd" checked> from the module</label>
 <label><input type="checkbox" id="back" checked> to the module</label>
-<label><input type="checkbox" id="centre"> the centre of the plate, not the wrist</label>
+<label><input type="checkbox" id="centre" checked> the end of the plate, not the wrist</label>
 <h3>Where</h3>
 <label><input type="checkbox" class="col" value="A" checked><span class="sw" style="background:#1f77b4"></span>column A</label>
 <label><input type="checkbox" class="col" value="B" checked><span class="sw" style="background:#2ca02c"></span>column B</label>
@@ -66,7 +66,7 @@ function draw(){
     const e=new THREE.Mesh(new THREE.SphereGeometry(3),new THREE.MeshBasicMaterial({color:COL[r.group]}));e.position.copy(r.fwd?P[P.length-1].v:P[0].v);group.add(e);
   }
   document.getElementById("list").innerHTML=n+" shown<br>"+html;
-  document.getElementById("tip").textContent=centre?"centre of the plate (routes with a plate)":"wrist path";
+  document.getElementById("tip").textContent=centre?"far end of the plate (routes with a plate)":"wrist path";
 }
 document.querySelectorAll("input").forEach(i=>i.addEventListener("change",draw));draw();
 (function loop(){requestAnimationFrame(loop);ren.render(scene,cam)})();
