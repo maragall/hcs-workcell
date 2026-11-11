@@ -28,6 +28,15 @@ import cv2
 import numpy as np
 from scipy.optimize import least_squares
 
+
+def _lsq(*args, **kwargs):
+    """least_squares without the numeric warnings: trial steps far from the answer overflow, the solver discards them itself, and
+    twenty lines of RuntimeWarning in the setup's output read as a failure to the person running it."""
+    import warnings
+    with warnings.catch_warnings(), np.errstate(all="ignore"):
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return least_squares(*args, **kwargs)
+
 from vision.calibration import halcon, marker
 
 IMX219_CELL_M = 1.12e-6
@@ -221,7 +230,7 @@ def fit(caps: Captures, start: halcon.CamParam, marker_size_m: float, sy: float 
     x0 = np.concatenate([[start.focus, *poly, start.sx, start.cx, start.cy], _to_vec(X0), bm0])
     scale = np.concatenate([[1e-3, 1e4, 1e9, 1e14, 1e2, 1e2, 1e-6, 1e3, 1e3], [1, 1, 1, 0.1, 0.1, 0.1],
                             [1, 1, 1, 0.1, 0.1, 0.1][: len(bm0)]])
-    res = least_squares(_residuals, x0, args=(caps, obj, sy, single_axis), x_scale=scale, method="trf",
+    res = _lsq(_residuals, x0, args=(caps, obj, sy, single_axis), x_scale=scale, method="trf",
                         xtol=1e-12, ftol=1e-12, max_nfev=300)
     cam, T_tc, T_bm = _unpack(res.x, sy, caps.width, caps.height, single_axis)
     px = float(np.sqrt(np.mean(np.sum(res.fun.reshape(-1, 2) ** 2, axis=1))))
@@ -304,7 +313,7 @@ def _fit_shape(z0, names, args):
         z[idx] = v[:len(idx)]
         return _flat_residuals(z, T_bt, corners, _with_shape(obj, v[len(idx):]), start, marker_z)
     x0 = np.concatenate([z0[idx], np.zeros(6)])
-    r = least_squares(f, np.clip(x0, lo + 1e-9, hi - 1e-9), x_scale=scale, bounds=(lo, hi), xtol=1e-13, ftol=1e-13, max_nfev=600)
+    r = _lsq(f, np.clip(x0, lo + 1e-9, hi - 1e-9), x_scale=scale, bounds=(lo, hi), xtol=1e-13, ftol=1e-13, max_nfev=600)
     z = z0.copy()
     z[idx] = r.x[:len(idx)]
     px = float(np.sqrt(np.mean(np.sum(r.fun.reshape(-1, 2) ** 2, axis=1))))
@@ -327,7 +336,7 @@ def _fit_names(z0, names, args, max_nfev: int = 600, loss: str = "soft_l1"):
         return _flat_residuals(z, *args)
     lo = np.array([-FLAT_BOUND[n] for n in names])
     hi = np.array([FLAT_BOUND[n] for n in names])
-    r = least_squares(f, np.clip(z0[idx], lo + 1e-9, hi - 1e-9), x_scale=np.array([FLAT_SCALE[n] for n in names]),
+    r = _lsq(f, np.clip(z0[idx], lo + 1e-9, hi - 1e-9), x_scale=np.array([FLAT_SCALE[n] for n in names]),
                       bounds=(lo, hi), loss=loss, f_scale=ROBUST_PX, xtol=1e-13, ftol=1e-13, max_nfev=max_nfev)
     z = z0.copy()
     z[idx] = r.x
