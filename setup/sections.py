@@ -489,9 +489,41 @@ class Bringup:
                 c.note(f"validate WARNING: the aruco moved {mm} mm between two poses 20 mm apart (limit {cameras.limit_mm(c.layout())}); carrying on, check the calibration after the demo")
             return {"check_mm": mm, "checked_at": node().get("checked_at")}
 
+        def carry():
+            """The gripper still sits on the plate in the slot taught last: the arm closes on it, takes it out the way every pick does
+            (lift, slide out), carries it to the rotation module and sets it down. Otherwise nothing: the plate is on the module."""
+            if c.sim:
+                return {"plate": "on the module (simulator)"}
+            here, taught = c.robot.pose(), c.layout()["fixtures"]["hotel"]["taught"]
+            near = {n: max(math.hypot(here[0] - p[0], here[1] - p[1]) / 15.0, abs(here[2] - p[2]) / 10.0) for n, p in taught.items()}
+            slot = min(near, key=near.get)
+            if near[slot] > 1.0:                               # slots are 134 mm and 38 mm apart: within 15 and 10 mm is that slot's seat
+                return {"plate": "the gripper is not on a plate in a slot: the plate is taken to be on the module"}
+            self._cyc = None                                   # the positions were just taught: the motion reads them again
+            cyc = self.cyc()
+            self.ready()
+            F = c.layout()["fixtures"]["polar"]
+            step = f"setup:carry:{slot}"
+
+            def go():
+                _, approach, _, up = cyc._hotel_geometry(slot)
+                cyc.store.begin(step)
+                _, why = cyc._clamp("long_edges", step)
+                if why:
+                    raise Refused(f"the gripper did not close on the plate in {slot}: {why}")
+                cyc._move("L", up, f"{step} lift", cyc.safety.profile.approach)
+                cyc._carry_check(step, "long_edges")
+                cyc._move("L", approach, f"{step} slide out", cyc.safety.profile.approach)
+                cyc.store.done(plate_at="gripper", grip="long_edges", home_slot=slot)
+                cyc._hotel_leave_approach(slot, step)
+                cyc._place("polar", F["pose_at_90"]["pose"], F, "polar", None, gate="polar@90", check=False)
+            self.guard(go)
+            return {"carried": f"{slot} to the rotation module"}
+
         self.connect()                                        # for module_to_0 and hover, which it defines
         return Section("cameras", [
-            Step("user", "put the aruco plate on the rotation module, tag up. Move the gripper above the rotation module, off the plate. Press Enter", before=self.loosen),
+            Step("user", "the gripper on the aruco plate in the slot taught last: leave it, the arm takes the plate to the rotation module. Otherwise put the plate on the rotation module, tag up, and move the gripper above it. Press Enter", before=self.loosen),
+            Step("polar", "take the aruco plate from the slot to the rotation module", carry, moves=True),
             Step("polar", "rotation module to 0 deg", self._module_to_0, moves=True),
             Step("polar", "hover hand onto rotation module centroid", self._hover, moves=True),
             Step("nova", "detect aruco with the down camera", detect, moves=True),
