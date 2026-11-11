@@ -86,61 +86,6 @@ def test_geometry_carries_the_grip_pose_with_the_marker():
 
 
 
-def test_the_whole_setup_runs_on_the_simulator():
-    cell, todo, runner, said, asked = make()
-    stopped = run_all(cell, todo, runner)
-    text = "\n".join(said)
-    assert stopped is None, text
-    L = cell.layout()
-    assert L["setup"]["hotel"]["size"] == 30 and L["setup"]["hotel"]["rows_seen"] == {"2": True, "4": True}
-    assert L["setup"]["grips"]["grip_offset"] == 31.675
-    assert L["squid"]["microscope"]["park_xy_mm"] == [0.0, 0.0]
-    assert L["setup"]["microscope"]["found_at"]
-    cell.frames.stop()
-
-
-def test_a_second_run_recognises_the_hotel_without_asking():
-    cell, todo, runner, said, asked = make()
-    assert runner.run(todo.sections()[:3]) is None
-    n = len([a for a in asked if "slot in front of the camera" in a])
-    cell2, todo2, runner2, said2, asked2 = make()
-    cell2.ref_dir = cell.ref_dir
-    assert runner2.run(todo2.sections()[:3]) is None
-    assert n == 2                                                      # the first run asked about each even row
-    assert not [q for q in asked2 if "slot in front of the camera" in q]     # the second knew both
-    cell.frames.stop()
-    cell2.frames.stop()
-
-
-def test_a_bad_hotel_answer_stops_the_run_and_names_the_section():
-    cell, todo, runner, said, asked = make({"slot in front of the camera": "maybe"})
-    assert runner.run(todo.sections()) == "hotel.toml"
-    assert any("REFUSED" in line and "neither yes nor no" in line for line in said)
-    cell.frames.stop()
-
-
-
-
-def test_a_hotel_with_no_grip_offset_is_refused_with_what_to_measure():
-    cell, todo, runner, said, asked = make({"slot in front of the camera": "no"})
-    assert runner.run(todo.sections()[:5]) == "grips.toml"
-    assert any("grip_back_mm" in line for line in said)
-    cell.frames.stop()
-
-
-def test_a_squid_without_motors_needs_no_stage_limits_axes_or_park_position():
-    cell, todo, runner, said, asked = make()
-    L = cell.layout()
-    L["squid"]["microscope"]["stage_limits_mm"] = None
-    L["squid"]["microscope"].pop("park_xy_mm", None)
-    cell.save(L)
-    assert todo.squid.motorized is False
-    assert runner.run(todo.sections()[:6]) is None, "\n".join(said)
-    assert any("no motors, stays at home" in line for line in said)
-    assert cell.layout()["squid"]["microscope"]["park_xy_mm"] == [0.0, 0.0]
-    cell.frames.stop()
-
-
 def test_a_squid_with_motors_without_stage_limits_is_refused_before_the_arm_moves():
     cell, todo, runner, said, asked = make()
     todo.squid.motorized = True

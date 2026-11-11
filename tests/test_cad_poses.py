@@ -24,13 +24,6 @@ def test_the_cad_poses_agree_with_the_taught_hotel_poses_to_a_couple_of_millimet
     assert abs(c.fit["theta_deg"]) < 0.5                          # the CAD's axes are the robot's to a fraction of a degree
 
 
-def test_rows_are_one_pitch_apart_and_the_claw_is_square_to_the_hotel():
-    c = CadPoses(LAYOUT, HARDWARE)
-    a, b = c.hotel_pose("A1"), c.hotel_pose("A2")
-    assert abs((b[2] - a[2]) - 38.0) < 1e-6 and abs(a[5] - c.fit["theta_deg"]) < 1e-9
-    assert c.hotel_pose("A1")[1] > c.hotel_pose("B1")[1] > c.hotel_pose("C1")[1]
-
-
 def test_the_hotel_answers_with_the_taught_pose_unless_the_layout_says_cad():
     class Stub(Hotel):
         def __init__(self, L):

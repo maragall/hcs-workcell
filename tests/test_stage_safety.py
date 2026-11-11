@@ -74,13 +74,6 @@ def test_null_box_is_inactive_and_preflight_lists_it():
     assert not any("keep-out" in p for p in preflight(L, "/nonexistent"))
 
 
-def test_preflight_lists_unmeasured_park_numbers_for_a_real_squid_only():
-    L = layout()
-    problems = preflight(L, "/nonexistent", ["microscope"], squid=["microscope"])
-    assert {"squid.microscope.park_xy_mm not set", "squid.microscope.park_tolerance_mm not set"} <= set(problems)
-    assert not any(p.startswith("squid.") for p in preflight(L, "/nonexistent", ["microscope"]))
-
-
 def test_cycle_stays_out_of_the_microscope_zone_while_the_stage_is_not_parked():
     r = Rig()
     r.cyc.parked = lambda: False

@@ -30,7 +30,7 @@ LAYOUT_KEYS = [
     ("workspace_box", "x"), ("workspace_box", "y"), ("workspace_box", "z"),
     ("regions", "microscope", "box"), ("regions", "hotel", "box"),
     ("fixtures", "hotel", "taught"), ("fixtures", "hotel", "columns"), ("fixtures", "polar", "pose_at_0", "pose"),
-    ("fixtures", "microscope", "pose"), ("routes", "nest", "pose"),
+    ("fixtures", "microscope", "pose"),
     ("volumes", "obstacles", "hotel"), ("volumes", "claw", "fingers"), ("limits", "min_disk_free_gb"),
 ]
 HARDWARE_KEYS = [("cad", "platform"), ("cad", "hotel"), ("cad", "rotation_module"),
@@ -149,23 +149,6 @@ def check_files(out: List[Result], layout_path: str, hardware_path: str):
     return layout, hardware
 
 
-def check_nest(out: List[Result], layout: Optional[dict]) -> None:
-    if layout is None:
-        return
-    try:
-        pose = dig(layout, ("routes", "nest", "pose"))
-        box = layout["workspace_box"]
-        assert len(pose) == 6 and all(isinstance(v, (int, float)) for v in pose)
-        for axis, i in (("x", 0), ("y", 1), ("z", 2)):
-            lo, hi = box[axis]
-            assert lo <= pose[i] <= hi, f"{axis} {pose[i]} is outside the workspace {lo}..{hi}"
-    except (KeyError, AssertionError, TypeError, ValueError) as e:
-        out.append(Result("FAIL", "nest", f"routes.nest.pose is not usable ({e})",
-                          "drag the arm to a safe pose in front of the hotel and record it as routes.nest.pose (6 numbers)"))
-        return
-    out.append(Result("PASS", "nest", "pose " + ", ".join(f"{v:g}" for v in pose[:3]) + f", yaw {pose[5]:g}"))
-
-
 def check_credentials(out: List[Result], layout: Optional[dict]) -> None:
     ssh = (layout or {}).get("vision", {}).get("ssh") or {}
     if ssh.get("user") and ssh.get("password"):
@@ -254,7 +237,6 @@ def check(layout_path: Optional[str] = None, hardware_path: Optional[str] = None
     check_packages(out, env)
     check_sdk(out, env, sim)
     layout, _ = check_files(out, layout_path, hardware_path)
-    check_nest(out, layout)
     check_credentials(out, layout)
     check_runs(out, layout, runs_dir, env)
     if not sim:

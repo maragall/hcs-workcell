@@ -6,7 +6,7 @@
   3. Enter. The seat goes into layout.json fixtures.<NAME>, the routes seat <-> module into preset/routes.json. READY.
 
 Nothing here is new motion code: the arm is never commanded to move. The pieces are the tested ones: the loose arm with the jaw left
-as it is (setup/hand.py loosen, the setup's "microscope seat" step), the record (tools/teach_daemon.py record, without the camera
+as it is (setup/hand.py loosen, the setup's "microscope seat" step), the record (record below, without the camera
 frames), the seat's hover and planner box (setup/sections.py stage_hover, microscope_box), the planning (tools/plan_preset_routes.py).
 """
 from __future__ import annotations
@@ -73,7 +73,7 @@ def store(entries: dict) -> None:
 
 
 def record(robot, layout: dict, name: str) -> dict:
-    """tools/teach_daemon.py record() without the camera frames: where the arm is now becomes fixtures.<name>; its other keys stay.
+    """Where the arm is now becomes fixtures.<name>; its other keys stay.
     As the setup's seat step does (setup/sections.py stage_hover), the stored hover and the instrument's box for the planner follow."""
     pose, joints, jaw, e2 = robot.pose(), robot.joints(), robot.jaw(), robot.ext_axis(int(layout["polar"]["ext_axis"]["index"]))
     if abs(joints[3]) > WRIST_WOUND_DEG:

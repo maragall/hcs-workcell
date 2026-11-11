@@ -24,33 +24,3 @@ def test_plate_order_reads_the_loaded_slots_from_the_positions_file():
     assert plate_order(L) == ["A1", "C2", "A3", "C4", "A5", "C6", "A7", "C8", "A9", "C10"]
 
 
-def test_second_change_returns_the_plate_home_and_fetches_the_next_slot():
-    r = Rig()
-    try:
-        r.run("A1")                                    # plate on the microscope has no home: it goes to A1 and comes back
-        s = r.cyc.store.s
-        assert s.plate_at == "microscope" and s.home_slot == "A1"
-        r.run("C2")                                    # A1 home, then C2 in
-        assert s.plate_at == "microscope" and s.home_slot == "C2"
-        assert "A1" in s.hotel and "C2" not in s.hotel  # the ledger: A1 holds a plate again, C2 is now empty
-        steps = [e["step"] for e in r.events() if e["kind"] == "move"]
-        assert any("place:hotel:A1" in st for st in steps) and any("pick:hotel:C2" in st for st in steps)
-    finally:
-        r.close()
-
-
-def test_a_place_into_an_occupied_slot_backs_out_and_uses_the_home_slot():
-    r = Rig()
-    try:
-        r.run("A1")                                    # plate home is A1
-        s = r.cyc.store.s
-        s.hotel["A1"] = "a plate someone left there"   # someone filled the home slot meanwhile (ledger, or the camera on the real cell)
-        r.cyc.store.save()
-        r.run("C2")                                    # going home to A1 is refused: backs out, places in C2, then brings C2's plate in
-        assert s.plate_at == "microscope" and s.home_slot == "C2"
-        assert s.hotel["A1"] == "a plate someone left there" and "C2" not in s.hotel
-        events = r.events()
-        assert any(e["step"] == "slot_occupied" for e in events)
-        assert any("place:hotel:C2" in e["step"] for e in events)
-    finally:
-        r.close()

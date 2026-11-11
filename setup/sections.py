@@ -408,7 +408,7 @@ class Bringup:
     # ------------------------------------------------------------------ the sections
     def sections(self) -> List[Section]:
         # the pre-nuke workflow without the hotel (operator, 2026-11-08): no hotel size, no slot survey; the hotel seats are taught
-        # by hand (tools/teach_daemon.py, fitted by tools/fit_hotel_grid.py) and the occupancy is the operator's list
+        # by hand (fitted by tools/fit_hotel_grid.py) and the occupancy is the operator's list
         return [self.connect(), self.cameras(), self.seat(), self.microscope(), self.grips(), self.test()]
 
     # ---- Connect system modules

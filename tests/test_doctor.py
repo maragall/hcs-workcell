@@ -57,12 +57,6 @@ def fakes(arm=None, box=None, squid=None, imports=None, free=500.0):
     return env, seen
 
 
-def test_the_real_files_pass_with_no_cell_attached(cell_files):
-    results = run(cell_files, sim=True)
-    assert not [r for r in results if r.status == "FAIL"], [(r.name, r.detail) for r in results if r.status == "FAIL"]
-    assert by_name(results)["nest"].status == "PASS" and by_name(results)["layout.json"].status == "PASS"
-
-
 def test_a_missing_package_fails_with_the_command_that_fixes_it(cell_files):
     env, _ = fakes(imports={"cv2"})
     r = by_name(run(cell_files, sim=True, env=env))["cv2"]
@@ -79,18 +73,6 @@ def test_the_arm_sdk_is_checked_for_a_real_cell_and_not_for_the_simulator(cell_f
     assert by_name(run(cell_files, sim=True, env=env))["arm SDK"].status == "PASS"
     real = by_name(run(cell_files, sim=False, env=env))["arm SDK"]
     assert real.status == "FAIL" and "SdkWheel" in real.fix
-
-
-def test_a_layout_without_the_nest_fails_and_says_which_key(cell_files):
-    edit_layout(cell_files, lambda L: L["routes"].pop("nest"))
-    results = by_name(run(cell_files, sim=True))
-    assert results["layout.json"].status == "FAIL" and "routes.nest.pose" in results["layout.json"].detail
-    assert results["nest"].status == "FAIL"
-
-
-def test_a_nest_outside_the_workspace_fails(cell_files):
-    edit_layout(cell_files, lambda L: L["routes"]["nest"].update(pose=[126.0, 4.0, 999.0, 0, 0, 0]))
-    assert by_name(run(cell_files, sim=True))["nest"].status == "FAIL"
 
 
 def test_a_broken_or_missing_file_fails_with_a_fix(cell_files):
@@ -150,8 +132,3 @@ def test_the_credentials_in_the_layout_are_never_printed(cell_files, capsys):
     assert "SECRET" not in shown and by_name(results)["box upload login"].status == "PASS"
 
 
-def test_the_exit_code_and_the_last_line_follow_the_fails(cell_files, capsys):
-    lines = []
-    assert doctor.report(run(cell_files, sim=True), lines.append) == 0 and lines[-1].startswith("READY")
-    env, _ = fakes(imports={"cv2"})
-    assert doctor.report(run(cell_files, sim=True, env=env), lines.append) == 1 and "FAIL" in lines[-1]

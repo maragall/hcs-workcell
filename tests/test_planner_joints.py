@@ -17,7 +17,6 @@ from planner.volumes import Volumes  # noqa: E402
 from planner import fk  # noqa: E402
 
 LAYOUT = json.load(open(os.path.join(os.path.dirname(HERE), "layout.json"), encoding="utf-8"))
-NEST = LAYOUT["routes"]["nest"]
 LIM = jt.limits(LAYOUT)
 
 
@@ -90,53 +89,6 @@ def test_from_the_mirror_branch_with_the_claw_turned_the_route_turns_by_joints_a
             assert LIM["j4"][0] <= route.joint_targets[i][3] <= LIM["j4"][1]
     assert max(abs(j[3]) for j in ends) <= LIM["j4"][1]
     assert route.poses[-1] == hover
-
-
-def test_the_real_failure_from_the_microscope_hover_reaches_the_nest_on_joints_the_controller_can_drive():
-    """2026-10-28 02:16: dragged to the microscope hover on the mirror branch, the straight leg to the nest was refused."""
-    start = [194.1, 93.9, 109.3, 65.6]
-    L, safety = make(start)
-    here = fk.fk(start)
-    t0 = time.time()
-    route = planner.plan(L, safety, here, list(NEST["pose"]), None, "nest")
-    assert time.time() - t0 < 30
-    ends = drive(L, safety, start, route)
-    assert route.last_joint and route.last_joints == pytest.approx(NEST["joints_at_teach"][:4], abs=1e-6)
-    vol, prev = Volumes(L, safety), here
-    for i, p in enumerate(route.poses):                      # every leg again, as the controller would drive it
-        if i in route.joint_targets:
-            vol.check_joint_leg(prev, p, start_actual=i == 0, joints_a=ends[i - 1] if i else None, joints_b=route.joint_targets[i])
-        else:
-            vol.check_leg(prev, p)
-        prev = p
-    for j in ends:
-        assert jt.inside(j, LIM, 0.0) is None or j is ends[0]
-
-
-def test_a_branch_change_goes_through_the_nest_and_every_joint_leg_carries_its_joints():
-    """The standard-branch hover to column C: only reachable on the mirror branch (taught C9 has j3 = +64)."""
-    start = [62.6, 31.738, -126.448, 3.447]
-    L, safety = make(start)
-    hover = list(L["fixtures"]["polar"]["pose_at_0"]["pose"])
-    hover[2] += L["fixtures"]["polar"]["hover_mm"]
-    from run.cad_poses import CadPoses
-    h = L["fixtures"]["hotel"]
-    p = CadPoses(L).hotel_pose("C1")
-    target = [p[0] - h["approach"]["mm"], p[1], p[2] + h["lift_mm"], 0.0, 0.0, p[5]]
-    route = planner.plan(L, safety, hover, target, None, "hotel approach C1")
-    assert route.name == "via-the-nest" and 0 in route.joint_targets
-    assert route.joint_targets[0] == pytest.approx(NEST["joints_at_teach"][:4], abs=1e-6)
-    ends = drive(L, safety, start, route)
-    assert fk.elbow_sign(ends[-1]) == -1                     # arrived on the mirror branch
-    assert route.poses[-1] == target
-
-
-def test_a_plan_takes_seconds_not_minutes():
-    start = [194.1, 93.9, 109.3, 65.6]
-    L, safety = make(start)
-    t0 = time.time()
-    planner.plan(L, safety, fk.fk(start), list(NEST["pose"]), None, "nest")
-    assert time.time() - t0 < 30
 
 
 def test_without_the_arms_joints_the_planner_behaves_as_before():

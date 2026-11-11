@@ -218,7 +218,7 @@ class VendorRobot:
         return _clamp.read(self.ip)
 
     def drag(self, on: bool):
-        """Hand-guiding on or off, the teach_daemon sequence: toggle, let the controller settle, re-enable after.
+        """Hand-guiding on or off, in this order: toggle, let the controller settle, re-enable after.
         The caller closes the jaw first; the toggle snaps the gripper."""
         self._r.EnableDragModeAsync(bool(on))
         time.sleep(1.5)

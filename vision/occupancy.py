@@ -3,7 +3,7 @@
 The plate is never modelled (hundreds of types and colours, labs differ in lighting and background): each station keeps its own
 empty references under reference_images/occupancy/<station>/empty_<stamp>_<camera>.jpg and the question is only "how far is
 the live picture from the nearest empty one", measured against how far the empties are from each other. `full_*` pictures
-are not used by the verdict; tools/occupancy_eval.py uses them to show the margin.
+are not used by the verdict.
 
 Level 1 (no learning). Grey, region of interest (ROI, fractions of the frame: the central 60 % for the down camera over a seat,
 the lower third for the front camera at a slot mouth, per-station overrides in ROI), 320 px wide, Gaussian blur. Three differences between the live ROI and one empty reference, all 0 for identical pictures:
@@ -45,7 +45,7 @@ BLUR = 1.5             # Gaussian sigma after the resize
 SHIFT = 8              # px of shift tolerance in the correlation search (at WIDTH)
 DEFAULT_NOISE = 0.25   # score units, the empty noise assumed when only one empty exists (ncc + edge: two empties 28 min apart scored 0.11)
 NOISE_FLOOR = 0.15     # the noise is never taken below this: two empties minutes apart (A1: 0.00) have not seen a day's light or the arm's drift
-LOW, HIGH = 1.5, 2.5   # reported bands as multiples of the empty noise (tools/occupancy_eval.py); the verdict uses the fixed bands below
+LOW, HIGH = 1.5, 2.5   # reported bands as multiples of the empty noise; the verdict uses the fixed bands below
 EMPTY_MAX, FULL_MIN = 0.30, 0.45   # verdict: distance to the nearest empty reference; between the two is unsure
 ROI_DEFAULT = (0.2, 0.2, 0.8, 0.8)   # x0, y0, x1, y1 as fractions of the frame: the central 60 % (down camera over a seat)
 ROI_SLOT = (0.22, 0.65, 0.80, 1.0)   # front camera at a slot's approach point: the plate fills the lower third between the walls

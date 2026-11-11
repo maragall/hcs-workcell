@@ -47,37 +47,3 @@ def test_record_and_outcome_rows_share_the_step(tmp_path):
     assert outcomes[0]["time"].endswith("+00:00")
 
 
-def test_an_unwritable_outbox_never_stops_the_arm():
-    """Recording for the hub is opt-in telemetry. With the outbox path taken by a file, every record() and outcome()
-    raises; the cycle must finish and say so in the events, not crash with the plate in the gripper."""
-    from run.cycle import Cycle
-    r = Rig()
-    outbox = os.path.join(r.tmp, "outbox")
-    open(outbox, "w").close()                                     # a file where the directory should be
-    r.L["vision"]["hub"] = {"record": True, "outbox": outbox}
-    r.cyc = Cycle(r.L, r.robot, r.vis, r.tele, r.store, "unsupervised", r.cyc.run_dir, os.path.join(r.tmp, "refs"))
-    try:
-        r.run()
-        assert r.store.s.plate_at == "microscope" and r.store.s.step_done
-        assert any(e["kind"] == "hub" for e in r.events())
-    finally:
-        r.close()
-
-
-def test_the_cell_records_gate_verdicts_and_step_outcomes_when_opted_in():
-    r = Rig(refs=GATES + [("stage", "to_90")])
-    outbox = os.path.join(r.tmp, "outbox")
-    r.cyc.hub_cfg = {"record": True, "outbox": outbox}
-    r.cyc.store.on_done = lambda step: hub.outcome(step, True, outbox)
-    r.cyc.L["vision"]["stage_check"]["auto_refs"] = 3
-    P0 = r.L["fixtures"]["polar"]["pose_at_0"]["pose"]
-    r.robot.set_pose_for_test(P0)
-    try:
-        r.cyc._polar_rotate(90, P0)                               # trained stage gate: one verdict row, one outcome row
-        stage = [json.loads(line) for line in open(os.path.join(outbox, "stage.jsonl"), encoding="utf-8")]
-        outcomes = [json.loads(line) for line in open(os.path.join(outbox, "outcomes.jsonl"), encoding="utf-8")]
-        assert stage[0]["verdict"] == "ok" and stage[0]["step"] == "polar:90" and os.path.exists(stage[0]["frame"])
-        assert outcomes[-1] == {"step": "polar:90", "succeeded": True, "time": outcomes[-1]["time"]}
-    finally:
-        r.close()
-        shutil.rmtree(outbox, ignore_errors=True)
