@@ -289,7 +289,7 @@ class Volumes:
                     heapq.heappush(heap, (nd + guess, count, nxt, nd))
         if goal not in prev and start != goal:
             raise SafetyViolation("no route around the hotel and the pillar from here: the claw (205 mm ahead of the wrist) "
-                                  "cannot pass; move the arm by hand to a taught position first")
+                                  "cannot pass; make the arm loose and move the gripper by hand into the free space in front of the rotation module, a hand's width from the hotel, the pillar and the microscope (anywhere there will do), then try again")
         chain, st = [], goal
         while st != start:
             chain.append(st)
