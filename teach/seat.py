@@ -102,8 +102,8 @@ def record(robot, layout: dict, name: str) -> dict:
     As the setup's seat step does (setup/sections.py stage_hover), the stored hover and the instrument's box for the planner follow."""
     pose, joints, jaw, e2 = robot.pose(), robot.joints(), robot.jaw(), robot.ext_axis(int(layout["polar"]["ext_axis"]["index"]))
     if abs(joints[3]) > WRIST_WOUND_DEG:
-        raise ValueError(f"the wrist is wound (joint 4 at {joints[3]:.0f} deg): lift the claw off the plate, turn it one full turn the other "
-                         "way, set it back around the plate and run again")
+        raise ValueError(f"the wrist is wound up (its joint stands at {joints[3]:.0f} deg, the range ends at {WRIST_WOUND_DEG:.0f}). Lift the gripper off "
+                         "the plate, turn the gripper one full turn back the way it came, and fit it onto the plate again")
     node = layout["fixtures"].setdefault(name, {})
     node.update({"pose": [round(v, 4) for v in pose], "joints_at_teach": [round(v, 3) for v in joints[:4]],
                  "jaw_at_teach": round(jaw, 3), "stage_axis_at_teach": round(e2, 3), "taught_at": time.strftime("%Y-%m-%d %H:%M:%S")})
@@ -135,7 +135,7 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
         print(f"the arm is not reachable ({e}): close BioyondWorks and any other program that holds it, then run again")
         return 2
     try:
-        if st.moving:
+        if st.moving and not st.drag:                     # a loose arm reports "moving" all the time
             print("the arm is moving: wait until it stands still, then run again")
             return 2
         g = layout["gripper"]
@@ -144,17 +144,19 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
         if not robot.state().enabled and not robot.enable():
             print("the arm could not be enabled to set the jaw: python cli.py recover")
             return 2
-        robot.jaw_to(round(float(g["plate_width"]["short_edges"]) + 0.1, 2))      # a hair wider than the plate, as the setup does: the pads slide into its grooves
+        jaw = round(float(g["plate_width"]["short_edges"]) + 0.1, 2)      # a hair wider than the plate, as the setup does: the pads slide into its grooves
+        robot.jaw_to(jaw)
         robot.drag(True)
-        print(f"2. the arm is loose, the jaw set for the plate's short edges ({robot.jaw():.1f}).\n"
+        print(f"2. the arm is loose, the jaw set for the plate's short edges ({jaw}).\n"
               f"   Put a plate in the holder of {name}. Fit the gripper onto the plate's short edges until the finger pads sit in the plate's grooves.")
-        ask("   Press Enter when the pads sit in the grooves: ")
-        layout = positions.load()
-        try:
-            node = record(robot, layout, name)
-        except ValueError as e:
-            print(f"{e}. The arm is still loose")
-            return 2
+        while True:
+            ask("   Press Enter when the pads sit in the grooves: ")
+            layout = positions.load()
+            try:
+                node = record(robot, layout, name)
+                break
+            except ValueError as e:                       # the wrist wound past its range, or the positions file lacks a value: said, and asked again
+                print(f"   NOT TAKEN: {e}.")
         positions.save(layout)
         print(f"   seat of {name} = {[round(v, 1) for v in node['pose'][:3]]} yaw {node['pose'][5]:.2f}, jaw {node['jaw_at_teach']:.2f}, stored in layout.json")
         robot.drag(False)
