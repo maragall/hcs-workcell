@@ -7,11 +7,26 @@ Setup script for the Bioyond Polar arm with a plate hotel and a rotation module.
 - BioyondWorks, installed on the PC.
 - The Bioyond Python package (a .whl file). Contact us or Bioyond to get it.
 - Python 3.10 or newer.
-- Open PowerShell and `cd` into this folder, the one that holds `cli.py`. Every command below is run from there.
-- Run `Set-ExecutionPolicy -Scope Process Bypass`. Windows blocks scripts by default; this allows them in this PowerShell window only. Run it again in every new window.
-- Run `.\setup\install.ps1 -SdkWheel <path to the .whl file>`, then `.\.venv\Scripts\Activate.ps1`.
 - The camera box login, in a file `nova_ssh.local.json` in the top folder: `{"user": "...", "password": "..."}`.
 - Close BioyondWorks.
+
+Open PowerShell and `cd` into this folder, the one that holds `cli.py`. Every command below is run from there.
+
+Install, once. Put the path to the .whl file in the second line:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\setup\install.ps1 -SdkWheel "C:\path\to\bioyondsdk.whl"
+```
+
+In every new PowerShell window, before any other command:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+Windows blocks scripts by default; the first line allows them in that window only.
 
 ## Hardware
 ![workcell with microscope](docs/img/cell_model_microscope.png)
@@ -23,7 +38,11 @@ Setup script for the Bioyond Polar arm with a plate hotel and a rotation module.
 
 ## Setup
 
-Run `python cli.py setup`. The script ends with `READY`.
+```powershell
+python cli.py setup
+```
+
+The script ends with `READY`.
 
 The script asks you to show the arm eight places with the ArUco plate: slots A1, A9, B1, B9, C1 and C9, then the rotation module twice (short edges, then long edges). The arm ends above the rotation module.
 
@@ -63,7 +82,11 @@ Then load the plates into the hotel. Start at A1.
 
 ## Teaching
 
-1. Run `python cli.py teach`. The script sends the microscope's stage to Squid's loading position, then the arm goes loose.
+```powershell
+python cli.py teach
+```
+
+1. The script sends the microscope's stage to Squid's loading position, then the arm goes loose.
 2. Fit the gripper onto the plate's short edges until the finger pads sit in the plate's grooves.
 3. Press Enter. The arm lifts above the seat and the script ends with `READY`.
 
@@ -78,7 +101,11 @@ Then load the plates into the hotel. Start at A1.
 
 ## Demo
 
-Run `python demo.py`. The arm takes the plate from A1 to the microscope and back.
+```powershell
+python demo.py
+```
+
+The arm takes the plate from A1 to the microscope and back.
 
 ## Your own script
 
