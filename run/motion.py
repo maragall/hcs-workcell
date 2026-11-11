@@ -116,6 +116,13 @@ class Motion:
         self.tele.log("move", label, "turn", turned_deg=round(d, 1), actual=[round(v, 2) for v in after], dt=round(time.time() - t0, 2))
         self.store.s.last_safe_pose = after
 
+    def _observe_time(self, label: str, dt: float) -> None:
+        """A move's duration goes to the drift monitor only when the move is the same every time. A leg of a route planned from where
+        the arm stands ("move_to ... [1/1]") starts somewhere else each time: on 2026-11-11 0.70 s against a median of 0.81 s for the
+        camera's centring moves stopped the setup as "drift"."""
+        if not label.startswith("move_to "):
+            self._observe(f"dt:{label}", dt)
+
     def _move(self, kind: str, target: List[float], label: str, speed: float, allow_floor=()):
         here = self.robot.pose()
         self.last_heading = [target[i] - here[i] for i in range(3)]      # where this move was going: if it stops the arm against something, the planner backs out against it
@@ -138,7 +145,7 @@ class Motion:
         dt = time.time() - t0
         self.tele.log("move", label, kind, target=[round(v, 2) for v in target],
                       actual=[round(v, 2) for v in self.robot.pose()], dt=round(dt, 2), speed=speed, dev=round(dev, 2))
-        self._observe(f"dt:{label}", dt)
+        self._observe_time(label, dt)
 
     def _refused(self, label: str, e: Exception):
         """A move that did not reach its target. Ask the controller why before naming the fault: on 2026-10-20 22:25 a
