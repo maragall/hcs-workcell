@@ -498,6 +498,8 @@ class Bringup:
             near = {n: max(math.hypot(here[0] - p[0], here[1] - p[1]) / 15.0, abs(here[2] - p[2]) / 10.0) for n, p in taught.items()}
             slot = min(near, key=near.get)
             if near[slot] > 1.0:                               # slots are 134 mm and 38 mm apart: within 15 and 10 mm is that slot's seat
+                self.ready()
+                self.guard(lambda: self.cyc()._elbow_to_taught("setup:elbow"))      # a hand that came from column C leaves the elbow mirrored
                 return {"plate": "the gripper is not on a plate in a slot: the plate is taken to be on the module"}
             self._cyc = None                                   # the positions were just taught: the motion reads them again
             cyc = self.cyc()
