@@ -10,6 +10,7 @@ Motion is never retried; every motion is observed to completion and compared wit
 """
 from __future__ import annotations
 
+import math
 import os
 import threading
 import time
@@ -190,7 +191,9 @@ class Cycle(Motion, Grasp, Gates, Hotel):
             S = json.load(fh)
         polar, prof = self.L["fixtures"]["polar"], self.safety.profile
         self.tele.log("move", step, "the arm is on the mirrored elbow side: switching over the module")
-        self._arrive(offset(polar["pose_at_90"]["pose"], [0, 0, polar["hover_mm"]]), f"{step} module hover", prof.approach)
+        hover, here = offset(polar["pose_at_90"]["pose"], [0, 0, polar["hover_mm"]]), self.robot.pose()
+        if math.hypot(here[0] - hover[0], here[1] - hover[1]) > 2.0:          # already over the seat (at any height): straight up from here
+            self._arrive(hover, f"{step} module hover", prof.approach)
         here = self.robot.pose()
         top = list(here[:2]) + [float(S["z"])] + list(here[3:])
         self._move("L", top, f"{step} up", prof.approach)

@@ -1,7 +1,7 @@
 {
  "made": "2026-11-11 00:03:31",
  "holding": "empty",
- "z": 435.0,
+ "z": 430.0,
  "via_mirror_to_taught": [
   [
    85.0,
@@ -29,5 +29,5 @@
    5.0
   ]
  ],
- "note": "elbow side switch over the module's long-edge seat with an empty claw, from the mirrored side (where column C leaves the arm) to the taught one: lift to z, joints 2..4 through these postures in order by joint moves, then the taught side's posture over the seat. Found offline on 2026-11-11 with every leg 10 mm clear of the hotel, pillar and microscope; run/cycle.py checks the legs again against layout.json before it drives them."
+ "note": "elbow side switch over the module's long-edge seat with an empty claw, from the mirrored side (where column C leaves the arm) to the taught one: lift to z (5 mm under the top of the workspace box: at the top itself the pose check refused, 2026-11-11), joints 2..4 through these postures in order by joint moves, then the taught side's posture over the seat. Found offline on 2026-11-11 with every leg 10 mm clear of the hotel, pillar and microscope; run/cycle.py checks the legs again against layout.json before it drives them."
 }
