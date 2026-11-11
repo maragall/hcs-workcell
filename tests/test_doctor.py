@@ -1,4 +1,4 @@
-"""The doctor (tools/doctor.py): a read-only check that this PC and cell are ready for `python cli.py setup`. On the real files with
+"""The doctor (setup/doctor.py): a read-only check that this PC and cell are ready for `python cli.py setup`. On the real files with
 no cell attached, with parts missing, with the cell answering through fakes, and with credentials that must never be printed."""
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
-from tools import doctor  # noqa: E402
+from setup import doctor  # noqa: E402
 
 
 @pytest.fixture

@@ -34,7 +34,7 @@ from run import positions  # noqa: E402
 from vision.corrector import StopSafe  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
 from run.preflight import preflight  # noqa: E402
-from run.safety import SafetyViolation  # noqa: E402
+from planner.safety import SafetyViolation  # noqa: E402
 from run.state import StateStore  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 
@@ -42,17 +42,11 @@ LAYOUT, RUNS, REFS = positions.PATH, positions.RUNS, positions.REFS
 load_layout, save_layout = positions.load, positions.save
 
 
+connect_robot_readonly = nova.connect_readonly
+
+
 def make_robot(layout: dict, args, log):
     return nova.arm(layout, log, sim=getattr(args, "sim", False))
-
-
-def connect_robot_readonly(layout, log):
-    robot = nova.arm(layout, log)
-    robot.connect()
-    st = robot.state()
-    if not st.enabled:
-        log("robot", "state", "not enabled: readouts may be stale")
-    return robot, st
 
 
 def cmd_status(args):
@@ -196,7 +190,7 @@ def cmd_positions(args):
 
 
 
-from setup.colour import plain as _plain
+from vision.colour import plain as _plain
 
 
 def _tee_console(name: str) -> str:
@@ -241,7 +235,7 @@ def cmd_setup(args):
     log_path = _tee_console("setup")
     print(f"this run is logged to {log_path} (and runs/setup_*/events.jsonl)")
 
-    from setup import prompt as prompt_mod
+    from vision import prompt as prompt_mod
     from setup.runner import Runner
     from setup.sections import Bringup
     from devices.fake_squid import FakeSquid
@@ -278,7 +272,7 @@ def cmd_setup(args):
 
 def cmd_teach(args):
     """Teach an instrument's seat by hand (arm loose, Enter) and plan its routes to the rotation module: teach/__init__.py."""
-    import teach
+    from teach import seat as teach
     return teach.run(args.name, lambda layout: make_robot(layout, args, lambda *a: None))
 
 
@@ -296,7 +290,7 @@ def cmd_shuffle(args):
 
 def cmd_doctor(args):
     """Is this PC and this cell ready? Read-only; prints PASS/FAIL lines with the fix for each."""
-    from tools import doctor
+    from setup import doctor
     return doctor.main(["--sim"] if args.sim else [])
 
 

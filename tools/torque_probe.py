@@ -17,7 +17,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))      # the repo root
-import cli as R  # noqa: E402
+from run import positions  # noqa: E402
 from devices.controller import Brcapi  # noqa: E402
 
 IDX_RAW, IDX_W, IDX_NORM, IDX_BEAT, IDX_REF = 4, 5, 6, 7, 8
@@ -59,7 +59,7 @@ def main():
     ap.add_argument("--trq", type=float, default=0.2, help="GripperEmptyDet torque threshold 0..1")
     ap.add_argument("--v", type=int, default=50, help="jaw speed 1..100")
     args = ap.parse_args()
-    layout = R.load_layout()
+    layout = positions.load()
     b = Brcapi(layout["robot"]["ip"], log=None)
     b.connect()
     try:

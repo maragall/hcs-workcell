@@ -4,7 +4,7 @@ fix under each FAIL or WARN. Read-only: it moves nothing, writes nothing but one
 credentials in layout.json, and never connects an SDK client (the controller takes one at a time): the arm is looked for
 on its BRCAPI port only, and the SDK port is probed only when asked (--probe-sdk-port, with nothing else connected).
 
-    python tools/doctor.py [--sim] [--probe-sdk-port]     (also: python cli.py doctor)
+    python setup/doctor.py [--sim] [--probe-sdk-port]     (also: python cli.py doctor)
 
 --sim checks the PC and the files only, for a machine with no cell attached. Exit code 0 when nothing FAILs.
 """

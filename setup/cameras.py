@@ -14,7 +14,7 @@ import os
 import time
 from typing import List, Optional
 
-from run.safety import Safety, SafetyViolation
+from planner.safety import Safety, SafetyViolation
 from planner.volumes import Volumes
 
 from setup import calibration_fake

@@ -14,7 +14,7 @@ from typing import Callable
 
 from devices.arm import MotionRefused
 from vision.corrector import StopSafe
-from run.safety import SafetyViolation
+from planner.safety import SafetyViolation
 
 WORDS = ("controller error", "collision", "possible collision", "servo", "controller lost enable", "not enabled")
 MARKER = "COLLISION"                      # runs/COLLISION: written with the reason; a supervisor does not relaunch while it exists

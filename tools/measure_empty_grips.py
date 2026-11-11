@@ -8,7 +8,8 @@ import time
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
-import cli as R  # noqa: E402
+from run import positions  # noqa: E402
+from devices import nova  # noqa: E402
 from devices import clamp, nova  # noqa: E402
 
 COMMAND = {"long_edges": 0.5, "short_edges": 21.4}     # the same commands as the on-plate closes
@@ -16,7 +17,7 @@ LIMIT, SPEED = 0.5, 20
 
 
 def main() -> int:
-    L = R.load_layout()
+    L = positions.load()
     ip = L["robot"]["ip"]
     b = nova.controller(L)
     b.connect()
@@ -30,7 +31,7 @@ def main() -> int:
     b.close()
     out = {"at": time.strftime("%Y-%m-%d %H:%M:%S"), "limit": LIMIT, "speed": SPEED}
     for grip in ("long_edges", "short_edges"):
-        robot, _ = R.connect_robot_readonly(L, lambda *a, **k: None)
+        robot, _ = nova.connect_readonly(L, lambda *a, **k: None)
         try:
             robot.jaw_to(L["gripper"]["open"][grip])
             opened = round(robot.jaw(), 2)
@@ -39,7 +40,7 @@ def main() -> int:
         r = clamp.close(ip, COMMAND[grip], LIMIT, SPEED)
         out[grip] = {"opened": opened, "command": COMMAND[grip], "close": r}
         print(f"{grip}: opened {opened}, command {COMMAND[grip]} -> width {r['width']}, torque {r['torque']}", flush=True)
-    with open(os.path.join(R.RUNS, "force_close_practice_empty.json"), "w") as f:
+    with open(os.path.join(positions.RUNS, "force_close_practice_empty.json"), "w") as f:
         json.dump(out, f, indent=1)
     return 0
 

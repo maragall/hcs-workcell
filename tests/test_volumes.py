@@ -11,7 +11,7 @@ import pytest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from run.safety import Safety, SafetyViolation  # noqa: E402
+from planner.safety import Safety, SafetyViolation  # noqa: E402
 from planner import plan as planner  # noqa: E402
 from planner.volumes import Volumes  # noqa: E402
 from planner import fk  # noqa: E402

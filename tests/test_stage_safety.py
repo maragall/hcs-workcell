@@ -14,7 +14,7 @@ from rig import layout  # noqa: E402
 from test_sim import Rig  # noqa: E402
 
 from run.preflight import preflight  # noqa: E402
-from run.safety import Safety, SafetyViolation  # noqa: E402
+from planner.safety import Safety, SafetyViolation  # noqa: E402
 from planner import fk  # noqa: E402
 
 J_A, J_B = [100.0, 55.0, -170.0, 0.0], [100.0, 85.0, -170.0, 0.0]     # j1 column mm, j2 shoulder, j3 elbow, j4 wrist

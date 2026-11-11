@@ -6,7 +6,7 @@ in a safe state and raises an operator alert.
 """
 from __future__ import annotations
 
-from setup.colour import paint
+from vision.colour import paint
 import time
 from dataclasses import dataclass
 
@@ -28,7 +28,7 @@ def ask_with_timeout(question: str, timeout_s: float) -> str:
     """Operator question on the terminal; 'n' when nobody answers or stdin is not a terminal."""
     import sys
     import threading
-    from setup import prompt
+    from vision import prompt
     if not prompt.under_gui() and (not sys.stdin or not sys.stdin.isatty()):
         return "n"
     answer = []

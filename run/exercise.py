@@ -20,13 +20,13 @@ import os
 import sys
 import tempfile
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from run import loop as run  # noqa: E402
 from run import positions  # noqa: E402
 from vision.corrector import StopSafe  # noqa: E402
 from run.hotel import SlotOccupied, plate_order  # noqa: E402
-from run.safety import SafetyViolation  # noqa: E402
+from planner.safety import SafetyViolation  # noqa: E402
 
 
 def along(cyc, route, reverse=False):
@@ -66,7 +66,7 @@ def main(argv=None) -> int:
     layout = positions.load()
     vision, ref_dir = None, positions.REFS
     if args.fake_vision:                                          # nothing real: the simulator rig the tests use
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests"))
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tests"))
         import rig
 
         vision, layout = rig.FakeVision(), rig.layout()

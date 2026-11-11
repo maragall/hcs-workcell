@@ -15,18 +15,18 @@ import time
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "tools"))
-import cli as R  # noqa: E402
+from run import positions  # noqa: E402
 from devices import nova  # noqa: E402
 from run import motion as M  # noqa: E402
 from vision.corrector import StopSafe  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
-from run.safety import SpeedProfile  # noqa: E402
+from planner.safety import SpeedProfile  # noqa: E402
 from run.state import StateStore  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 from planner.plan import Route  # noqa: E402
 
-STOP = os.path.join(R.RUNS, "STOP")
-LOG = os.path.join(R.RUNS, "test_workflow.log")
+STOP = os.path.join(positions.RUNS, "STOP")
+LOG = os.path.join(positions.RUNS, "test_workflow.log")
 
 
 def say(msg):
@@ -71,17 +71,17 @@ def main(argv=None) -> int:
     ap.add_argument("--rounds", type=int, default=0, help="0 = until runs/STOP")
     a = ap.parse_args(argv)
     slots = a.slots or [c + str(r) for c in "AB" for r in (1, 3, 5, 7, 9)]
-    layout = R.load_layout()
+    layout = positions.load()
     layout["vision"]["check_before_lower"] = False            # the seat occupancy look is optional: off here
-    runs = os.path.join(R.RUNS, "test_workflow")
+    runs = os.path.join(positions.RUNS, "test_workflow")
     tele = Telemetry(runs)
-    robot, st = R.connect_robot_readonly(layout, tele.log)
+    robot, st = nova.connect_readonly(layout, tele.log)
     if st.drag:
         robot.drag(False)
     if not robot.enable():
         sys.exit("robot could not be enabled")
     store = StateStore(os.path.join(runs, "state.json"))
-    cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", runs, R.REFS)
+    cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", runs, positions.REFS)
     scope = cyc.scope
     cyc.safety.profile = SpeedProfile(**layout["speeds"][a.first])
     cyc.corr.ask = lambda q, t=0: (say(f"   doubt, carrying on: {q.strip()}"), "y")[1]

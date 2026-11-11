@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from vision.corrector import StopSafe
 from run.motion import offset
-from run.safety import SafetyViolation
+from planner.safety import SafetyViolation
 
 
 class SlotOccupied(Exception):

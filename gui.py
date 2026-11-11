@@ -140,7 +140,7 @@ class Detector:
                 self.views[name] = (j["view_pose"], occ.camera_for(name), len(js))
                 self.stations.pop(name, None)                                  # new pictures: the references are read again
         try:                                                                   # the seats' viewing poses follow the taught seat (fixtures.<station>.view.tool_offset), not the recording
-            from tools.view_pose import from_tool_frame
+            from vision.view import from_tool_frame
             F = json.load(open(os.path.join(HERE, "layout.json"), encoding="utf-8"))["fixtures"]
             for name in ("polar", "microscope"):
                 off = (F.get(name) or {}).get("view", {}).get("tool_offset")

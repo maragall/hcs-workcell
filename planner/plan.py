@@ -19,7 +19,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from run.safety import Safety, SafetyViolation
+from planner.safety import Safety, SafetyViolation
 from planner import joints as jt
 from planner.volumes import Volumes
 from planner import fk

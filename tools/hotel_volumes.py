@@ -7,7 +7,7 @@ The envelope (x, y, z) stays, as the quick test before the parts are looked at.
 import json, os, sys
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
-import cli as R  # noqa: E402
+from run import positions  # noqa: E402
 
 K = -57.4                 # volumes.z_offset_k: robot z = CAD y + k
 LIP_MM = 3.0              # the slot lip, operator 2026-11-01
@@ -29,7 +29,7 @@ for p in parts:
     else:
         b["kind"], b["margin_mm"] = "part", 1.0
     out.append(b)
-L = R.load_layout()
+L = positions.load()
 rows = L["fixtures"]["hotel"]["rows"]                     # the trays that are there: the plate slid in 25 mm above a seat for a day, so the
 keep = []                                                  # trays between the rows in use are absent (a 30 mm gap would have been hit)
 for b in out:
@@ -46,5 +46,5 @@ h.pop("trays_z", None), h.pop("_trays_note", None)
 h["_parts_note"] = ("2026-11-01: the hotel from the STEP (tools/hotel_volumes.py): each tray with a 3 mm lip, the rear posts, roof and base. "
                     "Inside the envelope only the parts count; the plate may be in the gap between two trays and nowhere else.")
 L["volumes"]["held"]["hotel_front_allowance_mm"] = 0.0
-R.save_layout(L)
+positions.save(L)
 print(len(out), "parts,", trays, "trays")

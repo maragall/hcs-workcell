@@ -18,7 +18,7 @@ from scipy.optimize import least_squares
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
-import cli as R  # noqa: E402
+from run import positions  # noqa: E402
 
 COL = {"A": 1, "B": 0, "C": -1}                  # column A is +y, as in the STEP (CAD x +134 = A)
 COL_SLOTS = ()
@@ -26,7 +26,7 @@ ROW_PITCH = 38.0                                 # the STEP: ten trays 38 mm apa
 
 
 def main(apply=False):
-    layout = R.load_layout()
+    layout = positions.load()
     h = layout["fixtures"]["hotel"]
     raw = {k: v["pose"] for k, v in h["taught_detail"].items() if k[0] in COL and k[1:].isdigit()}
     slots = sorted(raw)
@@ -68,7 +68,7 @@ def main(apply=False):
             grid["_x_trim_note"] = trim_note
         h["grid"] = grid
         h["pose_source"] = "grid"
-        R.save_layout(layout)
+        positions.save(layout)
         print("written: fixtures.hotel.taught (15 seats), fixtures.hotel.grid, pose_source grid")
 
 

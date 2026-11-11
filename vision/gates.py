@@ -86,7 +86,7 @@ class Gates:
                     self.tele.log("occupancy", station, v.state, truth=state, agree=(v.state == state), score=round(v.score, 2), noise=round(v.noise, 2))
                     out = (v.state, f"{v.state} ({v.score:.2f} against noise {v.noise:.2f})")
                     try:                                                       # the window draws this verdict's box and label on that camera (gui.py @@OCC)
-                        from setup import prompt
+                        from vision import prompt
                         prompt.emit("OCC", {"station": station, "camera": camera, "roi": list(st.roi), "state": v.state, "score": round(v.score, 2), "noise": round(v.noise, 2)})
                     except Exception:
                         pass

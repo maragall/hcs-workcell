@@ -21,14 +21,14 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import cli as R  # noqa: E402
+from run import positions  # noqa: E402
 from devices import nova  # noqa: E402
 from devices.vision_box import locating  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
-from run.safety import SpeedProfile  # noqa: E402
+from planner.safety import SpeedProfile  # noqa: E402
 from run.state import StateStore  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
-from tools.view_pose import from_tool_frame, to_view  # noqa: E402
+from vision.view import from_tool_frame, to_view  # noqa: E402
 
 OUT = os.path.join(HERE, "reference_images", "occupancy")
 SIZE = (1280, 960)
@@ -54,12 +54,12 @@ def view_of(cyc, layout, station):
 
 
 def setup():
-    layout = R.load_layout()
-    runs = os.path.join(R.RUNS, "occupancy_record")
+    layout = positions.load()
+    runs = os.path.join(positions.RUNS, "occupancy_record")
     tele = Telemetry(runs)
-    robot, st = R.connect_robot_readonly(layout, tele.log)
-    store = StateStore(os.path.join(R.HERE, "state_microscope.json"))
-    cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", runs, R.REFS)
+    robot, st = nova.connect_readonly(layout, tele.log)
+    store = StateStore(os.path.join(positions.ROOT, "state_microscope.json"))
+    cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", runs, positions.REFS)
     cyc.safety.profile = SpeedProfile(**layout["speeds"]["supervised"])
     cyc.corr.ask = lambda q, t=0: "y"
     return layout, tele, robot, st, store, cyc

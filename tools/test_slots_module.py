@@ -16,18 +16,18 @@ import time
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
-import cli as R  # noqa: E402
+from run import positions  # noqa: E402
 from devices import nova  # noqa: E402
 from run import motion as M  # noqa: E402
 from planner.plan import Route  # noqa: E402
 from vision.corrector import StopSafe  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
-from run.safety import SpeedProfile  # noqa: E402
+from planner.safety import SpeedProfile  # noqa: E402
 from run.state import StateStore  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 
 PRESET = json.load(open(os.path.join(HERE, "preset", "routes.json"), encoding="utf-8"))["routes"]
-STOP = os.path.join(R.RUNS, "STOP")
+STOP = os.path.join(positions.RUNS, "STOP")
 
 
 def say(msg):
@@ -71,16 +71,16 @@ def main(argv=None) -> int:
     missing = [s for s in slots if s not in have]
     if missing:
         sys.exit(f"no stored routes for {missing}")
-    layout = R.load_layout()
-    runs = os.path.join(R.RUNS, "test_slots_module")
+    layout = positions.load()
+    runs = os.path.join(positions.RUNS, "test_slots_module")
     tele = Telemetry(runs)
-    robot, st = R.connect_robot_readonly(layout, tele.log)
+    robot, st = nova.connect_readonly(layout, tele.log)
     if st.drag:
         robot.drag(False)
     if not robot.enable():
         sys.exit("robot could not be enabled")
     store = StateStore(os.path.join(runs, "state.json"))
-    cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", runs, R.REFS)
+    cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", runs, positions.REFS)
     cyc.safety.profile = SpeedProfile(**layout["speeds"]["fast" if a.slow_first else a.speed])
     cyc.corr.ask = lambda q, t=0: (say(f"   doubt, carrying on: {q.strip()}"), "y")[1]
     M.plan = guarded(M.plan)

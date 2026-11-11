@@ -5,22 +5,22 @@ import sys
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
-import cli as R  # noqa: E402
+from run import positions  # noqa: E402
 from devices import nova  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
 from run.state import StateStore  # noqa: E402
-from run.safety import SpeedProfile  # noqa: E402
+from planner.safety import SpeedProfile  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 
 deg = int(sys.argv[1])
-layout = R.load_layout()
-runs = os.path.join(R.RUNS, "rotate_module")
+layout = positions.load()
+runs = os.path.join(positions.RUNS, "rotate_module")
 tele = Telemetry(runs)
-robot, st = R.connect_robot_readonly(layout, tele.log)
+robot, st = nova.connect_readonly(layout, tele.log)
 if st.drag:
     robot.drag(False)
 robot.enable()
-cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, StateStore(os.path.join(runs, "state.json")), "supervised", runs, R.REFS)
+cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, StateStore(os.path.join(runs, "state.json")), "supervised", runs, positions.REFS)
 cyc.safety.profile = SpeedProfile(**layout["speeds"]["supervised"])
 cyc.corr.ask = lambda q, t=0: "y"
 F = layout["fixtures"]["polar"]

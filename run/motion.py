@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from devices.arm import MotionRefused
 from vision.corrector import StopSafe
-from run.safety import SafetyViolation
+from planner.safety import SafetyViolation
 from planner.plan import plan
 from planner import fk
 
@@ -345,7 +345,7 @@ class Motion:
         route = plan(self.L, self.safety, self.robot.pose(), target, self._position_here(), name,
                      holding=grip if grip and grip != "none" else None, heading=getattr(self, "last_heading", None))
         self.tele.log("move", f"move_to {name}", route.name, taught=route.taught, waypoints=len(route.poses))
-        from setup import prompt
+        from vision import prompt
         prompt.emit("ROUTE", {"to": name, "name": route.name, "taught": route.taught, "planned_s": round(time.time() - t_plan, 1),
                               "poses": [[round(v, 1) for v in p[:6]] for p in route.poses], "joint_legs": sorted(route.joint_targets)})
         if route.taught:

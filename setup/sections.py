@@ -19,16 +19,18 @@ from typing import Callable, List, Optional
 
 import numpy as np
 
-import exercise
+from run import exercise
 from setup import geometry
+from teach.seat import microscope_box
 from setup.runner import Refused, Section, Step
-from setup import bench, cameras, colour, hand
+from setup import bench, cameras, hand
+from vision import colour
 from run import cad_poses
 from vision.corrector import StopSafe
 from run.cycle import Cycle
 from run.motion import offset
 from run.recovery import clear_faults, is_motion_fault
-from run.safety import SafetyViolation, SpeedProfile
+from planner.safety import SafetyViolation, SpeedProfile
 from run.state import StateStore
 from run.telemetry import Telemetry
 
@@ -41,30 +43,6 @@ TAG_VIEW_MARGIN_MM = 5.0         # headroom under the workspace top for the stag
 SEAT_MOVED_DROP_ROUTE_MM = 8.0       # a hover this far from the taught seat: the taught route belongs to another place
 STAGE_SEARCH_MM = ((0, 0), (35, 0), (-35, 0), (0, 35), (0, -35), (35, 35), (-35, 35), (35, -35), (-35, -35),
                    (70, 0), (-70, 0), (0, 70), (0, -70))        # where the arm looks for the tag around the hover, x and y
-SCOPE_LONG_MM, SCOPE_SHORT_MM = 330.0, 220.0      # the microscope as a box (operator, 2026-11-03): long edges along the plate's long edges
-
-
-def microscope_box(L: dict, seat: List[float]) -> dict:
-    """The microscope for the planner, from the seat alone: a box whose top is the stage, centred under the plate. The plate is gripped on
-    its short edges there, so the plate's long edges (and the box's 33 cm) run across the claw, the 22 cm along it. The plate's centre is
-    where the short-edge grip holds it (volumes.held.short_edges). The box top is set under the fingertips at the seat, so the grip itself
-    is not inside it: the stage's own holder above that is where the claw must go anyway."""
-    v = L["volumes"]
-    hx = v["held"]["short_edges"]["x"]
-    ahead = (hx[0] + hx[1]) / 2.0
-    yaw = math.radians(seat[5])
-    ux, uy = math.cos(yaw), math.sin(yaw)                  # along the claw
-    vx, vy = -uy, ux                                       # across it
-    cx, cy = seat[0] + ahead * ux, seat[1] + ahead * uy
-    a, b = SCOPE_SHORT_MM / 2.0, SCOPE_LONG_MM / 2.0
-    xs = [cx + i * a * ux + j * b * vx for i in (-1, 1) for j in (-1, 1)]
-    ys = [cy + i * a * uy + j * b * vy for i in (-1, 1) for j in (-1, 1)]
-    top = seat[2] + float(v["claw"]["z"][0]) - float(v.get("margin_mm", 10.0)) - 5.0
-    return {"x": [round(min(xs), 1), round(max(xs), 1)], "y": [round(min(ys), 1), round(max(ys), 1)], "z": [-50.0, round(top, 1)], "links": False,
-            "_note": f"from the seat taught {_stamp()}: {SCOPE_LONG_MM:.0f} x {SCOPE_SHORT_MM:.0f} mm box centred under the plate, top {5.0 + float(v.get('margin_mm', 10.0)):.0f} mm "
-                     "under the fingertips at the seat (the stage holder above it is where the claw grips); the bounding box of the rotated rectangle"}
-
-
 WRIST_WOUND_DEG = 180.0           # joint 4 beyond this has the same orientation one turn the other way, inside the soft limits
 MIN_STAGE_FROM_ARM_MM = 200.0     # the microscope at least this far from the arm's base (operator, 2026-11-03); measured at the seat's reach from the axis
 TAG_AHEAD_MM = 71.5              # both tag views are this far ahead of the grip pose along the claw: the tag centre is the plate centre (186.5 ahead of the wrist) and the camera looks 115 ahead of it; measured 2026-10-28 (the old 40 left the tag cut off at the top of the picture)
@@ -971,7 +949,7 @@ class Bringup:
             """The empty claw at a seat's viewing pose (tools/view_pose.py), the down camera judged against the seat's empty pictures, the
             verdict printed and drawn in the window; back to the hover after. Returns full / empty / unsure, or None without a view or a
             reference. Never stops the run."""
-            from tools.view_pose import from_tool_frame, to_view
+            from vision.view import from_tool_frame, to_view
             F = c.layout()["fixtures"]
             st = cyc.store.s
             view = (F.get(station) or {}).get("view", {}).get("tool_offset")

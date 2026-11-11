@@ -38,3 +38,12 @@ def vision_box(layout: dict, log=None) -> VisionClient:
 def controller(layout: dict, log=None) -> Brcapi:
     r = layout["robot"]
     return Brcapi(r["ip"], r.get("brcapi_port", 56788), log=log)
+
+
+def connect_readonly(layout, log):
+    robot = arm(layout, log)
+    robot.connect()
+    st = robot.state()
+    if not st.enabled:
+        log("robot", "state", "not enabled: readouts may be stale")
+    return robot, st

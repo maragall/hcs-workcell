@@ -12,7 +12,7 @@ import heapq
 import math
 from typing import Dict, List, Optional
 
-from run.safety import Safety, SafetyViolation
+from planner.safety import Safety, SafetyViolation
 from planner import joints as jt
 from planner import fk
 

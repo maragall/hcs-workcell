@@ -6,23 +6,23 @@ import sys
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
-import cli as R  # noqa: E402
+from run import positions  # noqa: E402
 from devices import nova  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
 from run.state import StateStore  # noqa: E402
-from run.safety import SpeedProfile  # noqa: E402
+from planner.safety import SpeedProfile  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 
 back = float(sys.argv[1])
-layout = R.load_layout()
-runs = os.path.join(R.RUNS, "module_reset")
+layout = positions.load()
+runs = os.path.join(positions.RUNS, "module_reset")
 tele = Telemetry(runs)
-robot, st = R.connect_robot_readonly(layout, tele.log)
+robot, st = nova.connect_readonly(layout, tele.log)
 if st.drag:
     robot.drag(False)
 robot.enable()
 store = StateStore(os.path.join(runs, "state.json"))
-cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", runs, R.REFS)
+cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", runs, positions.REFS)
 cyc.safety.profile = SpeedProfile(**layout["speeds"]["supervised"])
 cyc.corr.ask = lambda q, t=0: "y"
 s = store.s

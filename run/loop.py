@@ -34,7 +34,7 @@ from run.recovery import is_motion_fault, mark, recover_to_nest  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
 from run.hotel import plate_order  # noqa: E402
 from run.preflight import preflight  # noqa: E402
-from run.safety import SafetyViolation  # noqa: E402
+from planner.safety import SafetyViolation  # noqa: E402
 from run.state import StateStore  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 

@@ -4,7 +4,7 @@ Reads layout.json, writes preset/routes.json. No hardware.   python tools/plan_p
 import json, os, sys, time
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE); os.chdir(HERE)
-from run.safety import Safety, SafetyViolation  # noqa: E402
+from planner.safety import Safety, SafetyViolation  # noqa: E402
 from run.motion import offset  # noqa: E402
 from run import hotel as H  # noqa: E402
 from planner import plan as P  # noqa: E402

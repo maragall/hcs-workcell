@@ -5,7 +5,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
-from setup.colour import BAD, paint
+from vision.colour import BAD, paint
 
 ACTORS = ("user", "computer", "polar", "nova", "squid")
 

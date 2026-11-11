@@ -19,7 +19,7 @@ from devices.fake_arm import SimFaults, SimRobot  # noqa: E402
 from devices.vision_box import VisionError  # noqa: E402
 from vision.corrector import StopSafe  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
-from run.safety import SafetyViolation  # noqa: E402
+from planner.safety import SafetyViolation  # noqa: E402
 from run.state import StateStore  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 

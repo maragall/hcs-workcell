@@ -17,7 +17,7 @@ from rig import FakeVision, layout  # noqa: E402
 
 from devices.fake_arm import SimFaults, SimRobot  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
-from run.safety import Safety, SafetyViolation  # noqa: E402
+from planner.safety import Safety, SafetyViolation  # noqa: E402
 from run.state import StateStore  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 from planner.plan import plan  # noqa: E402

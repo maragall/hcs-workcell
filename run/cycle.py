@@ -26,7 +26,7 @@ from vision.gates import Gates
 from run.grasp import Grasp
 from run.hotel import Hotel
 from run.motion import Motion, offset
-from run.safety import Safety
+from planner.safety import Safety
 from run.state import StateStore
 from run.telemetry import Telemetry
 
@@ -183,7 +183,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         view = (fixture.get("view") or {}).get("tool_offset")
         if not v.get("check_before_lower", True) or not view or fixture_name == "hotel":
             return False
-        from tools.view_pose import from_tool_frame
+        from vision.view import from_tool_frame
         target = from_tool_frame(pose, *view)
         zmax = float(self.L["workspace_box"]["z"][1]) - 3.0
         if target[2] > zmax:

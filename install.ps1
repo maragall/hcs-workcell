@@ -56,7 +56,7 @@ if ($SdkWheel -ne "") {
 }
 
 Step "Doctor (reads only, moves nothing)"
-if ($Sim) { & $venvPython tools\doctor.py --sim } else { & $venvPython tools\doctor.py }
+if ($Sim) { & $venvPython setup\doctor.py --sim } else { & $venvPython setup\doctor.py }
 $doctorExit = $LASTEXITCODE
 
 $next = "python cli.py setup"
