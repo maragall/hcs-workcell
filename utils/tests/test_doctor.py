@@ -20,7 +20,7 @@ from setup import doctor  # noqa: E402
 def cell_files(tmp_path):
     """layout.json and hardware.json copied into a temporary folder, with a runs/ beside them."""
     for name in ("layout.json", "hardware.json"):
-        shutil.copy(os.path.join(ROOT, name), tmp_path / name)
+        shutil.copy(os.path.join(ROOT, "run", name), tmp_path / name)
     return tmp_path
 
 
