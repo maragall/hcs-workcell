@@ -48,8 +48,8 @@ class SquidLink:
                         break
                     buf += chunk
         except OSError as e:
-            raise SquidError(f"{self.name}: Squid does not answer on {self.host}:{self.port} ({e}). "
-                             "Start Squid and tick Settings > Enable MCP Control Server") from e
+            raise SquidError(f"{self.name}: Squid does not answer on {self.host}:{self.port}. Start Squid, then in the Squid window: "
+                             "Settings > Enable MCP Control Server") from e
         try:
             reply = json.loads(buf.decode("utf-8").strip())
         except ValueError as e:
@@ -61,7 +61,8 @@ class SquidLink:
     def _py(self, code: str):
         got = self._call("python_exec", code=code)
         if isinstance(got, dict) and got.get("error"):
-            raise SquidError(f"{self.name}: {got['error']} Tick Settings > Enable MCP Python Exec in Squid")
+            raise SquidError(f"{self.name}: Squid's Python Exec is off. In the Squid window: Settings > Enable MCP Python Exec, "
+                             "then Yes on the warning (it is off again after every Squid start)")
         return (got or {}).get("result")
 
     def _slide(self, want: str, timeout_s: float) -> None:

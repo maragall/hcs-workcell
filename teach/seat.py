@@ -120,13 +120,13 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
     squid = (layout.get("squid") or {}).get(name)
     if squid is not None:                                 # a Squid: its seat is taught with the stage at Squid's loading position, and the arm only goes there with it thered
         from utils.devices.squid_link import SquidError, SquidLink
-        print(f"the stage of {name} goes to its loading position")
+        print(f"1. the stage of {name} goes to its loading position (Squid)")
         try:
             SquidLink(name, squid).home()
         except SquidError as e:
-            print(f"{e}. The seat was not taught")
+            print(f"   STOPPED: {e}.\n   Nothing was taught and the arm was not touched. Do that, then run this command again.")
             return 2
-        print("the stage is at its loading position")
+        print("   done")
     robot = make_robot(layout)
     try:
         robot.connect()
@@ -146,8 +146,9 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
             return 2
         robot.jaw_to(round(float(g["plate_width"]["short_edges"]) + 0.1, 2))      # a hair wider than the plate, as the setup does: the pads slide into its grooves
         robot.drag(True)
-        print(f"the arm is loose (jaw at {robot.jaw():.1f}): fit the gripper onto the plate's short edges until the pads sit in the grooves")
-        ask("press Enter when the pads sit in the grooves: ")
+        print(f"2. the arm is loose, the jaw set for the plate's short edges ({robot.jaw():.1f}).\n"
+              f"   Put a plate in the holder of {name}. Fit the gripper onto the plate's short edges until the finger pads sit in the plate's grooves.")
+        ask("   Press Enter when the pads sit in the grooves: ")
         layout = positions.load()
         try:
             node = record(robot, layout, name)
@@ -155,7 +156,7 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
             print(f"{e}. The arm is still loose")
             return 2
         positions.save(layout)
-        print(f"seat fixtures.{name} = {[round(v, 1) for v in node['pose'][:3]]} yaw {node['pose'][5]:.2f}, jaw {node['jaw_at_teach']:.2f}, stored in layout.json")
+        print(f"   seat of {name} = {[round(v, 1) for v in node['pose'][:3]]} yaw {node['pose'][5]:.2f}, jaw {node['jaw_at_teach']:.2f}, stored in layout.json")
         robot.drag(False)
         if not robot.enable():
             print("the seat is stored, but the arm could not be enabled again: python cli.py recover")
@@ -164,7 +165,7 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
         robot.set_speed(0.1)
         robot.jaw_to(float(((node.get("open_width") or {}).get("short_edges")) or g["open"]["short_edges"]))
         robot.move_linear(list(node["hover"]["pose"]))
-        print("the arm is locked, above the seat")
+        print("3. the arm is locked and stands above the seat, jaw open")
     finally:
         robot.disconnect()
     entries = plan_instrument_routes(layout, name)
@@ -173,7 +174,7 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
         print(f"the seat is stored, but {len(bad)} of {len(entries)} routes to the rotation module did not plan ({'; '.join(bad)})")
         return 2
     store(entries)
-    print(f"{len(entries)} routes {name} <-> rotation module planned")
+    print(f"4. {len(entries)} routes {name} <-> rotation module planned")
     folder = os.path.join(positions.RUNS, "lua_project")
     layout = positions.load()
     try:
@@ -188,6 +189,6 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
     except Exception as e:
         print(f"the seat and its routes are stored, but the upload to the arm failed: {e}")
         return 2
-    print(f"uploaded to the arm ({got['files']} files; what it had is in {got['backup']})")
+    print(f"5. uploaded to the arm ({got['files']} files; what it had is in {got['backup']})")
     print("READY")
     return 0
