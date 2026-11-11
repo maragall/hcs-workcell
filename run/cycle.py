@@ -196,14 +196,14 @@ class Cycle(Motion, Grasp, Gates, Hotel):
             self._arrive(hover, f"{step} module hover", prof.approach)
         here = self.robot.pose()
         top = list(here[:2]) + [float(S["z"])] + list(here[3:])
-        self._move("L", top, f"{step} up", prof.approach)
+        self._move("L", top, f"{step} up", prof.travel)
         start = list(self.robot.joints())[:4]
         seq = [start] + [[start[0]] + list(q) for q in S["via_mirror_to_taught"]] + [fk.ik(top, elbow=1)]
         vol = Volumes(self.L, Safety(self.L, "supervised"), None)
         for a, b in zip(seq, seq[1:]):
             vol.check_joint_leg(fk.fk(a), fk.fk(b), f"{step} elbow switch", joints_a=a, joints_b=b)
         for i, q in enumerate(seq[1:], 1):
-            self._move_joints_to(fk.fk(q), f"{step} elbow switch {i}/{len(seq) - 1}", prof.approach, joints=q)
+            self._move_joints_to(fk.fk(q), f"{step} elbow switch {i}/{len(seq) - 1}", prof.travel, joints=q)      # open air at the top, empty claw
 
     def _check_seat_from_view(self, fixture_name: str, pose: List[float], fixture: dict, hover: List[float], step: str) -> bool:
         """Before a plate is lowered onto the module or a microscope: is the seat already occupied? With the plate in hand the arm goes to the
