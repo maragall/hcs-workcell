@@ -110,7 +110,7 @@ class Feed(threading.Thread):
 
 class Detector:
     """Live occupancy on the camera feeds. When the arm stands at a station's recorded viewing pose (reference_images/occupancy/<station>/
-    *.json, within 5 mm), the frame of that station's camera is judged against the station's empty pictures (perception/occupancy.py) and the
+    *.json, within 5 mm), the frame of that station's camera is judged against the station's empty pictures (vision/occupancy.py) and the
     verdict is drawn on the feed (the region, full / empty / unsure, score against noise) and kept for the model. Nothing here moves the arm."""
     COLOUR = {"full": "#d8c76a", "empty": "#8fd18f", "unsure": "#ff6b6b"}
 
@@ -124,7 +124,7 @@ class Detector:
             return
         self.scanned = time.time()
         try:
-            from perception import occupancy as occ
+            from vision import occupancy as occ
         except Exception:
             return
         for d in glob.glob(os.path.join(occ.REFS, "*")):
@@ -158,7 +158,7 @@ class Detector:
         return None, None
 
     def judge(self, name, frame):
-        from perception import occupancy as occ
+        from vision import occupancy as occ
         st = self.stations.get(name)
         if st is None:
             try:
@@ -443,11 +443,11 @@ class Model:
         return [(p[0] + s * nx, p[1] + s * ny, z) for z in (z0, z1) for s in (-1, 1) for p in (a, b)]
 
     def _draw_arm(self, pose, joints):
-        """The arm's links from the live joints (routes_opt/fk, the planner's model): the carriage from the column to the shoulder, link 1 to
+        """The arm's links from the live joints (planner/fk, the planner's model): the carriage from the column to the shoulder, link 1 to
         the elbow, link 2 to the wrist; they ride above the claw (layout volumes.claw.links_z)."""
         if not joints or len(joints) < 3:
             return
-        from routes_opt import fk
+        from planner import fk
         m = fk.MODEL
         shoulder = (m["x0"], m["y0"])
         elbow = fk.elbow_xy(joints)

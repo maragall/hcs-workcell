@@ -16,11 +16,11 @@ sys.path.insert(0, HERE)
 
 from rig import FakeClock, FakeVision, layout  # noqa: E402
 
-import run  # noqa: E402
+from run import loop as run  # noqa: E402
 from devices.fake_arm import SimFaults, SimRobot  # noqa: E402
 from devices.fake_squid import FakeSquid  # noqa: E402
-from procedures.corrector import StopSafe  # noqa: E402
-from procedures.telemetry import Telemetry  # noqa: E402
+from vision.corrector import StopSafe  # noqa: E402
+from run.telemetry import Telemetry  # noqa: E402
 
 A, B = "microscope", "microscope_2"
 SLOTS = {A: "A1", B: "A3"}
@@ -81,7 +81,7 @@ def test_two_microscopes_share_the_arm_and_image_while_the_other_moves():
 
 
 def reopen(cell, tmp):
-    """A second Workcell on the same robot, ledgers and run folder: what `run.py --resume` builds."""
+    """A second Workcell on the same robot, ledgers and run folder: what `python -m run --resume` builds."""
     a = cell.cycles[A]
     cell.close()
     return run.Workcell(a.L, a.robot, a.vision, cell.scopes, cell.tele, "unsupervised", os.path.join(tmp, "run"),

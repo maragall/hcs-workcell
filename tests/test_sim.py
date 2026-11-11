@@ -17,11 +17,11 @@ from rig import BAD, GATES, FakeClock, FakeVision, layout  # noqa: E402
 
 from devices.fake_arm import SimFaults, SimRobot  # noqa: E402
 from devices.vision_box import VisionError  # noqa: E402
-from procedures.corrector import StopSafe  # noqa: E402
-from procedures.cycle import Cycle  # noqa: E402
-from procedures.safety import SafetyViolation  # noqa: E402
-from procedures.state import StateStore  # noqa: E402
-from procedures.telemetry import Telemetry  # noqa: E402
+from vision.corrector import StopSafe  # noqa: E402
+from run.cycle import Cycle  # noqa: E402
+from run.safety import SafetyViolation  # noqa: E402
+from run.state import StateStore  # noqa: E402
+from run.telemetry import Telemetry  # noqa: E402
 
 
 class Rig:

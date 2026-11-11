@@ -7,10 +7,10 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
 import cli as R  # noqa: E402
 from devices import nova  # noqa: E402
-from procedures.cycle import Cycle  # noqa: E402
-from procedures.state import StateStore  # noqa: E402
-from procedures.safety import SpeedProfile  # noqa: E402
-from procedures.telemetry import Telemetry  # noqa: E402
+from run.cycle import Cycle  # noqa: E402
+from run.state import StateStore  # noqa: E402
+from run.safety import SpeedProfile  # noqa: E402
+from run.telemetry import Telemetry  # noqa: E402
 
 deg = int(sys.argv[1])
 layout = R.load_layout()

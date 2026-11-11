@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from procedures import plates
+from run import plates
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 

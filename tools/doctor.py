@@ -56,10 +56,10 @@ class Env:
     disk_free_gb: Callable[[str], float] = field(default=lambda p: shutil.disk_usage(p).free / 1e9)
 
     def discover(self):
-        """The network helpers of the setup itself (bringup/discover.py), imported only when needed."""
+        """The network helpers of the setup itself (setup/discover.py), imported only when needed."""
         if self.arm is None or self.vision_box is None or self.squid is None or self.port_open is None:
             sys.path.insert(0, HERE)
-            from bringup import discover
+            from setup import discover
             self.arm = self.arm or discover.arm
             self.vision_box = self.vision_box or discover.vision_box
             self.squid = self.squid or discover.squid

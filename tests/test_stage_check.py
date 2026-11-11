@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
 from rig import layout  # noqa: E402
-from procedures.preflight import preflight  # noqa: E402
+from run.preflight import preflight  # noqa: E402
 
 
 def test_preflight_refuses_a_hotel_lift_at_or_above_the_headroom():

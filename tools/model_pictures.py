@@ -90,7 +90,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     lay = json.load(open(os.path.join(HERE, "layout.json"), encoding="utf-8"))
     F = lay["fixtures"]
-    from routes_opt import fk
+    from planner import fk
     seat = F["microscope"]["pose"]
     nest = lay["routes"]["nest"]["pose"]
     P0 = F["polar"]["pose_at_0"]["pose"]

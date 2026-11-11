@@ -1,5 +1,5 @@
 """
-hcs-workcell command line (teaching, tests, one-microscope runs). The asyncio main loop is run.py.
+hcs-workcell command line (teaching, tests, one-microscope runs). The asyncio main loop is run/loop.py (python -m run).
 
   python cli.py status                              robot + vision state, read-only
   python cli.py record-pose NAME                    store the current robot pose under fixtures.<NAME> in layout.json
@@ -30,13 +30,13 @@ from devices import nova  # noqa: E402
 from devices.arm import MotionRefused, RobotFault  # noqa: E402
 from devices.controller import BrcapiError  # noqa: E402
 from devices.vision_box import VisionError  # noqa: E402
-from procedures import positions  # noqa: E402
-from procedures.corrector import StopSafe  # noqa: E402
-from procedures.cycle import Cycle  # noqa: E402
-from procedures.preflight import preflight  # noqa: E402
-from procedures.safety import SafetyViolation  # noqa: E402
-from procedures.state import StateStore  # noqa: E402
-from procedures.telemetry import Telemetry  # noqa: E402
+from run import positions  # noqa: E402
+from vision.corrector import StopSafe  # noqa: E402
+from run.cycle import Cycle  # noqa: E402
+from run.preflight import preflight  # noqa: E402
+from run.safety import SafetyViolation  # noqa: E402
+from run.state import StateStore  # noqa: E402
+from run.telemetry import Telemetry  # noqa: E402
 
 LAYOUT, RUNS, REFS = positions.PATH, positions.RUNS, positions.REFS
 load_layout, save_layout = positions.load, positions.save
@@ -166,7 +166,7 @@ def cmd_goto(args):
 
 def cmd_positions(args):
     """Every position the arm can be sent to, taught or not, and the hotel plate order."""
-    from procedures.hotel import plate_order
+    from run.hotel import plate_order
     layout = load_layout()
     F = layout["fixtures"]
     def show(name, node):
@@ -196,7 +196,7 @@ def cmd_positions(args):
 
 
 
-from bringup.colour import plain as _plain
+from setup.colour import plain as _plain
 
 
 def _tee_console(name: str) -> str:
@@ -226,9 +226,9 @@ def _tee_console(name: str) -> str:
 def cmd_setup(args):
     """The one-click setup in the terminal: each line printed, Enter on the user's, the machine's run in order."""
     if getattr(args, "list", False):                      # the sections and their step numbers, so a run can start where it is needed
-        from bringup import sim
-        from bringup.cell import Cell
-        from bringup.sections import Bringup
+        from setup import sim
+        from setup.cell import Cell
+        from setup.sections import Bringup
         from devices.fake_squid import FakeSquid
         cell = Cell(*sim.build(), sim=True)
         for sec in Bringup(cell, FakeSquid("microscope", 0.0), lambda p: "").sections():
@@ -241,12 +241,12 @@ def cmd_setup(args):
     log_path = _tee_console("setup")
     print(f"this run is logged to {log_path} (and runs/setup_*/events.jsonl)")
 
-    from bringup import prompt as prompt_mod
-    from bringup.runner import Runner
-    from bringup.sections import Bringup
+    from setup import prompt as prompt_mod
+    from setup.runner import Runner
+    from setup.sections import Bringup
     from devices.fake_squid import FakeSquid
-    from bringup import sim
-    from bringup.cell import Cell
+    from setup import sim
+    from setup.cell import Cell
     if args.sim:
         cell = Cell(*sim.build(), sim=True)
     else:
@@ -277,8 +277,8 @@ def cmd_setup(args):
 
 
 def cmd_teach(args):
-    """Teach an instrument's seat by hand (arm loose, Enter) and plan its routes to the rotation module: bringup/teach.py."""
-    from bringup import teach
+    """Teach an instrument's seat by hand (arm loose, Enter) and plan its routes to the rotation module: teach/__init__.py."""
+    import teach
     return teach.run(args.name, lambda layout: make_robot(layout, args, lambda *a: None))
 
 
@@ -342,10 +342,10 @@ def cmd_recover(args):
         robot.disconnect()
     if not args.nest:
         return 0
-    from bringup import sim
-    from bringup.cell import Cell
-    from bringup.runner import Refused
-    from bringup.sections import Bringup
+    from setup import sim
+    from setup.cell import Cell
+    from setup.runner import Refused
+    from setup.sections import Bringup
     from devices.fake_squid import FakeSquid
     cell = Cell(*sim.build(), sim=True) if args.sim else Cell(LAYOUT, REFS, HERE, RUNS, make_robot(layout, args, lambda *a: None),
                                                              nova.vision_box(layout), sim=False)

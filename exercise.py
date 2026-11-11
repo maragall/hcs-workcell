@@ -22,11 +22,11 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import run  # noqa: E402
-from procedures import positions  # noqa: E402
-from procedures.corrector import StopSafe  # noqa: E402
-from procedures.hotel import SlotOccupied, plate_order  # noqa: E402
-from procedures.safety import SafetyViolation  # noqa: E402
+from run import loop as run  # noqa: E402
+from run import positions  # noqa: E402
+from vision.corrector import StopSafe  # noqa: E402
+from run.hotel import SlotOccupied, plate_order  # noqa: E402
+from run.safety import SafetyViolation  # noqa: E402
 
 
 def along(cyc, route, reverse=False):

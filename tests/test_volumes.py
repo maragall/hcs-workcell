@@ -11,10 +11,10 @@ import pytest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from procedures.safety import Safety, SafetyViolation  # noqa: E402
-from routes import plan as planner  # noqa: E402
-from routes.volumes import Volumes  # noqa: E402
-from routes_opt import fk  # noqa: E402
+from run.safety import Safety, SafetyViolation  # noqa: E402
+from planner import plan as planner  # noqa: E402
+from planner.volumes import Volumes  # noqa: E402
+from planner import fk  # noqa: E402
 
 LAYOUT = json.load(open(os.path.join(os.path.dirname(HERE), "layout.json"), encoding="utf-8"))
 
@@ -58,7 +58,7 @@ def test_a_start_with_the_claw_inside_the_hotel_is_refused_with_the_volume_named
 
 
 def _approach(L, slot):
-    from procedures.cad_poses import CadPoses
+    from run.cad_poses import CadPoses
     p = CadPoses(L).hotel_pose(slot)
     h = L["fixtures"]["hotel"]
     return [p[0] - h["approach"]["mm"], p[1], p[2] + h["lift_mm"], 0.0, 0.0, p[5]]
@@ -99,7 +99,7 @@ def test_a_plate_in_the_claw_makes_the_swing_beside_the_hotel_longer_than_the_em
 def test_all_thirty_slots_have_an_approach_point_inside_the_workspace_and_a_planned_way_to_it():
     """3 columns x 10 rows. The top row's carry lift is cut to what the workspace allows; every approach point is then
     reachable from the module hover with a plate in the claw."""
-    from procedures.hotel import Hotel
+    from run.hotel import Hotel
 
     class Stub(Hotel):
         def __init__(self, L, safety):
@@ -149,7 +149,7 @@ def test_the_nest_is_clear_and_reachable_from_where_the_arm_stops():
 
 
 def test_the_nest_is_refused_with_a_plate_in_the_claw(tmp_path):
-    from procedures.motion import Motion
+    from run.motion import Motion
 
     class Stub(Motion):
         def __init__(self, L):

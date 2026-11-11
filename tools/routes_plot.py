@@ -9,8 +9,8 @@ import sys
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
-from routes import joints as jt  # noqa: E402
-from routes_opt import fk  # noqa: E402
+from planner import joints as jt  # noqa: E402
+from planner import fk  # noqa: E402
 from tools.hotel_model_html import scene_boxes  # noqa: E402
 
 L = json.load(open("layout.json", encoding="utf-8"))

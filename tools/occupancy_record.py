@@ -24,10 +24,10 @@ os.chdir(HERE)
 import cli as R  # noqa: E402
 from devices import nova  # noqa: E402
 from devices.vision_box import locating  # noqa: E402
-from procedures.cycle import Cycle  # noqa: E402
-from procedures.safety import SpeedProfile  # noqa: E402
-from procedures.state import StateStore  # noqa: E402
-from procedures.telemetry import Telemetry  # noqa: E402
+from run.cycle import Cycle  # noqa: E402
+from run.safety import SpeedProfile  # noqa: E402
+from run.state import StateStore  # noqa: E402
+from run.telemetry import Telemetry  # noqa: E402
 from tools.view_pose import from_tool_frame, to_view  # noqa: E402
 
 OUT = os.path.join(HERE, "reference_images", "occupancy")
@@ -151,11 +151,11 @@ def hotel_round(state):
 
 
 def sweep():
-    """Every slot of every column with the empty claw: a verdict per slot from the station's empty references (perception/occupancy.py),
+    """Every slot of every column with the empty claw: a verdict per slot from the station's empty references (vision/occupancy.py),
     printed and shown live in the window; the picture is kept as sweep_<stamp> (not a reference; the operator says what was true)."""
     import cv2
     import numpy as np
-    from perception.occupancy import Station
+    from vision.occupancy import Station
     layout, tele, robot, st, store, cyc = setup()
     try:
         if st.drag:

@@ -9,8 +9,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from procedures.cad_poses import CadPoses  # noqa: E402
-from procedures.hotel import Hotel  # noqa: E402
+from run.cad_poses import CadPoses  # noqa: E402
+from run.hotel import Hotel  # noqa: E402
 
 ROOT = os.path.dirname(HERE)
 LAYOUT = json.load(open(os.path.join(ROOT, "layout.json"), encoding="utf-8"))

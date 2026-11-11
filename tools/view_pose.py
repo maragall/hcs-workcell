@@ -23,12 +23,12 @@ os.chdir(HERE)
 
 import cli as R  # noqa: E402
 from devices import nova  # noqa: E402
-from procedures import positions  # noqa: E402
-from procedures.cycle import Cycle  # noqa: E402
-from procedures.motion import offset  # noqa: E402
-from procedures.safety import SpeedProfile  # noqa: E402
-from procedures.state import StateStore  # noqa: E402
-from procedures.telemetry import Telemetry  # noqa: E402
+from run import positions  # noqa: E402
+from run.cycle import Cycle  # noqa: E402
+from run.motion import offset  # noqa: E402
+from run.safety import SpeedProfile  # noqa: E402
+from run.state import StateStore  # noqa: E402
+from run.telemetry import Telemetry  # noqa: E402
 
 CAMERA_AHEAD_MM = 115.0          # the down camera looks this far ahead of the wrist (hardware.json claw.camera_ahead_of_wrist_mm)
 SEAT_AHEAD_MM = 186.5            # the plate's centre ahead of the wrist at a short-edge seat (hardware.json claw.module_wrist_to_plate_mm)

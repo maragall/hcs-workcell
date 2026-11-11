@@ -10,11 +10,11 @@ import pytest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from procedures.safety import Safety, SafetyViolation  # noqa: E402
-from routes import joints as jt  # noqa: E402
-from routes import plan as planner  # noqa: E402
-from routes.volumes import Volumes  # noqa: E402
-from routes_opt import fk  # noqa: E402
+from run.safety import Safety, SafetyViolation  # noqa: E402
+from planner import joints as jt  # noqa: E402
+from planner import plan as planner  # noqa: E402
+from planner.volumes import Volumes  # noqa: E402
+from planner import fk  # noqa: E402
 
 LAYOUT = json.load(open(os.path.join(os.path.dirname(HERE), "layout.json"), encoding="utf-8"))
 NEST = LAYOUT["routes"]["nest"]
@@ -119,7 +119,7 @@ def test_a_branch_change_goes_through_the_nest_and_every_joint_leg_carries_its_j
     L, safety = make(start)
     hover = list(L["fixtures"]["polar"]["pose_at_0"]["pose"])
     hover[2] += L["fixtures"]["polar"]["hover_mm"]
-    from procedures.cad_poses import CadPoses
+    from run.cad_poses import CadPoses
     h = L["fixtures"]["hotel"]
     p = CadPoses(L).hotel_pose("C1")
     target = [p[0] - h["approach"]["mm"], p[1], p[2] + h["lift_mm"], 0.0, 0.0, p[5]]

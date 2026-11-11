@@ -1,7 +1,7 @@
-"""How well does perception/occupancy.py separate full from empty at each station, with the pictures recorded so far?
+"""How well does vision/occupancy.py separate full from empty at each station, with the pictures recorded so far?
 
 For every station under reference_images/occupancy/ with at least one empty and one full picture of its camera
-(perception.occupancy.camera_for: down for microscope and polar, front for the slots):
+(vision.occupancy.camera_for: down for microscope and polar, front for the slots):
   empty-vs-empty   leave-one-out: each empty scored against the nearest of the other empties (needs 2 or more empties)
   full-vs-empty    each full scored against the nearest of all empties
   noise            the station's empty noise N (max leave-one-out score, or DEFAULT_NOISE marked * when only one empty exists)
@@ -30,7 +30,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
-from perception import occupancy as O  # noqa: E402
+from vision import occupancy as O  # noqa: E402
 
 OUT = os.path.join(os.environ.get("TEMP", HERE), "claude", "C--Users-ASUS-Downloads-bioyond-arm-setup",
                    "087b0f72-90ad-4c92-a3ac-198cc1178181", "scratchpad", "occ")

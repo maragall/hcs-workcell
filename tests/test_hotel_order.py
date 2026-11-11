@@ -10,7 +10,7 @@ sys.path.insert(0, HERE)
 
 from test_sim import Rig  # noqa: E402
 
-from procedures.hotel import interleave, plate_order  # noqa: E402
+from run.hotel import interleave, plate_order  # noqa: E402
 
 
 def test_interleave_alternates_columns_and_tolerates_uneven_lengths():

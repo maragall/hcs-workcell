@@ -1,6 +1,6 @@
 """Slot <-> rotation module test: the plate starts in the first slot given. For each slot in turn: pick it from the slot, carry it to the
 module, set it down at 90 degrees, pick it up again, carry it to the next slot and place it there. After the last slot it goes back to the
-first. Every slot is picked from once and placed into once. Uses the loop's own pick and place (procedures/), nothing new.
+first. Every slot is picked from once and placed into once. Uses the loop's own pick and place (run/), nothing new.
 
 A leg from the module to a slot must be the one stored in preset/routes.json (tools/plan_preset_routes.py): a different plan stops the test.
 Stops at the first refusal and leaves the arm where it is. Stop by hand: create runs/STOP.
@@ -18,13 +18,13 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
 import cli as R  # noqa: E402
 from devices import nova  # noqa: E402
-from procedures import motion as M  # noqa: E402
-from routes.plan import Route  # noqa: E402
-from procedures.corrector import StopSafe  # noqa: E402
-from procedures.cycle import Cycle  # noqa: E402
-from procedures.safety import SpeedProfile  # noqa: E402
-from procedures.state import StateStore  # noqa: E402
-from procedures.telemetry import Telemetry  # noqa: E402
+from run import motion as M  # noqa: E402
+from planner.plan import Route  # noqa: E402
+from vision.corrector import StopSafe  # noqa: E402
+from run.cycle import Cycle  # noqa: E402
+from run.safety import SpeedProfile  # noqa: E402
+from run.state import StateStore  # noqa: E402
+from run.telemetry import Telemetry  # noqa: E402
 
 PRESET = json.load(open(os.path.join(HERE, "preset", "routes.json"), encoding="utf-8"))["routes"]
 STOP = os.path.join(R.RUNS, "STOP")

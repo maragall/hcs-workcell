@@ -11,7 +11,7 @@ sys.path.insert(0, HERE)
 from test_sim import Rig  # noqa: E402
 
 from devices.fake_arm import SimFaults  # noqa: E402
-from procedures.recovery import is_motion_fault, mark, recover_to_nest  # noqa: E402
+from run.recovery import is_motion_fault, mark, recover_to_nest  # noqa: E402
 
 COLLISION = [{"errCode": 3873, "errMsg": "Motion error: axis 4 collision detected"}]
 

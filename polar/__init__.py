@@ -10,7 +10,7 @@ A place is a hotel slot ("A1" .. "C9"), "module" (the rotation module), or the n
 (`python cli.py teach NAME`). `move` picks at the source and places at the destination; `pick` and `place` do one half each.
 Each call returns when the arm is done and raises PolarError with the reason when it cannot do it.
 
-Underneath: the loop's own pick and place (procedures/), the stored routes (preset/routes.json), the force close.
+Underneath: the loop's own pick and place (run/), the stored routes (preset/routes.json), the force close.
 The plate is carried by its long edges into and out of the hotel and by its short edges into and out of an instrument; the
 rotation module is where the grip changes. `move` does that regrip by itself.
 """
@@ -38,13 +38,13 @@ class Polar:
         plate_at: where the plate is now, when this is the first run or it was moved by hand: a place name, or "none"."""
         import cli as R
         from devices import nova
-        from procedures import motion
-        from procedures.corrector import StopSafe
-        from procedures.cycle import Cycle
-        from procedures.safety import SpeedProfile
-        from procedures.state import StateStore
-        from procedures.telemetry import Telemetry
-        from routes.plan import Route
+        from run import motion
+        from vision.corrector import StopSafe
+        from run.cycle import Cycle
+        from run.safety import SpeedProfile
+        from run.state import StateStore
+        from run.telemetry import Telemetry
+        from planner.plan import Route
 
         self._StopSafe = StopSafe
         self.layout = R.load_layout()
@@ -158,8 +158,8 @@ class Polar:
 
     def _do(self, fn) -> None:
         from devices.arm import MotionRefused
-        from procedures.hotel import SlotOccupied
-        from procedures.safety import SafetyViolation
+        from run.hotel import SlotOccupied
+        from run.safety import SafetyViolation
         try:
             fn()
         except (self._StopSafe, SlotOccupied, SafetyViolation, MotionRefused) as e:

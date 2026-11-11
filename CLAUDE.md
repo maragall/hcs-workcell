@@ -3,54 +3,32 @@
 Plate-handling workcell: Bioyond Polar arm + Nova vision box, plate hotel, rotation module, up to four Squid+
 microscopes. Design docs, figures and plans live in `~/CEPHLA/AI-docs/hcs-workcell`, not here.
 
-## Structure (2026-10-22)
+## Structure (2026-11-10)
 
-Four packages plus the main loop. Each box calls only the boxes below it; `perception` imports no device.
+Polar is the arm with its hotel and rotation module. The workflow is three parts (docs/workflow.md): setup once, teach each
+instrument, run jobs. One package per part, three packages underneath. Each calls only the ones below it.
 
-- `run.py`: the main loop, asyncio. Each plate change returns the microscope's plate to its home slot and fetches the
-  next (`--order interleave` walks `fixtures.hotel.loaded`). One task per microscope (`run_scope`), one arm shared (`Workcell.arm_lock`),
-  one ledger per microscope (`state_<scope>.json`), one telemetry folder per microscope (`runs/<run>/<scope>/`).
-  The blocking arm procedures run in threads. A fault in one task stops the others at their next step.
-- `cli.py`: teaching (`record-pose NAME` stores where the arm is now), references, tests, one-microscope runs.
-- `layout.json`: the positions file. Data, not code. `procedures/positions.py` loads and saves it.
-- `procedures/`: the arm moves with the checks between them. `Cycle` (`cycle.py`) is one class whose methods are
-  grouped by file: `motion.py` (moves), `grasp.py` (jaw), `gates.py` (camera and health checks), `hotel.py` (slots);
-  `cycle.py` keeps the constructor, pick, place, the step tables and `run`. Plus recovery, safety, ledger, telemetry,
-  plate types (`plates.py`, mirrored by `lua/data_plate.lua`, chosen by SYSINVAR8), preflight.
-- `perception/`: photo in, verdict out. `lower_check.py` is the correlation gate before every lowering (down camera,
-  plus the front camera as a second view); `occupancy.py` the slot detector. Self-training gates share `Gates._learned_gate`
-  and block only once trained (`enforce: "auto"`). With `vision.hub.record` on, every verdict and every step outcome go
-  to `hub_outbox/` for cephla-hub; the drift statistics (`predictor.py`) are the live prediction that runs today.
-- `devices/`: one thin file per machine and a fake for each. `nova.py` is the one import for arm + vision box.
-- `calibration/`: our replacement for the vendor's Windows calibration tool (HALCON 12 maths, two text files on the
-  box). The target is the 40 mm marker on the practice plate (`marker.py`, cv2.aruco). `plan.around` is the one capture
-  plan (three heights, x/y spread, four yaws, ends where it started); `solve.run` is one joint least squares over the
-  camera model (`CamParam.dat`, HALCON area_scan_polynomial), the camera-in-tool pose (`CamInTool.dat`, HALCON pose
-  type 2 = Rz(g) Ry(b) Rx(a)) and the marker-in-base pose; a SCARA cannot fix the camera's offset along tool z, so the
-  marker is pinned at base z = 0 as the vendor's file implies. `upload` SFTPs to
-  `/home/pi/Nova/data/calibration/<camera>/active/` with credentials from `layout.json vision.ssh`, `verify` reads the
-  marker from two poses. `python3 -m calibration.validate` renders the marker through the vendor's files in
-  `vendor_data/` and solves it back (`synth.py`). `cli.py calibrate <camera> read|capture|upload|check`.
-- `bringup/` (`python cli.py setup [--sim] [--from SECTION]`): the one-click setup as a terminal program. `runner.py` prints the
-  steps and waits for Enter on the user's; `sections.py` is the sections in order, each line calling what `cli.py`, `Cycle` and
-  `exercise` already call; `geometry.py` the arithmetic (stage seat from the practice plate's marker); `cell.py` the two devices, the positions file
-  and the arm's readout; `cameras.py` the calibration steps; `hand.py` the arm loose or locked. `perception/hotel_rows.py`
-  tells 15 from 30 slots by looking at one row at a time and asking yes or no until it knows. Tests: `tests/test_bringup.py`.
-- `routes/`: `plan.py` picks a taught trajectory, else lift / travel / lower, every leg checked against the claw (205 mm ahead of the
-  reported wrist pose) and the links by `volumes.py` (obstacles and claw from `layout.json volumes`, which come from the CAD, see
-  `hardware.json`). With `routes.safe_z_mm` the travel is at that height; with it null the planner searches a path around the volumes;
-  `Motion.move_to(position)` executes it, to the hover only. `cli.py goto NAME` drives it by hand.
-- `procedures/cad_poses.py`: wrist poses computed from the manufacturer CAD (`hardware.json cad`) with a frame fit from the hand-taught
-  hotel poses (agree to about 1 mm); `python cli.py cad-poses` compares, `fixtures.hotel.pose_source = "cad"` switches the hotel to them.
-  The pose the controller reports is the wrist axis; the fingertips are 205 mm ahead of it, the down camera looks 115 mm ahead.
-- `tools/`: standalone scripts that are not part of the loop: `analyze_runs.py`, `build_refs_from_runs.py`, `record_slot.py`,
-  `teach_daemon.py`, `torque_probe.py`, `run_matrix.py`, `review_queue.py`, `placement_diagram.py` (redraws `docs/placement.png`).
-  There is no GUI: `python cli.py setup` replaces it, `python cli.py recover` is its Recover button.
-- Stage safety, two layers, no clocks. Keep-out: `regions.stage_sweep` (`keep_out: true`), the stage's travel envelope at
-  its closest approach to the arm; `Safety` refuses any target, segment or joint move whose tool point, elbow or links
-  (elbow via `routes_opt/fk`) enter it. Interlock: `run.py` homes the stage and waits for `parked()` inside the arm lock;
-  `Motion` enters a `needs_parked` region only while `parked()` is True; `acquire()` runs after the lock is released.
-  To measure on the cell (null = refused): `regions.stage_sweep.box`, `squid.<name>.park_xy_mm`, `park_tolerance_mm`.
+- `polar/`: the driver language. `Polar().move(source, destination)`, `pick`, `place`, `where`. Places are slots ("A1"), "module",
+  or a taught instrument. `demo.py` is the example; `tools/test_api.py` runs every method on the arm.
+- `setup/` (`python cli.py setup`): the one-time setup of the arm as a terminal program. `runner.py` prints the steps,
+  `sections.py` is the sections in order, `cameras.py` the camera calibration steps, `cell.py` the two devices and the positions file.
+- `teach/` (`python cli.py teach NAME`): the arm goes loose, the user seats the plate in the instrument by its short edges, Enter;
+  the seat is recorded and its routes to the rotation module are planned and stored in `preset/routes.json`.
+- `run/`: the arm moves with the checks between them. `Cycle` (`cycle.py`) is one class whose methods are grouped by file:
+  `motion.py` (moves), `grasp.py` (jaw), `hotel.py` (slots), plus `vision/gates.py`. Also safety, ledger (`state.py`), telemetry,
+  recovery, plate types, `positions.py` (loads and saves `layout.json`). `loop.py` is the asyncio main loop for several
+  microscopes (`python -m run`).
+- `planner/`: `plan.py` gives the waypoints between two positions, every leg checked against the claw, the plate and the links by
+  `volumes.py` (boxes from `layout.json volumes`; the hotel is solid). `fk.py` is the arm's kinematics, `joints.py` the joint limits,
+  `graph.py` the stored legs. `tools/plan_preset_routes.py` writes `preset/routes.json`: every slot to and from the module.
+- `vision/`: photo in, verdict out (`occupancy.py`, `tilt.py`, `predictor.py`, `hub.py`), the camera gates of the Cycle (`gates.py`),
+  the corrector (`corrector.py`: what to do on a doubt, `StopSafe`), and `calibration/` (the marker, the capture plan, the solve,
+  the upload to the camera box). Vision never stops the loop unless a gate is enforced; occupancy checks are optional and off.
+- `devices/`: one thin file per machine and a fake for each. `arm.py` is the vendor SDK, `controller.py` BRCAPI, `clamp.py` the
+  force close, `vision_box.py` the camera box.
+- `layout.json`: the positions file. Data, not code. `preset/`: the stored routes. `lua/`: what runs on the controller.
+- `tools/`: standalone scripts (tests on the arm, figures, measurements). `tests/`: offline tests on the fakes.
+- `docs/notes/`: older design notes, kept for reference.
 
 ## Hardware handoff (for the session on the cell PC, 2026-10-22)
 
@@ -76,7 +54,7 @@ step cheap to back out of:
    through the controller job path with SYSINVAR8 = 0.
 6. Let the cell collect its references over a day of supervised runs, then `python cli.py occupancy`. The gates with
    `enforce: "auto"` start blocking on their own once trained; set `enforce: false` on any gate that blocks wrongly.
-7. `python run.py --scopes microscope --slots A1 --mode supervised`: the asyncio loop on the real arm with fake imaging.
+7. `python -m run --scopes microscope --slots A1 --mode supervised`: the asyncio loop on the real arm with fake imaging.
    Then two nests: `--scopes microscope,microscope_2 --fake-scopes microscope_2 --slots A1,A3`, once `microscope_2`
    has its own fixture entry. The dead microscope always pretends for a short fixed time (`--acquisition-s`), never
    the real acquisition time.
@@ -93,6 +71,6 @@ Anything that fails in 1 or 2 is a refactor mistake: report it with the run fold
 - Every arm move is gated: correlation check before lowering, jaw check after closing. Keep it that way when
   adding a procedure.
 - The product is one microscope. The loop is written for several (one task each, one arm lock); a second one is a new
-  fixture entry in `layout.json` and a new name in `run.py --scopes`, nothing else.
+  fixture entry in `layout.json` and a new name in `python -m run --scopes`, nothing else.
 - A new plate type is one block in `lua/data_plate.lua` and the same numbers under `plates.types` in `layout.json`.
 - Tests: `python -m pytest tests -q`. `test_sim.py` takes minutes (real sleeps in the jaw procedures).

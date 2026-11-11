@@ -17,13 +17,13 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "tools"))
 import cli as R  # noqa: E402
 from devices import nova  # noqa: E402
-from procedures import motion as M  # noqa: E402
-from procedures.corrector import StopSafe  # noqa: E402
-from procedures.cycle import Cycle  # noqa: E402
-from procedures.safety import SpeedProfile  # noqa: E402
-from procedures.state import StateStore  # noqa: E402
-from procedures.telemetry import Telemetry  # noqa: E402
-from routes.plan import Route  # noqa: E402
+from run import motion as M  # noqa: E402
+from vision.corrector import StopSafe  # noqa: E402
+from run.cycle import Cycle  # noqa: E402
+from run.safety import SpeedProfile  # noqa: E402
+from run.state import StateStore  # noqa: E402
+from run.telemetry import Telemetry  # noqa: E402
+from planner.plan import Route  # noqa: E402
 
 STOP = os.path.join(R.RUNS, "STOP")
 LOG = os.path.join(R.RUNS, "test_workflow.log")

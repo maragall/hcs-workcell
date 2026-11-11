@@ -16,11 +16,11 @@ sys.path.insert(0, HERE)
 from rig import FakeVision, layout  # noqa: E402
 
 from devices.fake_arm import SimFaults, SimRobot  # noqa: E402
-from procedures.cycle import Cycle  # noqa: E402
-from procedures.safety import Safety, SafetyViolation  # noqa: E402
-from procedures.state import StateStore  # noqa: E402
-from procedures.telemetry import Telemetry  # noqa: E402
-from routes.plan import plan  # noqa: E402
+from run.cycle import Cycle  # noqa: E402
+from run.safety import Safety, SafetyViolation  # noqa: E402
+from run.state import StateStore  # noqa: E402
+from run.telemetry import Telemetry  # noqa: E402
+from planner.plan import plan  # noqa: E402
 
 FREE_A = [200.0, 100.0, 120.0, 0, 0, 90]         # outside every region, claw pointing along +y (clear of the hotel)
 FREE_B = [300.0, 180.0, 100.0, 0, 0, 90]

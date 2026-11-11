@@ -11,10 +11,10 @@ import pytest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from bringup import discover, sim  # noqa: E402
-from bringup.cell import Cell  # noqa: E402
-from procedures import positions  # noqa: E402
-from procedures.preflight import preflight  # noqa: E402
+from setup import discover, sim  # noqa: E402
+from setup.cell import Cell  # noqa: E402
+from run import positions  # noqa: E402
+from run.preflight import preflight  # noqa: E402
 
 
 def real_cell(monkeypatch, tmp=None):
@@ -111,7 +111,7 @@ def test_cli_turns_a_null_into_one_line(monkeypatch):
 
 
 def test_squid_is_found_in_the_saved_folder_then_the_fallback_and_else_asks_for_a_folder(tmp_path, monkeypatch):
-    from bringup import discover
+    from setup import discover
     ctl = tmp_path / "software" / "control"
     ctl.mkdir(parents=True)
     (ctl / "microscope.py").write_text("")
@@ -126,7 +126,7 @@ def test_squid_is_found_in_the_saved_folder_then_the_fallback_and_else_asks_for_
 
 def test_vision_box_found_on_another_port_by_its_get_version_reply(monkeypatch):
     """The saved port is dead; 9001 is open but silent, 8888 answers get_version: that one is the box, and is reported with its port."""
-    from bringup import discover
+    from setup import discover
     from devices import nova
 
     class Client:
@@ -148,7 +148,7 @@ def test_vision_box_found_on_another_port_by_its_get_version_reply(monkeypatch):
 
 
 def test_vision_box_nothing_answering_says_what_each_port_did(monkeypatch):
-    from bringup import discover
+    from setup import discover
     from devices import nova
 
     class Client:

@@ -27,11 +27,11 @@ os.chdir(HERE)
 
 import cli as R  # noqa: E402
 from devices import nova  # noqa: E402
-from procedures.cycle import Cycle  # noqa: E402
-from procedures.motion import offset  # noqa: E402
-from procedures.safety import SpeedProfile  # noqa: E402
-from procedures.state import StateStore  # noqa: E402
-from procedures.telemetry import Telemetry  # noqa: E402
+from run.cycle import Cycle  # noqa: E402
+from run.motion import offset  # noqa: E402
+from run.safety import SpeedProfile  # noqa: E402
+from run.state import StateStore  # noqa: E402
+from run.telemetry import Telemetry  # noqa: E402
 
 
 def main():

@@ -1,4 +1,4 @@
-"""How well does perception/tilt.py tell a flat plate from a misplaced one at each seat, with the pictures recorded so far?
+"""How well does vision/tilt.py tell a flat plate from a misplaced one at each seat, with the pictures recorded so far?
 
 For every station under reference_images/seat/<station>/ a table over its *_front.jpg pictures: label (the file name's first
 part: flat, held, or the operator's placement note q1..q4q1q2, all of which count as misplaced), angle, mean row, left-third
@@ -27,7 +27,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
-from perception import tilt as T  # noqa: E402
+from vision import tilt as T  # noqa: E402
 
 OUT = os.path.join(os.environ.get("TEMP", HERE), "claude", "C--Users-ASUS-Downloads-bioyond-arm-setup",
                    "087b0f72-90ad-4c92-a3ac-198cc1178181", "scratchpad", "tilt")

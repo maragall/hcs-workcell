@@ -10,7 +10,7 @@ sys.path.insert(0, HERE)
 from rig import GATES  # noqa: E402
 from test_sim import Rig  # noqa: E402
 
-from perception import hub  # noqa: E402
+from vision import hub  # noqa: E402
 
 
 def rows(tmp_path, name):
@@ -50,7 +50,7 @@ def test_record_and_outcome_rows_share_the_step(tmp_path):
 def test_an_unwritable_outbox_never_stops_the_arm():
     """Recording for the hub is opt-in telemetry. With the outbox path taken by a file, every record() and outcome()
     raises; the cycle must finish and say so in the events, not crash with the plate in the gripper."""
-    from procedures.cycle import Cycle
+    from run.cycle import Cycle
     r = Rig()
     outbox = os.path.join(r.tmp, "outbox")
     open(outbox, "w").close()                                     # a file where the directory should be

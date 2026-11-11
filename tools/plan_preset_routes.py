@@ -4,12 +4,12 @@ Reads layout.json, writes preset/routes.json. No hardware.   python tools/plan_p
 import json, os, sys, time
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE); os.chdir(HERE)
-from procedures.safety import Safety, SafetyViolation  # noqa: E402
-from procedures.motion import offset  # noqa: E402
-from procedures import hotel as H  # noqa: E402
-from routes import plan as P  # noqa: E402
-from routes.volumes import Volumes  # noqa: E402
-from routes_opt import fk  # noqa: E402
+from run.safety import Safety, SafetyViolation  # noqa: E402
+from run.motion import offset  # noqa: E402
+from run import hotel as H  # noqa: E402
+from planner import plan as P  # noqa: E402
+from planner.volumes import Volumes  # noqa: E402
+from planner import fk  # noqa: E402
 
 L = json.load(open("layout.json", encoding="utf-8"))
 polar = L["fixtures"]["polar"]

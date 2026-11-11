@@ -10,12 +10,12 @@ import pytest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from bringup import geometry  # noqa: E402
-from bringup.runner import Runner  # noqa: E402
-from bringup.sections import Bringup  # noqa: E402
+from setup import geometry  # noqa: E402
+from setup.runner import Runner  # noqa: E402
+from setup.sections import Bringup  # noqa: E402
 from devices.fake_squid import FakeSquid  # noqa: E402
-from bringup import sim  # noqa: E402
-from bringup.cell import Cell  # noqa: E402
+from setup import sim  # noqa: E402
+from setup.cell import Cell  # noqa: E402
 
 
 def world_markers(cell, stage_shift=(0.0, 0.0)):
