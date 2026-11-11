@@ -379,13 +379,13 @@ class Bringup:
         on = "fit the gripper onto the plate's {} edges until the pads sit in the grooves, then press Enter"
         steps = [
             Step("computer", "keep a copy of the positions file", keep),
-            Step("user", "the hotel must be screwed onto the platform, empty. Move the gripper clear of the hotel and of the rotation module. Press Enter", before=self.loosen),
+            Step("user", "the hotel must be screwed onto the platform, empty. Take the gripper off any plate: the jaw is about to move. Press Enter", before=self.loosen),
             Step("polar", "jaw just wider than the plate's long edges", long_jaw, moves=True)]
         for name in places.SLOTS:
             steps += [Step("user", f"put the aruco plate in slot {name}, pushed fully in. " + on.format("long"), before=self.loosen),
                       Step("computer", f"take that pose as slot {name}", slot(name))]
         steps += [
-            Step("user", "pull the gripper straight back out of the hotel. Put the aruco plate on the rotation module, tag up. Move the gripper clear of the hotel and of the rotation module. Press Enter", before=self.loosen),
+            Step("user", "take the gripper off the plate and out of the hotel. Put the aruco plate on the rotation module, tag up. Keep the gripper off the rotation module: it is about to turn. Press Enter", before=self.loosen),
             Step("polar", "rotation module to 0 deg, jaw just wider than the plate's short edges", module_to(0, "short_edges"), moves=True),
             Step("user", on.format("short"), before=self.loosen),
             Step("polar", "take that pose as the module's short-edge seat, then find its angle by force (the gripper closes on the plate several times)", seat(0, "short_edges"), moves=True),
