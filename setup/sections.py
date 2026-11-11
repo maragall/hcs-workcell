@@ -350,10 +350,6 @@ class Bringup:
                 return {name: [round(v, 1) for v in got["pose"][:3]], "jaw": got["jaw_at_teach"]}
             return go
 
-        def lock():
-            self.ready()
-            return {"arm": "locked"}
-
         def fit():
             L = c.layout()
             try:
@@ -373,23 +369,31 @@ class Bringup:
                 raise Refused(f"the routes were not planned: {(r.stderr or r.stdout)[-300:]}")
             return {"routes": last.split(" ->")[0], "instruments": "teach them again after the setup (python cli.py teach)"}
 
+        def long_jaw():
+            self.ready()
+            self.guard(lambda: c.robot.jaw_to(places.jaw_for(c.layout(), "long_edges")))
+            return {"jaw": places.jaw_for(c.layout(), "long_edges")}
+
+        # The hotel first, the module last: the arm ends above the module's seat, a known place, with the plate on the module, which is
+        # where the cameras section starts. (Operator, 2026-11-10: after the last slot the hand left the arm anywhere.)
         on = "fit the gripper onto the plate's {} edges until the pads sit in the grooves, then press Enter"
         steps = [
             Step("computer", "keep a copy of the positions file", keep),
-            Step("user", "the hotel must be screwed onto the platform, empty. Put the aruco plate on the rotation module, tag up. Move the gripper clear of the hotel and of the rotation module. Press Enter", before=self.loosen),
+            Step("user", "the hotel must be screwed onto the platform, empty. Move the gripper clear of the hotel and of the rotation module. Press Enter", before=self.loosen),
+            Step("polar", "jaw just wider than the plate's long edges", long_jaw, moves=True)]
+        for name in places.SLOTS:
+            steps += [Step("user", f"put the aruco plate in slot {name}, pushed fully in. " + on.format("long"), before=self.loosen),
+                      Step("computer", f"take that pose as slot {name}", slot(name))]
+        steps += [
+            Step("user", "pull the gripper straight back out of the hotel. Put the aruco plate on the rotation module, tag up. Move the gripper clear of the hotel and of the rotation module. Press Enter", before=self.loosen),
             Step("polar", "rotation module to 0 deg, jaw just wider than the plate's short edges", module_to(0, "short_edges"), moves=True),
             Step("user", on.format("short"), before=self.loosen),
             Step("polar", "take that pose as the module's short-edge seat, then find its angle by force (the gripper closes on the plate several times)", seat(0, "short_edges"), moves=True),
             Step("polar", "rotation module to 90 deg, jaw just wider than the plate's long edges", module_to(90, "long_edges"), moves=True),
             Step("user", on.format("long"), before=self.loosen),
-            Step("polar", "take that pose as the module's long-edge seat, then find its angle by force", seat(90, "long_edges"), moves=True)]
-        for name in places.SLOTS:
-            steps += [Step("user", f"put the aruco plate in slot {name}, pushed fully in. " + on.format("long"), before=self.loosen),
-                      Step("computer", f"take that pose as slot {name}", slot(name))]
-        steps += [Step("user", "pull the gripper straight back out of the hotel, clear of it, and press Enter", before=self.loosen),
-                  Step("computer", "lock the arm", lock),
-                  Step("computer", "fit the hotel through the six slots", fit),
-                  Step("computer", "plan every route slot <-> rotation module again (about 4 minutes)", plan)]
+            Step("polar", "take that pose as the module's long-edge seat, then find its angle by force. The arm ends above the module", seat(90, "long_edges"), moves=True),
+            Step("computer", "fit the hotel through the six slots", fit),
+            Step("computer", "plan every route slot <-> rotation module again (about 4 minutes)", plan)]
         return Section("places", steps)
 
     # ---- the program on the arm

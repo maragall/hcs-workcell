@@ -19,13 +19,13 @@ Setup script for the Bioyond Polar arm with a plate hotel and a rotation module.
 1. Connect the power cable and the emergency stop to the arm. Turn on the main switch at the back. Wait until the status light is steady.
 2. Connect the PC to port 1 of the controller with a network cable.
 3. Screw the hotel onto the platform. The slots face the arm. Leave it empty.
-4. Place the ArUco plate on the rotation module.
+4. Keep the ArUco plate at hand.
 
 ## Setup
 
 Run `python cli.py setup`. The script ends with `READY`.
 
-The script asks you to show the arm eight places with the ArUco plate: the rotation module twice (short edges, then long edges), then slots A1, A9, B1, B9, C1 and C9.
+The script asks you to show the arm eight places with the ArUco plate: slots A1, A9, B1, B9, C1 and C9, then the rotation module twice (short edges, then long edges). The arm ends above the rotation module.
 
 Each time:
 
