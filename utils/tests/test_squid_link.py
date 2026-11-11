@@ -29,9 +29,12 @@ class Handler(socketserver.StreamRequestHandler):
         elif cmd == "get_acquisition_status":
             S.busy = max(0, S.busy - 1)
             out = {"in_progress": S.busy > 0}
-        elif cmd == "home":
-            S.pos = [0.1, 0.2, 0.0]
-            out = {"homed": True}
+        elif cmd == "move_to_loading_position":
+            S.pos = [0.5, 0.5, 0.1]
+            out = {}
+        elif cmd == "move_to_scanning_position":
+            S.pos = [20.0, 20.0, 3.0]
+            out = {}
         elif cmd == "move_to":
             S.pos = [p["x_mm"], p["y_mm"], p["z_mm"]]
             out = {}
@@ -60,7 +63,7 @@ def test_wait_returns_when_the_acquisition_has_finished(link):
 def test_home_then_back_returns_the_stage_to_where_the_acquisition_ended(link):
     assert not link.parked()                    # never homed by this script: the arm stays out
     link.home()
-    assert Stage.pos == [0.1, 0.2, 0.0] and link.parked()
+    assert Stage.pos == [0.5, 0.5, 0.1] and link.parked()
     link.back()
     assert Stage.pos == [30.0, 40.0, 3.0] and not link.parked()
 
@@ -69,7 +72,7 @@ def test_the_stage_is_not_homed_under_a_running_acquisition(link):
     Stage.busy = 5
     with pytest.raises(SquidError, match="acquisition is running"):
         link.home()
-    assert "home" not in Stage.log
+    assert "move_to_loading_position" not in Stage.log
 
 
 def test_a_squid_that_is_not_running_says_how_to_start_the_server():

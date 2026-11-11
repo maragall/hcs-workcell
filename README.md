@@ -30,7 +30,9 @@ Each time:
 2. Slide the gripper onto the plate until the finger pads sit in the plate's grooves.
 3. Press Enter.
 
-![the gripper's front camera with the plate seated in A1](docs/img/teach_slot_front_camera.jpg)
+<img src="docs/img/teach_slot_front_camera.jpg" width="400" alt="gripper camera image of the plate seating in slot A9">
+
+Gripper camera image of the plate seating in slot A9.
 
 Then load the plates into the hotel. Start at A1.
 
@@ -64,7 +66,7 @@ Then load the plates into the hotel. Start at A1.
 
 ## Teaching
 
-1. Run `python cli.py teach`. The script homes the microscope's stage, then the arm goes loose.
+1. Run `python cli.py teach`. The script sends the microscope's stage to Squid's loading position, then the arm goes loose.
 2. Move the arm by hand until the gripper grabs the plate by its short edges.
 3. Press Enter. The script ends with `READY`.
 
@@ -116,7 +118,7 @@ scope.back()
 ```
 
 - `scope.wait()` returns when the acquisition has finished.
-- `scope.home()` homes the stage, so the arm can reach the plate holder.
+- `scope.home()` sends the stage to Squid's loading position, where the arm reaches the plate holder.
 - `scope.back()` takes the stage back to where the acquisition ended.
 - `scope.acquire(path)` starts an acquisition saved by Squid (`acquisition.yaml`).
-- The arm refuses to go to the microscope while its stage is not homed.
+- The arm refuses to go to the microscope while its stage is not at the loading position.

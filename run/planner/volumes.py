@@ -67,7 +67,7 @@ class Volumes:
             # the obstacle is a box, whatever parts it lists (the hotel, operator's rule of 2026-11-10: a carried plate is never inside
             # it; the slide along a slot's own line is the entry procedure's, not a planned leg). Its own margin, not the global one:
             # the entry point stands 5 mm outside the front. The relaxed margin (m < 0) still shrinks it.
-            mm = m if (m is not None and m < 0) else float(b.get("margin_mm", self.margin))
+            mm = m if m is not None else float(b.get("margin_mm", self.margin))
             return (b["x"][0] - mm + front <= x <= b["x"][1] + mm and b["y"][0] - mm <= y <= b["y"][1] + mm
                     and z_hi >= b["z"][0] - mm and z_lo <= b["z"][1] + mm)
         if not (b["x"][0] - mm + front <= x <= b["x"][1] + mm and b["y"][0] - mm <= y <= b["y"][1] + mm
@@ -158,7 +158,10 @@ class Volumes:
                 square = abs(((yaw + 180.0) % 360.0) - 180.0) <= self.front_yaw_tol
                 front = self.front_allow if held and name == "hotel" and square and not self._on_tray_level(z) else 0.0
                 lo, hi = (z + self.held_z[0], z + self.held_z[1]) if held else (z + self.z[0], z + self.z[1])     # the plate is 14 mm tall, the claw 85
-                if self._inside(name, px, py, lo, hi, m, front):
+                # the claw, and a carried plate, that is not square to the solid hotel keeps the full margin from it: a corner swings toward the
+                # front while it turns (2026-11-10: the turn at the entry point passed 2.4 mm from the front, 0.0 on the way out of B)
+                turning = m is None and not square and self.obstacles[name].get("solid")
+                if self._inside(name, px, py, lo, hi, self.margin if turning else m, front):
                     raise SafetyViolation(f"{label}: the claw at x={px:.0f} y={py:.0f} would be inside the {name} "
                                           f"(wrist x={x:.0f} y={y:.0f} z={z:.0f}, yaw {yaw:.0f})")
         for branch in self.safety._branches():

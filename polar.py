@@ -36,12 +36,12 @@ class Microscope:
 
         scope = Microscope()
         scope.wait()                      # until the acquisition has finished
-        scope.home()                      # the stage to its home position, where the arm reaches the holder
+        scope.home()                      # the stage to Squid's loading position, where the arm reaches the holder
         arm.move("microscope", "A1")
         arm.move("A3", "microscope")
         scope.back()                      # the stage back to where the acquisition ended
 
-    `acquire(path)` starts an acquisition saved by the Squid GUI (acquisition.yaml). The seat must have been taught with the stage homed."""
+    `acquire(path)` starts an acquisition saved by the Squid GUI (acquisition.yaml). The seat must have been taught with the stage at the loading position."""
 
     def __init__(self, name: str = "microscope"):
         from run import positions
@@ -76,7 +76,7 @@ class Polar:
         """check_occupancy: look at a seat with the camera before placing on it (optional, off).
         speed: a profile of layout.json speeds.
         plate_at: where the plate is now, when this is the first run or it was moved by hand: a place name, or "none".
-        microscope: a Microscope. With it the arm goes to that instrument only while its stage stands homed."""
+        microscope: a Microscope. With it the arm goes to that instrument only while its stage stands at the loading position."""
         self._scope = microscope
         from run import positions
         from utils.devices import nova
@@ -186,7 +186,7 @@ class Polar:
 
     def _stage_homed(self, place: str) -> None:
         if self._scope is not None and self._scope.name == place and not self._scope.parked():
-            raise PolarError(f"the stage of {place} is not at its home position: call home() on it first")
+            raise PolarError(f"the stage of {place} is not at its loading position: call home() on it first")
 
     def _where(self) -> str:
         at = self._store.s.plate_at

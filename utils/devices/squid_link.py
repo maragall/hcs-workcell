@@ -3,9 +3,10 @@ one JSON line in, one JSON line out; control/microscope_control_server.py in the
 
 What the plate change needs from the microscope:
     wait()      until the acquisition that is running has finished
-    home()      remember where the stage is, then home it: the place the arm can reach the plate holder
+    home()      remember where the stage is, then run Squid's own loading procedure: the loading position (Squid's config,
+                loading_x_mm, loading_y_mm) is where the arm reaches the plate holder
     parked()    the stage still stands where home() left it
-    back()      the stage back to where it was before home()
+    back()      Squid's own return to the scanning position, then the stage back to where it was before home()
     acquire(yaml_path)   start an acquisition saved by the GUI (acquisition.yaml)
 
 config (layout.json squid.<name>): host (default 127.0.0.1), port (default 5050), park_tolerance_mm (default 0.5).
@@ -71,12 +72,12 @@ class SquidLink:
 
     def home(self, timeout_s: float = 180.0) -> None:
         if not self.done():
-            raise SquidError(f"{self.name}: an acquisition is running: wait for it before homing the stage")
+            raise SquidError(f"{self.name}: an acquisition is running: wait for it before moving the stage")
         self._before = self.position()
-        self._call("home", timeout=timeout_s)
+        self._call("move_to_loading_position", timeout=timeout_s)
         x, y, _ = self.position()
         self._park = (x, y)
-        self._log("squid", self.name, f"homed at {self._park}, was at {self._before}")
+        self._log("squid", self.name, f"at the loading position {self._park}, was at {self._before}")
 
     def parked(self) -> bool:
         if self._park is None:
@@ -88,6 +89,7 @@ class SquidLink:
         if self._before is None:
             raise SquidError(f"{self.name}: nowhere to go back to: home() has not been called")
         x, y, z = self._before
+        self._call("move_to_scanning_position", timeout=timeout_s)
         self._call("move_to", timeout=timeout_s, x_mm=x, y_mm=y, z_mm=z, blocking=True)
         self._log("squid", self.name, f"back at {self._before}")
 

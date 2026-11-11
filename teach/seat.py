@@ -118,15 +118,15 @@ def record(robot, layout: dict, name: str) -> dict:
 def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], str] = input) -> int:
     layout = positions.load()
     squid = (layout.get("squid") or {}).get(name)
-    if squid is not None:                                 # a Squid: its seat is taught with the stage at home, and the arm only goes there with it homed
+    if squid is not None:                                 # a Squid: its seat is taught with the stage at Squid's loading position, and the arm only goes there with it thered
         from utils.devices.squid_link import SquidError, SquidLink
-        print(f"homing the stage of {name}")
+        print(f"the stage of {name} goes to its loading position")
         try:
             SquidLink(name, squid).home()
         except SquidError as e:
             print(f"{e}. The seat was not taught")
             return 2
-        print("the stage is at home")
+        print("the stage is at its loading position")
     robot = make_robot(layout)
     try:
         robot.connect()

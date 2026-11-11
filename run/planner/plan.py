@@ -28,6 +28,7 @@ SINGULAR_MM = 60.0     # a wrist this close to the arm's own axis cannot make a 
 FREE_AIR_LIFT_MM = 20.0   # over a zone's free_above_z by this much when the arm goes in or out sideways
 FOLD_MM = 60.0          # a target this close to the axis (the B column's entry point) is reached by a joint move, not a straight one
 UNFOLD_MM = 100.0      # where the joint move unfolds the arm to, along the line to the target
+TURN_BACK_MM = tuple(float(d) for d in range(2, 62, 2))   # how far back from a slot's entry point, along the slot's line, the plate is turned: the first that keeps the margin
 ENTRY_ZONE_MM = 30.0   # a held plate square to the solid hotel with its front edge this close to the hotel's front stands at a slot's entry point
 
 
@@ -169,12 +170,67 @@ def end_joints(route: "Route", here: List[float], joints: List[float], lim=None)
     return cj
 
 
+def _entry_ways(entry: List[float], yaw: float) -> List[List[List[float]]]:
+    """The ways a carried plate that arrives pointing `yaw` gets to a slot's entry point square to the slot, as poses in order. The
+    plate is turned back from the entry point, on the slot's line, where its swinging corner keeps the full margin from the hotel, and
+    then goes forward square. Tried first: all of the turn at one point. Then, for column B, which stands between the pillar and the
+    hotel: the first part of the turn at the entry point (there the back of the claw clears the pillar), back, the rest of the turn
+    (there the plate's corner clears the hotel). A point within 10 mm of the arm's own axis is left out."""
+    ax = (fk.MODEL["x0"], fk.MODEL["y0"])
+    at = lambda p, y: list(p[:5]) + [y]
+    back = [p for p in ([entry[0] - d] + list(entry[1:]) for d in TURN_BACK_MM) if math.dist(p[:2], ax) >= 10.0]
+    ways = [[at(T, yaw), at(T, entry[5]), list(entry)] for T in back]
+    if abs(fk.wrap180(yaw - entry[5])) <= 100.0:
+        ways += [[at(entry, yaw), at(entry, mid), at(T, mid), at(T, entry[5]), list(entry)]
+                 for T in back for mid in (entry[5] + k * fk.wrap180(yaw - entry[5]) for k in (2 / 3, 1 / 2, 1 / 3))]
+    return ways
+
+
+def _walk(layout: dict, safety: Safety, vol: Volumes, holding: Optional[str], poses: List[List[float]],
+          cj: Optional[List[float]]) -> tuple:
+    """Check the poses of one way in order, from poses[0] where the arm has the joints `cj`: a turn in place (joint 4 alone), or a leg
+    with the yaw kept, straight, or a joint move when either end is beside the arm's own axis (a joint move between two poses of the
+    same yaw keeps the yaw). Returns the joint target of every step that is a joint move ({index in poses: joints}) and the end joints."""
+    ax, targets = (fk.MODEL["x0"], fk.MODEL["y0"]), {}
+    for i in range(1, len(poses)):
+        p, q = poses[i - 1], poses[i]
+        if math.dist(p[:2], q[:2]) < 0.01:
+            cj = _turn_in_place(vol, cj, p, q, "turn before the entry point")
+            joint = True
+        else:
+            joint = min(math.dist(p[:2], ax), math.dist(q[:2], ax)) < SINGULAR_MM
+            v = Volumes(layout, _Fixed(safety, cj) if cj is not None else safety, holding, _CACHE)
+            if joint:
+                cj = v.check_joint_leg(p, q, "at the entry point", joints_a=cj, branch_b=fk.elbow_sign(cj) if cj is not None else None)
+            else:
+                safety.check_segment(p, q, "at the entry point")
+                v.check_leg(p, q, "at the entry point")
+                cj = jt.leg_joints(p, q, fk.elbow_sign(cj), v.lim, cj)[1] if cj is not None else None
+        if joint and cj is not None:
+            targets[i] = list(cj)
+    return targets, cj
+
+
+def _first(ways: List[List[List[float]]], check):
+    """The first way `check` accepts, with what it returned; every way's own reason when none is."""
+    why = []
+    for w in ways:
+        try:
+            return w, check(w)
+        except (SafetyViolation, ValueError) as e:
+            why.append(f"turn at x={w[-2][0]:.0f} y={w[-2][1]:.0f}" + (f", first to yaw {w[1][5]:.0f}" if len(w) > 3 else "")
+                       + f": {str(e).splitlines()[0]}")
+    raise SafetyViolation("no way to turn the plate before the entry point with the margin kept:\n    " + "\n    ".join(why))
+
+
 def _entry_turns(layout: dict, safety: Safety, vol: Volumes, here: List[float], target: List[float], holding: Optional[str]) -> Route:
     """The one way a carried plate reaches or leaves a slot's entry point, the same for every column (operator, 2026-11-10: column B's
-    route turned the plate while its front was 16 mm inside the hotel). The wrist travels with the plate pointing sideways or away from
-    the hotel; the turn to the slot's yaw is a turn in place at the entry point, joint 4 alone, and a route from an entry point begins
-    with that turn before the wrist moves. The yaws tried: the plate toward the arm's side of the cell, the other side, straight back;
-    the other end's own yaw instead of one of these when it is within 5 degrees of it (the module seat at -90.75: no extra small turn)."""
+    route turned the plate while its front was 16 mm inside the hotel; later that day: the turn at the entry point itself swung the
+    plate's corner to 2.4 mm from the hotel's front). The wrist travels with the plate pointing sideways or away from the hotel; the
+    turn to the slot's yaw is made where the turning plate keeps the full margin from the hotel (_entry_ways), and the plate reaches the
+    entry point square to the slot. A route from an entry point is the same backwards. The yaws tried: the plate toward the arm's side
+    of the cell, the other side, straight back; the other end's own yaw instead of one of these when it is within 5 degrees of it (the
+    module seat at -90.75: no extra small turn)."""
     leave, arrive = _at_entry(vol, here), _at_entry(vol, target)
 
     def sides(p, other):
@@ -187,28 +243,29 @@ def _entry_turns(layout: dict, safety: Safety, vol: Volumes, here: List[float], 
             tag = ", ".join(f"{k} the entry point at yaw {y:.0f}" for k, y in (("from", ya), ("to", yb)) if y is not None)
             try:
                 poses, targets, start, s, cj = [], {}, here, safety, vol.start_joints
-                goal = (list(target[:5]) + [yb]) if arrive else list(target)
+                goal, into = list(target), None
                 if arrive:
                     safety.check_target(target, "the entry point")
-                    if cj is not None and vol.branch is not None and not leave:      # the cheap check first: the last turn, from the joints the wrist will have there
-                        _turn_in_place(vol, jt.pose_joints(goal, vol.branch, None, vol.lim), goal, target, "turn at the entry point")
+                    # the cheap check first: the turn and the last legs, from the joints the wrist will have where the travel ends
+                    into, _ = _first(_entry_ways(target, yb), lambda w: _walk(
+                        layout, safety, vol, holding, w, jt.pose_joints(w[0], vol.branch, None, vol.lim) if vol.branch is not None else None))
+                    goal = into[0]
                 if leave:
-                    out = list(here[:5]) + [ya]
-                    end = _turn_in_place(vol, cj, here, out, "turn at the entry point")
-                    poses.append(out)
+                    out, (got, end) = _first([w[::-1] for w in _entry_ways(here, ya)], lambda w: _walk(layout, safety, vol, holding, w, cj))
+                    poses += out[1:]
+                    targets.update({i - 1: j for i, j in got.items()})
                     if end is not None:
-                        targets[0], s, cj = list(end), _Fixed(safety, end), end
-                    start = out
+                        s, cj = _Fixed(safety, end), end
+                    start = poses[-1]
                 rest = lift_travel_lower(layout, s, start, goal, holding)
                 targets.update(rest.shifted(len(poses)))
                 poses += rest.poses
                 if arrive:
                     if cj is not None:
                         cj = end_joints(rest, start, cj, vol.lim)
-                    end = _turn_in_place(vol, cj, goal, target, "turn at the entry point")
-                    poses.append(list(target))
-                    if end is not None:
-                        targets[len(poses) - 1] = list(end)
+                    got, _ = _walk(layout, safety, vol, holding, into, cj)
+                    targets.update({len(poses) - 1 + i: j for i, j in got.items()})
+                    poses += into[1:]
             except (SafetyViolation, ValueError) as e:
                 why.append(f"{tag}: {e}")
                 continue
