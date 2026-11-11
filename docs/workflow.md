@@ -1,4 +1,4 @@
-# Setup
+# Workflow
 
 ## Prerequisites
 
@@ -9,9 +9,6 @@
 - Close BioyondWorks.
 
 ## Hardware
-
-![workcell](img/cell_model.png)
-
 1. Connect the power cable and the emergency stop to the arm. Turn on the main switch at the back. Wait until the status light is steady.
 2. Connect the PC to port 1 of the controller with a network cable.
 3. Screw the hotel onto the platform. The slots face the arm.
@@ -29,15 +26,13 @@ Run `python cli.py setup`. The script ends with `READY`.
 
 - Upload some preset knowledge to the arm:
     - hotel slot positions
-    - rotation module seat position
+    - rotation module seat positions
     - long-edge grip, short-edge grip, and grip torque probe procedure
+    - hotel slot exit/entry procedure
     - routes from each slot ↔ rotation module
-    - slot-exit procedure
 - Calibrate cameras:
     - Run aruco intrinsic and extrinsic calibration
-        - Upload to the camera box
-    - optional test script
-        - for each slot ↔ rotation module
+    - Upload values to BioyondWorks
 
 # Teaching
 
@@ -58,6 +53,33 @@ Run `python cli.py setup`. The script ends with `READY`.
 
 - User teaches microscope seat
     - gripper grabbing a real plate by short edges
-- Planner runs and uploads route: microscope seat ↔ rotation module
+- Planner: microscope seat ↔ rotation module routes
+- Upload routes and microscope seat to BioyondWorks
 
-Test: take the plate from the microscope to the rotation module.
+# Running jobs
+
+## Demo
+
+Run `python demo.py`. The arm takes the plate from A1 to the microscope and back.
+
+## Your own script
+
+```python
+from polar import Polar
+
+arm = Polar()
+
+arm.move("A1", "microscope")
+arm.move("microscope", "A1")
+```
+
+- `arm.move(source, destination)` picks the plate at the source and places it at the destination.
+- `arm.pick(place)` and `arm.place(place)` do one half each.
+- A place is a hotel slot (`"A1"` to `"C9"`), `"module"`, or the name of an instrument you taught.
+- Each call returns when the arm is done. It raises an error with the reason if it cannot do it.
+
+## Jobs in a nutshell
+
+- The script sends one job to the arm: source, destination
+- The arm runs the stored routes and the entry and seating procedures
+- The arm replies done, or the reason it stopped
