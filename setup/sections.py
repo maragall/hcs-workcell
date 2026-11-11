@@ -417,6 +417,9 @@ class Bringup:
             if c.sim:
                 return {"program": "not started on the simulator"}
             from utils.devices import clamp
+            self.ready()
+            if not c.robot.state().enabled and not c.robot.enable():      # the upload leaves the arm disabled, and the controller starts no program then
+                raise Refused("the arm could not be enabled, so its program cannot be started")
             r = clamp.read(c.layout()["robot"]["ip"])           # starts the program, waits for its heartbeat, reads the jaw, stops it
             return {"jaw": r["width"], "torque": r["torque"]}
 
