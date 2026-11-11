@@ -77,7 +77,7 @@ Then load the plates into the hotel. Start at A1.
 ## Hardware
 
 1. Place the microscope next to the platform, at least 20 cm from the arm's base. The plate holder must be within 39 cm of the arm's axis.
-2. Start Squid. Tick Settings > Enable MCP Control Server and Settings > Enable MCP Python Exec.
+2. Start Squid. Tick Settings > Enable MCP Control Server.
 3. Place a real plate in the microscope's plate holder.
 
 ## Teaching
@@ -86,16 +86,18 @@ Then load the plates into the hotel. Start at A1.
 python cli.py teach
 ```
 
-1. The script sends the microscope's stage to Squid's loading position, then the arm goes loose.
+1. Squid asks for permission in its own window: click Yes. The stage goes to Squid's loading position, then the arm goes loose.
 2. Fit the gripper onto the plate's short edges until the finger pads sit in the plate's grooves.
 3. Press Enter. The arm lifts above the seat and the script ends with `READY`.
 
 ## Teaching and route planning script in a nutshell
 
-- User teaches microscope seat
-    - gripper grabbing a real plate by short edges
+- Squid: stage to its loading position
+- Arm: jaw set for the plate's short edges, then loose
+- User: fits the gripper onto the plate in the microscope
 - Planner: microscope seat ↔ rotation module routes
 - Upload routes and microscope seat to the arm
+- Arm: ends above the seat
 
 # Running jobs
 
@@ -126,7 +128,7 @@ arm.move("microscope", "A1")
 
 ## With a running microscope
 
-In Squid, tick Settings > Enable MCP Control Server and Settings > Enable MCP Python Exec.
+In Squid, tick Settings > Enable MCP Control Server. The first time the arm goes to the microscope, Squid asks for permission in its own window: click Yes.
 
 ```python
 from polar import Polar, Microscope

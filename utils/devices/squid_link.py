@@ -18,12 +18,34 @@ from __future__ import annotations
 
 import json
 import socket
+import subprocess
+import sys
 import time
 from typing import Optional
 
 
 class SquidError(RuntimeError):
     """Squid did not answer, or refused the command."""
+
+
+# Windows: bring the Squid window to the front and choose Settings > Enable MCP Python Exec in its menu. Squid then shows its own
+# warning, and the person at the PC answers it: the consent stays theirs.
+_TICK = r"""
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+$A = [System.Windows.Automation.AutomationElement]; $T = [System.Windows.Automation.TreeScope]
+function Find($from, $prop, $value) { $from.FindFirst($T::Descendants, (New-Object System.Windows.Automation.PropertyCondition($prop, $value))) }
+$w = $A::RootElement.FindFirst($T::Children, (New-Object System.Windows.Automation.PropertyCondition($A::ClassNameProperty, 'HighContentScreeningGui')))
+if (-not $w) { exit 2 }
+try { $w.SetFocus() } catch {}
+$m = Find $w $A::NameProperty 'Settings'
+if (-not $m) { exit 3 }
+$p = $null
+if ($m.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$p)) { $p.Expand() } elseif ($m.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$p)) { $p.Invoke() }
+Start-Sleep -Milliseconds 700
+$i = Find $A::RootElement $A::NameProperty 'Enable MCP Python Exec'
+if (-not $i) { exit 4 }
+if ($i.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$p)) { $p.Invoke() } else { exit 5 }
+"""
 
 
 class SquidLink:
@@ -60,10 +82,30 @@ class SquidLink:
 
     def _py(self, code: str):
         got = self._call("python_exec", code=code)
+        if isinstance(got, dict) and got.get("error") and self._ask_for_python_exec():
+            got = self._call("python_exec", code=code)
         if isinstance(got, dict) and got.get("error"):
             raise SquidError(f"{self.name}: Squid's Python Exec is off. In the Squid window: Settings > Enable MCP Python Exec, "
                              "then Yes on the warning (it is off again after every Squid start)")
         return (got or {}).get("result")
+
+    def _ask_for_python_exec(self, wait_s: float = 120.0) -> bool:
+        """Python Exec is off: open that menu entry in the Squid window on this PC, so Squid shows its warning, and wait for the person
+        to click Yes. False when it could not be opened (not Windows, Squid on another PC) or nobody clicked."""
+        if sys.platform != "win32" or self.host not in ("127.0.0.1", "localhost"):
+            return False
+        try:
+            subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", _TICK],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            return False
+        print(f"   {self.name}: Squid asks for permission in its own window: click Yes there")
+        t0 = time.time()
+        while time.time() - t0 < wait_s:
+            if (self._call("get_python_exec_status") or {}).get("enabled"):
+                return True
+            time.sleep(1.0)
+        return False
 
     def _slide(self, want: str, timeout_s: float) -> None:
         """Squid's loading button, pressed until the stage is where `want` says ("loading" or "scanning"). The press is the button's

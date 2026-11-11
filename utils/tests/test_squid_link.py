@@ -86,7 +86,8 @@ def test_the_button_is_pressed_once_each_way(link):
     assert Stage.log.count("button") == 2 and Stage.pos == [30.0, 40.0, 3.0]    # back to where it stood before the first home()
 
 
-def test_python_exec_switched_off_says_which_tick(link):
+def test_python_exec_switched_off_says_which_tick(link, monkeypatch):
+    monkeypatch.setattr(link, "_ask_for_python_exec", lambda: False)      # no Squid window here to ask in
     Stage.exec_on = False
     with pytest.raises(SquidError, match="Enable MCP Python Exec"):
         link.home()
