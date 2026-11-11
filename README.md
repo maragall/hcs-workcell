@@ -7,6 +7,7 @@ Setup script for the Bioyond Polar arm with a plate hotel and a rotation module.
 - BioyondWorks, installed on the PC.
 - The Bioyond Python package (a .whl file). Contact us or Bioyond to get it.
 - Python 3.10 or newer.
+- Open PowerShell and `cd` into this folder, the one that holds `cli.py`. Every command below is run from there.
 - Run `.\setup\install.ps1 -SdkWheel <path to the .whl file>`, then `.\.venv\Scripts\Activate.ps1`.
 - The camera box login, in a file `nova_ssh.local.json` in the top folder: `{"user": "...", "password": "..."}`.
 - Close BioyondWorks.
