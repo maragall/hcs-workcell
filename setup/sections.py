@@ -66,7 +66,7 @@ class Bringup:
             run_dir = os.path.join(c.runs_dir, time.strftime("setup_%Y%m%d_%H%M%S"))
             os.makedirs(c.state_dir, exist_ok=True)
             store = StateStore(os.path.join(c.state_dir, "state_microscope.json"))
-            self._cyc = Cycle(c.layout(), c.robot, c.vision, Telemetry(run_dir), store, "overdrive", run_dir, c.ref_dir,
+            self._cyc = Cycle(c.layout(), c.robot, c.vision, Telemetry(run_dir), store, "stress", run_dir, c.ref_dir,
                               scope=self.scope, layout_path=c.layout_path, stop_event=c.stop_event, frame_source=c.frames,
                               parked=self._parked)
             self._cyc.commission["no_vision_correction"] = True      # the real plate carries no marker: the offset is applied here
