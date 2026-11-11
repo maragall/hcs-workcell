@@ -17,9 +17,8 @@ import time
 from typing import Callable, List, Optional
 
 
-from devices import nova
 from run import positions
-from setup import lua
+from run import lua
 from setup.runner import Refused, Section, Step
 from setup import cameras, hand
 from vision import colour
@@ -298,7 +297,7 @@ class Bringup:
     # ---- the program on the arm
     def preset(self) -> Section:
         """What the arm needs to know, written as its program and uploaded: the hotel slots, the module seats, the two grips with the
-        force close, the stored routes, the slot entry and exit (setup/lua.py). Nothing moves."""
+        force close, the stored routes, the slot entry and exit (run/lua.py). Nothing moves."""
         c = self.cell
         folder = os.path.join(c.runs_dir, "lua_project")
 
@@ -313,16 +312,7 @@ class Bringup:
             return {"files": lua.check(folder)}
 
         def send():
-            if not c.sim:
-                b = nova.controller(c.layout())
-                b.connect()
-                try:
-                    if b.state().prog_state == "running":
-                        b.stop_program()
-                    b.call("setSysVarI", [{"index": i, "value": 0} for i in range(4)])      # a job left pending would run when the program starts
-                finally:
-                    b.close()
-            got = lua.upload(c.robot, folder, c.runs_dir)
+            got = lua.upload(c.robot, folder, c.runs_dir, None if c.sim else c.layout())
             return {"files": got["files"], "backup": got["backup"]}
 
         def alive():

@@ -17,7 +17,7 @@ import os
 import time
 from typing import Callable, List
 
-from run import positions
+from run import lua, positions
 from run.motion import offset
 from planner.safety import Safety
 from planner import plan as P
@@ -153,6 +153,20 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
         return 2
     store(entries)
     print(f"{len(entries)} routes {name} <-> rotation module planned")
-    print("routes and seat stored in preset/; upload to the arm is not built yet")
+    folder = os.path.join(positions.RUNS, "lua_project")
+    layout = positions.load()
+    try:
+        lua.build(layout, json.load(open(ROUTES, encoding="utf-8")), folder)
+        lua.check(folder)
+        robot = make_robot(layout)
+        robot.connect()
+        try:
+            got = lua.upload(robot, folder, positions.RUNS, layout)
+        finally:
+            robot.disconnect()
+    except Exception as e:
+        print(f"the seat and its routes are stored, but the upload to the arm failed: {e}")
+        return 2
+    print(f"uploaded to the arm ({got['files']} files; what it had is in {got['backup']})")
     print("READY")
     return 0

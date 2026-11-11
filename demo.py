@@ -4,7 +4,7 @@
 """
 from polar import Polar
 
-arm = Polar()
+arm = Polar(plate_at="A1")
 
 arm.move("A1", "microscope")
 arm.move("microscope", "A1")

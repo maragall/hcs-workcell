@@ -1,4 +1,4 @@
-"""The Lua writer: layout.json + preset/routes.json -> the program the arm runs (data.lua and mod_*.lua), and its upload.
+"""The Lua writer (used by the setup and by teaching): layout.json + preset/routes.json -> the program the arm runs (data.lua and mod_*.lua), and its upload.
 
     build(layout, routes, folder)     write the project folder; returns what went into it
     check(folder)                     the vendor's own Lua (lua54.dll of BioyondWorks) parses every file
@@ -20,6 +20,7 @@ import shutil
 import time
 from typing import Dict, List
 
+from devices import nova
 from planner.safety import Safety
 from run import hotel as H
 from run import plates
@@ -174,7 +175,7 @@ def build(layout: dict, routes: dict, folder: str) -> dict:
     for sub, name in STATIC:
         shutil.copyfile(os.path.join(SOURCE, sub, name), os.path.join(folder, name))
     head = open(os.path.join(SOURCE, "polar", "data_head.lua"), "rb").read().decode("utf-8").replace("\r\n", "\n").rstrip("\n")
-    note = (f"-- POLAR: written by setup/lua.py on {time.strftime('%Y-%m-%d %H:%M:%S')} from layout.json and preset/routes.json "
+    note = (f"-- POLAR: written by run/lua.py on {time.strftime('%Y-%m-%d %H:%M:%S')} from layout.json and preset/routes.json "
             f"(planned {routes.get('planned_at')}). Do not edit: run python cli.py setup.")
     text = head + "\n\n" + note + "\nPOLAR=" + _lua(P) + "\n"
     open(os.path.join(folder, "data.lua"), "wb").write(text.replace("\n", "\r\n").encode("utf-8"))
@@ -209,8 +210,18 @@ def check(folder: str, dll: str = LUA_DLL) -> int:
     return n
 
 
-def upload(robot, folder: str, keep: str) -> Dict[str, object]:
-    """Back up the arm's project under `keep`, upload `folder`, read it back and compare file by file."""
+def upload(robot, folder: str, keep: str, layout: dict | None = None) -> Dict[str, object]:
+    """Back up the arm's project under `keep`, upload `folder`, read it back and compare file by file. With `layout` (the real arm)
+    the running program is stopped first and a job left pending in the system variables is cleared: it would run when the program starts."""
+    if layout is not None:
+        b = nova.controller(layout)
+        b.connect()
+        try:
+            if b.state().prog_state == "running":
+                b.stop_program()
+            b.call("setSysVarI", [{"index": i, "value": 0} for i in range(4)])
+        finally:
+            b.close()
     stamp = time.strftime("%Y-%m-%d_%H%M%S")
     before, after = os.path.join(keep, f"arm_project_before_{stamp}"), os.path.join(keep, f"arm_project_after_{stamp}")
     os.makedirs(before)

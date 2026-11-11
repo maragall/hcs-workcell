@@ -5,7 +5,8 @@
 - BioyondWorks, installed on the PC.
 - The Bioyond Python package (a .whl file). Contact us or Bioyond to get it.
 - Python 3.10 or newer.
-- Run `.\install.ps1 -SdkWheel <path to the .whl file>`.
+- Run `.\install.ps1 -SdkWheel <path to the .whl file>`, then `.\.venv\Scripts\Activate.ps1`.
+- The camera box login, in a file `nova_ssh.local.json` next to `layout.json`: `{"user": "...", "password": "..."}`.
 - Close BioyondWorks.
 
 ## Hardware
@@ -40,7 +41,7 @@ Run `python cli.py setup`. The script ends with `READY`.
 
 ![workcell with microscope](img/cell_model_microscope.png)
 
-1. Place the microscope next to the platform.
+1. Place the microscope next to the platform, at least 20 cm from the arm's base. The plate holder must be within 39 cm of the arm's axis.
 2. Place a real plate in the microscope's plate holder.
 
 ## Teaching
@@ -54,7 +55,7 @@ Run `python cli.py setup`. The script ends with `READY`.
 - User teaches microscope seat
     - gripper grabbing a real plate by short edges
 - Planner: microscope seat ↔ rotation module routes
-- Upload routes and microscope seat to BioyondWorks
+- Upload routes and microscope seat to the arm
 
 # Running jobs
 
@@ -67,7 +68,7 @@ Run `python demo.py`. The arm takes the plate from A1 to the microscope and back
 ```python
 from polar import Polar
 
-arm = Polar()
+arm = Polar(plate_at="A1")
 
 arm.move("A1", "microscope")
 arm.move("microscope", "A1")
@@ -75,7 +76,8 @@ arm.move("microscope", "A1")
 
 - `arm.move(source, destination)` picks the plate at the source and places it at the destination.
 - `arm.pick(place)` and `arm.place(place)` do one half each.
-- A place is a hotel slot (`"A1"` to `"C9"`), `"module"`, or the name of an instrument you taught.
+- `plate_at` says where the plate is when the script starts. Leave it out and the arm remembers from the last run.
+- A place is a hotel slot (`"A1"` to `"B9"`), `"module"`, or the name of an instrument you taught. Column C does not work yet.
 - Each call returns when the arm is done. It raises an error with the reason if it cannot do it.
 
 ## Jobs in a nutshell

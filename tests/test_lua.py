@@ -1,4 +1,4 @@
-"""The program for the arm (lua/polar/mod_Polar.lua with the POLAR table of setup/lua.py), run offline in the Lua that BioyondWorks
+"""The program for the arm (lua/polar/mod_Polar.lua with the POLAR table of run/lua.py), run offline in the Lua that BioyondWorks
 ships, against a stand-in for the controller's functions that records every command. No arm. Skipped where BioyondWorks is not installed.
 
 What is checked: the order of the moves of a job, where it ends, what it answers, and that a refusal moves nothing.
@@ -17,7 +17,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
 from run import positions  # noqa: E402
-from setup import lua  # noqa: E402
+from run import lua  # noqa: E402
 
 pytestmark = pytest.mark.skipif(not os.path.exists(lua.LUA_DLL), reason="BioyondWorks (its lua54.dll) is not installed")
 

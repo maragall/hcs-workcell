@@ -24,7 +24,7 @@ os.chdir(HERE)
 from devices import clamp, nova  # noqa: E402
 from devices.controller import BrcapiError  # noqa: E402
 from run import positions  # noqa: E402
-from setup import lua  # noqa: E402
+from run import lua  # noqa: E402
 
 CLASSES = {"travel": 1, "approach": 2, "contact": 3}
 
@@ -41,17 +41,9 @@ def upload(L):
     got = lua.build(L, json.load(open(os.path.join(HERE, "preset", "routes.json"), encoding="utf-8")), folder)
     say(f"written: {got['places']} places, routes for {', '.join(got['with_routes'])}; none for {', '.join(got['without_routes']) or 'nothing'}")
     say(f"parsed by the vendor's Lua: {lua.check(folder)} files")
-    b = nova.controller(L)
-    b.connect()
-    try:
-        if b.state().prog_state == "running":
-            b.stop_program()
-        b.call("setSysVarI", [{"index": i, "value": 0} for i in range(4)])
-    finally:
-        b.close()
     robot, _ = nova.connect_readonly(L, lambda *a, **k: None)
     try:
-        r = lua.upload(robot, folder, positions.RUNS)
+        r = lua.upload(robot, folder, positions.RUNS, L)
     finally:
         robot.disconnect()
     say(f"uploaded and read back: {r['files']} files; what the arm had is in {r['backup']}")

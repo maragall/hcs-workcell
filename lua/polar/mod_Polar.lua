@@ -2,7 +2,7 @@ function mod_Polar()
   --==================================================================
   -- Polar: picks, places and module turns run on the controller.
   -- The numbers (places, seats, grips, routes) are the table POLAR in
-  -- data.lua, written by setup/lua.py from layout.json and
+  -- data.lua, written by run/lua.py from layout.json and
   -- preset/routes.json. Nothing here is taught or edited by hand.
   --
   -- The loop is the torque probe's (mod_TorqueProbe.lua): it publishes
