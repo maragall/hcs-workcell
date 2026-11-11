@@ -27,7 +27,7 @@ The script asks you to show the arm eight places with the ArUco plate: the rotat
 Each time:
 
 1. The arm goes loose.
-2. Slide the gripper onto the plate until the finger pads sit in the plate's grooves.
+2. Fit the gripper onto the plate until the finger pads sit in the plate's grooves.
 3. Press Enter.
 
 <img src="docs/img/teach_slot_front_camera.jpg" width="400" alt="gripper camera image of the plate seating in slot A9">
