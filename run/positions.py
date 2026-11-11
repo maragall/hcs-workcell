@@ -13,7 +13,7 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PATH = os.path.join(ROOT, "layout.json")
 RUNS = os.path.join(ROOT, "runs")
-REFS = os.path.join(ROOT, "reference_images")
+REFS = os.path.join(ROOT, "vision", "reference_images")
 
 
 def load(path: str = PATH) -> dict:

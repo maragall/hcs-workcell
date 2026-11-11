@@ -25,16 +25,16 @@ from typing import Dict, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from devices import nova  # noqa: E402
-from devices.fake_squid import FakeSquid  # noqa: E402
-from devices.squid import Squid  # noqa: E402
+from utils.devices import nova  # noqa: E402
+from utils.devices.fake_squid import FakeSquid  # noqa: E402
+from utils.devices.squid import Squid  # noqa: E402
 from run import positions  # noqa: E402
 from vision.corrector import StopSafe  # noqa: E402
 from run.recovery import is_motion_fault, mark, recover_to_nest  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
 from run.hotel import plate_order  # noqa: E402
 from run.preflight import preflight  # noqa: E402
-from planner.safety import SafetyViolation  # noqa: E402
+from run.planner.safety import SafetyViolation  # noqa: E402
 from run.state import StateStore  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 

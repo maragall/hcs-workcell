@@ -1,10 +1,10 @@
-"""The Lua writer (used by the setup and by teaching): layout.json + preset/routes.json -> the program the arm runs (data.lua and mod_*.lua), and its upload.
+"""The Lua writer (used by the setup and by teaching): layout.json + run/preset/routes.json -> the program the arm runs (data.lua and mod_*.lua), and its upload.
 
     build(layout, routes, folder)     write the project folder; returns what went into it
     check(folder)                     the vendor's own Lua (lua54.dll of BioyondWorks) parses every file
     upload(robot, folder, keep)       back up what is on the arm, upload, read back and compare
 
-The program (lua/polar/mod_Polar.lua) is fixed text. Every number it uses is the table POLAR at the end of data.lua,
+The program (run/controller/mod_Polar.lua) is fixed text. Every number it uses is the table POLAR at the end of data.lua,
 written here: the places with their seats and stored routes, the grips, the module, the speeds. The folder holds the user's
 files only (data.lua, mod_*.lua); the controller's fixed entry calls mod_Socket() (proven 2026-11-09 23:30).
 
@@ -20,16 +20,16 @@ import shutil
 import time
 from typing import Dict, List
 
-from devices import nova
-from planner.safety import Safety
+from utils.devices import nova
+from run.planner.safety import Safety
 from run import hotel as H
 from run import plates
 from run.grasp import Grasp
 from run.motion import offset
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SOURCE = os.path.join(HERE, "lua")
-STATIC = [("polar", "mod_Polar.lua"), ("polar", "mod_Socket.lua"), ("torque_probe", "mod_TorqueProbe.lua")]
+SOURCE = os.path.join(HERE, "run", "controller")
+STATIC = ["mod_Polar.lua", "mod_Socket.lua", "mod_TorqueProbe.lua"]
 GRIPS = {"short_edges": 1, "long_edges": 2}
 LUA_DLL = r"C:\Bioyond\RobStudio\lua54.dll"
 JOBS = {"pick": 31, "place": 32, "turn": 33, "speed": 34}
@@ -161,7 +161,7 @@ def table(layout: dict, routes: dict) -> dict:
             e.update(got)
         P["place"][place_id(L, n)] = e
     if bad:
-        raise LuaError("the stored routes do not match layout.json (plan them again: python tools/plan_preset_routes.py, python cli.py teach):\n  "
+        raise LuaError("the stored routes do not match layout.json (plan them again: python utils/plan_preset_routes.py, python cli.py teach):\n  "
                        + "\n  ".join(bad))
     return P
 
@@ -172,10 +172,10 @@ def build(layout: dict, routes: dict, folder: str) -> dict:
     os.makedirs(folder, exist_ok=True)
     for old in os.listdir(folder):
         os.remove(os.path.join(folder, old))
-    for sub, name in STATIC:
-        shutil.copyfile(os.path.join(SOURCE, sub, name), os.path.join(folder, name))
-    head = open(os.path.join(SOURCE, "polar", "data_head.lua"), "rb").read().decode("utf-8").replace("\r\n", "\n").rstrip("\n")
-    note = (f"-- POLAR: written by run/lua.py on {time.strftime('%Y-%m-%d %H:%M:%S')} from layout.json and preset/routes.json "
+    for name in STATIC:
+        shutil.copyfile(os.path.join(SOURCE, name), os.path.join(folder, name))
+    head = open(os.path.join(SOURCE, "data_head.lua"), "rb").read().decode("utf-8").replace("\r\n", "\n").rstrip("\n")
+    note = (f"-- POLAR: written by run/lua.py on {time.strftime('%Y-%m-%d %H:%M:%S')} from layout.json and run/preset/routes.json "
             f"(planned {routes.get('planned_at')}). Do not edit: run python cli.py setup.")
     text = head + "\n\n" + note + "\nPOLAR=" + _lua(P) + "\n"
     open(os.path.join(folder, "data.lua"), "wb").write(text.replace("\n", "\r\n").encode("utf-8"))

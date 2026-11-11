@@ -6,7 +6,7 @@ the values its comment names. Nothing here talks to a device directly except thr
 Written through `positions`: layout.json -> `setup` (what this run found), the fixtures it re-seats, the gripper
 widths. Written to the ledger: `contents` (what is where) in state_microscope.json.
 
-Not run on the real arm yet: the sections are exercised on the simulator (tests/test_bringup.py).
+Not run on the real arm yet: the sections are exercised on the simulator (utils/tests/test_bringup.py).
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from vision import colour
 from run import cad_poses
 from vision.corrector import StopSafe
 from run.cycle import Cycle
-from planner.safety import SafetyViolation
+from run.planner.safety import SafetyViolation
 from run.state import StateStore
 from run.telemetry import Telemetry
 
@@ -302,7 +302,7 @@ class Bringup:
         folder = os.path.join(c.runs_dir, "lua_project")
 
         def write():
-            routes = json.load(open(os.path.join(positions.ROOT, "preset", "routes.json"), encoding="utf-8"))
+            routes = json.load(open(os.path.join(positions.ROOT, "run", "preset", "routes.json"), encoding="utf-8"))
             got = lua.build(c.layout(), routes, folder)
             return {"places": got["places"], "with routes": len(got["with_routes"]), "without routes": ", ".join(got["without_routes"]) or "none"}
 
@@ -318,7 +318,7 @@ class Bringup:
         def alive():
             if c.sim:
                 return {"program": "not started on the simulator"}
-            from devices import clamp
+            from utils.devices import clamp
             r = clamp.read(c.layout()["robot"]["ip"])           # starts the program, waits for its heartbeat, reads the jaw, stops it
             return {"jaw": r["width"], "torque": r["torque"]}
 

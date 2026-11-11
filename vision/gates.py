@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from vision.corrector import OperatorConfirmed, StopSafe
 
-REFS_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "reference_images")
+REFS_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reference_images")
 
 
 class Gates:
@@ -59,7 +59,7 @@ class Gates:
         if not collect and not judge:
             return
         try:
-            from devices.vision_box import locating
+            from utils.devices.vision_box import locating
             cam = self.down_cam if camera == "down" else self.front_cam
             with locating(self.L["vision"]["host"], wait_s=5.0):             # one fresh frame from the box itself (the buffer was stale at the module view, 01:03)
                 jpg = self.vision.frame(cam, 1280, 960, 90, None, 0)

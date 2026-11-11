@@ -26,15 +26,15 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from devices import nova  # noqa: E402
-from devices.arm import MotionRefused, RobotFault  # noqa: E402
-from devices.controller import BrcapiError  # noqa: E402
-from devices.vision_box import VisionError  # noqa: E402
+from utils.devices import nova  # noqa: E402
+from utils.devices.arm import MotionRefused, RobotFault  # noqa: E402
+from utils.devices.controller import BrcapiError  # noqa: E402
+from utils.devices.vision_box import VisionError  # noqa: E402
 from run import positions  # noqa: E402
 from vision.corrector import StopSafe  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
 from run.preflight import preflight  # noqa: E402
-from planner.safety import SafetyViolation  # noqa: E402
+from run.planner.safety import SafetyViolation  # noqa: E402
 from run.state import StateStore  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 
@@ -223,7 +223,7 @@ def cmd_setup(args):
         from setup import sim
         from setup.cell import Cell
         from setup.sections import Bringup
-        from devices.fake_squid import FakeSquid
+        from utils.devices.fake_squid import FakeSquid
         cell = Cell(*sim.build(), sim=True)
         for sec in Bringup(cell, FakeSquid("microscope", 0.0), lambda p: "").sections():
             print(f"{sec.name}")
@@ -238,7 +238,7 @@ def cmd_setup(args):
     from vision import prompt as prompt_mod
     from setup.runner import Runner
     from setup.sections import Bringup
-    from devices.fake_squid import FakeSquid
+    from utils.devices.fake_squid import FakeSquid
     from setup import sim
     from setup.cell import Cell
     if args.sim:
@@ -246,7 +246,7 @@ def cmd_setup(args):
     else:
         layout = load_layout()
         cell = Cell(LAYOUT, REFS, HERE, RUNS, make_robot(layout, args, lambda *a: None), nova.vision_box(layout), sim=False)
-    squid = FakeSquid("microscope", args.acquisition_s)       # the practice Squid until the real one is wired in (devices/squid.py)
+    squid = FakeSquid("microscope", args.acquisition_s)       # the practice Squid until the real one is wired in (utils/devices/squid.py)
     cell.connect()
     cell.discover()
     if not args.sim and cell.arm_error:
@@ -328,7 +328,7 @@ def cmd_recover(args):
     from setup.cell import Cell
     from setup.runner import Refused
     from setup.sections import Bringup
-    from devices.fake_squid import FakeSquid
+    from utils.devices.fake_squid import FakeSquid
     cell = Cell(*sim.build(), sim=True) if args.sim else Cell(LAYOUT, REFS, HERE, RUNS, make_robot(layout, args, lambda *a: None),
                                                              nova.vision_box(layout), sim=False)
     cell.connect()

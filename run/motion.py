@@ -5,11 +5,11 @@ import math
 import time
 from typing import List, Optional
 
-from devices.arm import MotionRefused
+from utils.devices.arm import MotionRefused
 from vision.corrector import StopSafe
-from planner.safety import SafetyViolation
-from planner.plan import plan
-from planner import fk
+from run.planner.safety import SafetyViolation
+from run.planner.plan import plan
+from run.planner import fk
 
 
 def offset(p: List[float], d: List[float]) -> List[float]:
@@ -82,7 +82,7 @@ class Motion:
         """A yaw change with the wrist staying put is joint 4 alone: turn it the way that stays inside its limits and clear of the
         pillar and the hotel (run/turn.py), by joint values, or refuse before moving."""
         from run import turn
-        from planner.volumes import Volumes
+        from run.planner.volumes import Volumes
         cur, ja = self.robot.pose(), list(self.robot.joints())
         grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
         vol = Volumes(self.L, self.safety, grip if grip and grip != "none" else None)

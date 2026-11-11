@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from devices.arm import MotionRefused
+from utils.devices.arm import MotionRefused
 from run import positions
 from vision.corrector import StopSafe
 
@@ -41,7 +41,7 @@ class Grasp:
         return jaw
 
     def _clamp(self, grip: str, step: str):
-        """Close under the torque limit (devices/clamp.py) and judge by force: returns (reading, None when a plate is held, else the reason)."""
+        """Close under the torque limit (utils/devices/clamp.py) and judge by force: returns (reading, None when a plate is held, else the reason)."""
         g = self.L["gripper"]
         limit, speed = float(g.get("clamp_limit", 0.5)), int(g.get("clamp_speed", 20))
         known = grip in self.checks.width                     # the width this grip reads on the plate, learned at its first holding clamp

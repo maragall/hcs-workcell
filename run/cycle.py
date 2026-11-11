@@ -15,9 +15,9 @@ import threading
 import time
 from typing import Callable, List, Optional
 
-from devices.arm import Robot
-from devices.stage import PolarError, PolarStage
-from devices.vision_box import VisionClient
+from utils.devices.arm import Robot
+from utils.devices.stage import PolarError, PolarStage
+from utils.devices.vision_box import VisionClient
 from vision import hub
 from vision.predictor import DriftMonitor, PreChecks
 from run import plates
@@ -26,7 +26,7 @@ from vision.gates import Gates
 from run.grasp import Grasp
 from run.hotel import Hotel
 from run.motion import Motion, offset
-from planner.safety import Safety
+from run.planner.safety import Safety
 from run.state import StateStore
 from run.telemetry import Telemetry
 
@@ -58,9 +58,9 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.parked = parked or (lambda: True)
         self.supervised = mode == "supervised"
         self.safety = Safety(layout, mode, robot.joints)
-        from planner import plan as _plan_mod
-        from planner.graph import StationGraph
-        _plan_mod.GRAPH = StationGraph(self.stations)       # legs between stations are planned once, stored, and replayed (planner/graph.py)
+        from run.planner import plan as _plan_mod
+        from run.planner.graph import StationGraph
+        _plan_mod.GRAPH = StationGraph(self.stations)       # legs between stations are planned once, stored, and replayed (run/planner/graph.py)
         self.plate = plates.default(layout)      # jaw widths and seat Z offset of the plate being handled
         self.checks = PreChecks(layout, self.plate.jaw_open, self.plate.jaw_closed)
         self.drift = DriftMonitor(os.path.join(run_dir, f"drift_{scope}.json"))
@@ -164,7 +164,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         route exists from the module to a hotel mouth with a plate in hand (02:46, 2026-11-04). With the claw still empty the nest is reachable
         from anywhere and puts the arm back on the taught branch."""
         try:
-            from planner import fk
+            from run.planner import fk
             joints = list(self.robot.joints())[:4]
         except Exception:
             return
@@ -175,7 +175,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
 
     def _check_seat_from_view(self, fixture_name: str, pose: List[float], fixture: dict, hover: List[float], step: str) -> bool:
         """Before a plate is lowered onto the module or a microscope: is the seat already occupied? With the plate in hand the arm goes to the
-        station's viewing pose first (fixtures.<station>.view, taught with tools/view_pose.py; the carried plate is outside the down camera's
+        station's viewing pose first (fixtures.<station>.view, taught with utils/view_pose.py; the carried plate is outside the down camera's
         field there, 2026-11-04 01:50), the down camera is judged against the seat's empty pictures, then the arm comes over the seat at
         that height and down to the hover. Returns True when it ended at the hover. vision.check_before_lower switches it; vision.gate_before_lower
         makes a confident "full" a stop (off until the false-positive rate is known); otherwise the verdict is logged and shown."""

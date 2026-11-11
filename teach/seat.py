@@ -3,11 +3,11 @@
 
   1. the arm goes loose;
   2. the user moves it by hand until the gripper grabs the plate (in the instrument's plate holder) by its short edges;
-  3. Enter. The seat goes into layout.json fixtures.<NAME>, the routes seat <-> module into preset/routes.json. READY.
+  3. Enter. The seat goes into layout.json fixtures.<NAME>, the routes seat <-> module into run/preset/routes.json. READY.
 
 Nothing here is new motion code: the arm is never commanded to move. The pieces are the tested ones: the loose arm with the jaw left
 as it is (setup/hand.py loosen, the setup's "microscope seat" step), the record (record below, without the camera
-frames), the seat's hover and planner box (setup/sections.py stage_hover, microscope_box), the planning (tools/plan_preset_routes.py).
+frames), the seat's hover and planner box (setup/sections.py stage_hover, microscope_box), the planning (utils/plan_preset_routes.py).
 """
 from __future__ import annotations
 
@@ -19,12 +19,12 @@ from typing import Callable, List
 
 from run import lua, positions
 from run.motion import offset
-from planner.safety import Safety
-from planner import plan as P
-from planner.volumes import Volumes
-from planner import fk
+from run.planner.safety import Safety
+from run.planner import plan as P
+from run.planner.volumes import Volumes
+from run.planner import fk
 
-ROUTES = os.path.join(positions.ROOT, "preset", "routes.json")
+ROUTES = os.path.join(positions.ROOT, "run", "preset", "routes.json")
 MODULE = "polar.pose_at_0"          # the rotation module's short-edge seat: the grip the instrument's seat is taught with
 WRIST_WOUND_DEG = 180.0             # setup/sections.py: a seat dragged with joint 4 beyond this hit the soft limit on the first move to it
 
@@ -55,7 +55,7 @@ def microscope_box(L: dict, seat: List[float]) -> dict:
 
 def plan_instrument_routes(layout: dict, name: str) -> dict:
     """The four preset routes between the module's short-edge hover and the instrument's hover: "module-><name>|short_edges",
-    "<name>->module|short_edges" and the "|empty" pair, with the fields tools/plan_preset_routes.py writes for the hotel. The elbow
+    "<name>->module|short_edges" and the "|empty" pair, with the fields utils/plan_preset_routes.py writes for the hotel. The elbow
     side is the one the seat was taught on; the way back starts with the joints the way there ends with. A route that does not plan
     is an entry with "error". No hardware."""
     F = layout["fixtures"]
@@ -86,7 +86,7 @@ def plan_instrument_routes(layout: dict, name: str) -> dict:
 
 
 def store(entries: dict) -> None:
-    """Merge route entries into preset/routes.json (the hotel routes there are kept)."""
+    """Merge route entries into run/preset/routes.json (the hotel routes there are kept)."""
     data = {"routes": {}}
     if os.path.exists(ROUTES):
         with open(ROUTES, encoding="utf-8") as f:

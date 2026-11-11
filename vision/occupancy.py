@@ -37,8 +37,8 @@ import cv2
 import numpy as np
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REFS = os.path.join(HERE, "reference_images", "occupancy")
-MODEL = os.environ.get("OCC_MODEL", os.path.join(HERE, "models", "resnet18-v1-7.onnx"))
+REFS = os.path.join(HERE, "vision", "reference_images", "occupancy")
+MODEL = os.environ.get("OCC_MODEL", os.path.join(HERE, "vision", "models", "resnet18-v1-7.onnx"))
 
 WIDTH = 320            # px, the ROI is resized to this width
 BLUR = 1.5             # Gaussian sigma after the resize

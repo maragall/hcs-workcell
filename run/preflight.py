@@ -15,7 +15,7 @@ def _walk(node, path=""):
 
 def preflight(layout: dict, ref_dir: str, scopes: Iterable[str] = ("microscope",), squid: Iterable[str] = ()) -> List[str]:
     """Problems that stop a run: untaught poses, unmeasured widths, missing reference images, open _todo keys,
-    unmeasured keep-outs. `squid`: the microscopes driven through devices.squid; their park numbers must be measured."""
+    unmeasured keep-outs. `squid`: the microscopes driven through utils.devices.squid; their park numbers must be measured."""
     problems = [p for p, v in _walk(layout) if p.endswith("_todo")]
     problems += [f"regions.{n} keep-out box not set" for n, r in layout["regions"].items() if r.get("keep_out") and not r.get("box")]
     for s in squid:

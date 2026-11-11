@@ -76,7 +76,7 @@ def compare(res: solve.Result, vcam: halcon.CamParam, vpose: halcon.Pose) -> boo
     return ok
 
 
-def main(root: str = "vendor_data") -> int:
+def main(root: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor_data")) -> int:
     cal = os.path.join(root, "CalibrationData")
     vcam = halcon.CamParam.read(os.path.join(cal, "intrinsic", "CamParam.dat"))
     vpose = halcon.Pose.read(os.path.join(cal, "HandEye", "CamInTool.dat"))

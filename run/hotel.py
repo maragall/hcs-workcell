@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from vision.corrector import StopSafe
 from run.motion import offset
-from planner.safety import SafetyViolation
+from run.planner.safety import SafetyViolation
 
 
 class SlotOccupied(Exception):
@@ -48,7 +48,7 @@ class Hotel:
             raise SafetyViolation(f"slot {slot} does not exist")
         if h.get("pose_source") == "cad":
             return self.cad_poses().hotel_pose(slot)
-        if h.get("pose_source") == "grid":              # tools/fit_hotel_grid.py: the 15 hand-taught seats, fitted to one regular grid
+        if h.get("pose_source") == "grid":              # utils/fit_hotel_grid.py: the 15 hand-taught seats, fitted to one regular grid
             return list(h["taught"][slot])
         if slot in h["taught"]:
             return list(h["taught"][slot])
@@ -114,11 +114,11 @@ class Hotel:
 
     def _planned(self) -> bool:
         """fixtures.hotel.pose_source = "cad": the slot poses come from the CAD and the way to a slot is planned around the
-        hotel's volume with the claw and the plate in it (planner/volumes.py), not replayed from the taught route A."""
+        hotel's volume with the claw and the plate in it (run/planner/volumes.py), not replayed from the taught route A."""
         return self.L["fixtures"]["hotel"].get("pose_source") in ("cad", "grid")
 
     def stations(self, holding: Optional[str]) -> dict:
-        """The stations the cell drives between, for a claw holding `holding` (planner/graph.py): the nest, the hovers of the
+        """The stations the cell drives between, for a claw holding `holding` (run/planner/graph.py): the nest, the hovers of the
         microscopes and the module, and for each hotel slot its approach point and its mouth."""
         st = {}
         nest = self.L.get("routes", {}).get("nest")
@@ -145,7 +145,7 @@ class Hotel:
         backed along the slot until the front of what the claw carries is clear of the hotel's first part. From the geometry
         (the parts of volumes.obstacles.hotel and the footprint of the claw with what it holds), not a distance chosen by hand.
         Never beyond the approach point itself (an empty claw is outside the rack there already)."""
-        from planner.volumes import Volumes
+        from run.planner.volumes import Volumes
         if holding == "now":
             grip = getattr(getattr(self, "store", None), "s", None) and self.store.s.grip
             holding = grip if grip and grip != "none" else None

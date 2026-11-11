@@ -16,7 +16,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
 
-from devices import nova
+from utils.devices import nova
 
 VISION_PORTS, ARM_PORTS = (9000, 9001, 8888), (52525, 56788)
 PROBE_TIMEOUT_S = 0.4
@@ -43,9 +43,9 @@ def local_subnets() -> List[ipaddress.IPv4Network]:
 
 
 def port_open(host: str, port: int, timeout: float = PROBE_TIMEOUT_S, retry_s: float = 0.0) -> bool:
-    """The controller's BRCAPI port takes one client at a time: it is probed under this PC's lock on it (devices/portlock.py, shared with the
+    """The controller's BRCAPI port takes one client at a time: it is probed under this PC's lock on it (utils/devices/portlock.py, shared with the
     window's pose poller and the force clamp), and with retry_s a refusal is tried again for that long (a client on another PC)."""
-    from devices.portlock import PortLock
+    from utils.devices.portlock import PortLock
     lock = PortLock(host, port) if port == ARM_PORTS[1] else None
     if lock and not lock.acquire(max(retry_s, 1.0)):
         return False
@@ -162,7 +162,7 @@ def squid_root(folder: str) -> Optional[str]:
 
 def squid(L: Optional[dict] = None) -> Dict[str, str]:
     """Squid's software, if this PC has it: the folder saved in the positions file, then the fallbacks, then an
-    installed `control` package. Driving it needs the objects the Squid GUI builds (devices/squid.py)."""
+    installed `control` package. Driving it needs the objects the Squid GUI builds (utils/devices/squid.py)."""
     saved = ((L or {}).get("squid_software") or {}).get("folder")
     for folder in [f for f in (saved, *SQUID_FALLBACKS) if f]:
         root = squid_root(folder)

@@ -14,8 +14,8 @@ import os
 import time
 from typing import List, Optional
 
-from planner.safety import Safety, SafetyViolation
-from planner.volumes import Volumes
+from run.planner.safety import Safety, SafetyViolation
+from run.planner.volumes import Volumes
 
 from setup import calibration_fake
 
@@ -26,7 +26,7 @@ def limit_mm(L: dict) -> float:
 
 
 CHECK_MOVE_MM = 20.0                     # the check reads the marker from here and from this far along x
-VENDOR_START = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vendor_data",
+VENDOR_START = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vision", "calibration", "vendor_data",
                             "CalibrationData", "IniIntrinsic", "CamParam.dat")   # the solve's start when a camera has no file yet
 
 
@@ -67,7 +67,7 @@ def _stamp() -> str:
 
 def plan_around(cell, L: dict, here: List[float], view: Optional[dict] = None) -> List[List[float]]:
     """The package's plan around where the arm is. Every pose is checked against the safe box and against the claw
-    and links (planner/volumes.py: the fingers are 205 mm ahead of the wrist), and so is every leg between them, which
+    and links (run/planner/volumes.py: the fingers are 205 mm ahead of the wrist), and so is every leg between them, which
     the arm makes as straight moves; ends where it started."""
     s = Safety(L, "supervised", cell.robot.joints)
     vol = Volumes(L, s)

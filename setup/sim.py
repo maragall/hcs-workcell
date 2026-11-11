@@ -1,12 +1,12 @@
 """--sim: the fakes the tests use, so a developer can click through without hardware. The positions file is a
-patched copy in a temp folder (tests/rig.layout), the references are seeded as exercise.py seeds them."""
+patched copy in a temp folder (utils/tests/rig.layout), the references are seeded as exercise.py seeds them."""
 from __future__ import annotations
 
 import os
 import sys
 import tempfile
 
-from devices import nova
+from utils.devices import nova
 from run import positions
 from run.motion import offset
 
@@ -14,7 +14,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def rig():
-    sys.path.insert(0, os.path.join(ROOT, "tests"))
+    sys.path.insert(0, os.path.join(ROOT, "utils", "tests"))
     import rig as r
     return r
 
