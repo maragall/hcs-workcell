@@ -491,7 +491,7 @@ class Bringup:
 
         self.connect()                                        # for module_to_0 and hover, which it defines
         return Section("cameras", [
-            Step("user", "put the aruco plate on the rotation module, tag up, and press Enter"),
+            Step("user", "put the aruco plate on the rotation module, tag up. Move the gripper above the rotation module, off the plate. Press Enter", before=self.loosen),
             Step("polar", "rotation module to 0 deg", self._module_to_0, moves=True),
             Step("polar", "hover hand onto rotation module centroid", self._hover, moves=True),
             Step("nova", "detect aruco with the down camera", detect, moves=True),
