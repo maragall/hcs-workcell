@@ -13,8 +13,8 @@ from run.cad_poses import CadPoses  # noqa: E402
 from run.hotel import Hotel  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(HERE))
-LAYOUT = json.load(open(os.path.join(ROOT, "layout.json"), encoding="utf-8"))
-HARDWARE = json.load(open(os.path.join(ROOT, "hardware.json"), encoding="utf-8"))
+LAYOUT = json.load(open(os.path.join(ROOT, "run", "layout.json"), encoding="utf-8"))
+HARDWARE = json.load(open(os.path.join(ROOT, "run", "hardware.json"), encoding="utf-8"))
 
 
 def test_the_cad_poses_agree_with_the_taught_hotel_poses_to_a_couple_of_millimetres():

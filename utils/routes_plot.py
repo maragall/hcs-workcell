@@ -13,7 +13,7 @@ from run.planner import joints as jt  # noqa: E402
 from run.planner import fk  # noqa: E402
 from utils.hotel_model_html import scene_boxes  # noqa: E402
 
-L = json.load(open("layout.json", encoding="utf-8"))
+L = json.load(open("run/layout.json", encoding="utf-8"))
 R = json.load(open("run/preset/routes.json", encoding="utf-8"))
 LIM = jt.limits(L)
 HELD = L["volumes"]["held"]

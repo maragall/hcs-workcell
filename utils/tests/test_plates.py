@@ -9,7 +9,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def layout():
-    with open(os.path.join(os.path.dirname(os.path.dirname(HERE)), "layout.json"), "r", encoding="utf-8") as f:
+    with open(os.path.join(os.path.dirname(os.path.dirname(HERE)), "run", "layout.json"), "r", encoding="utf-8") as f:
         return json.load(f)
 
 

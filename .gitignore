@@ -13,4 +13,5 @@ reference_images_synthetic*/
 nova_ssh.local.json
 state_*.json
 station_graph.json
-.claude/
+.claude/*
+!.claude/CLAUDE.md

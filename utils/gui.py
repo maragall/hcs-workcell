@@ -141,7 +141,7 @@ class Detector:
                 self.stations.pop(name, None)                                  # new pictures: the references are read again
         try:                                                                   # the seats' viewing poses follow the taught seat (fixtures.<station>.view.tool_offset), not the recording
             from vision.view import from_tool_frame
-            F = json.load(open(os.path.join(HERE, "layout.json"), encoding="utf-8"))["fixtures"]
+            F = json.load(open(os.path.join(HERE, "run", "layout.json"), encoding="utf-8"))["fixtures"]
             for name in ("polar", "microscope"):
                 off = (F.get(name) or {}).get("view", {}).get("tool_offset")
                 if off and name in self.views:
@@ -259,7 +259,7 @@ class Model:
         P0 = F["polar"]["pose_at_0"]["pose"]
         z = (P0[2] - 40.0, P0[2] - 12.0)
         try:
-            h = json.load(open(os.path.join(HERE, "hardware.json"), encoding="utf-8"))["cad"]["rotation_module"]
+            h = json.load(open(os.path.join(HERE, "run", "hardware.json"), encoding="utf-8"))["cad"]["rotation_module"]
             sx, sy = h["plate_seat_x_r"], h["plate_seat_y_r"]
             return (h["axis_r"][0], h["axis_r"][1], (sx[1] - sx[0]) / 2, (sy[1] - sy[0]) / 2) + z
         except (OSError, KeyError, ValueError):
@@ -335,7 +335,7 @@ class Model:
         """Where the ledger says the plates are, re-read when layout.json or state_microscope.json change: a plate in every slot of
         fixtures.hotel.loaded (on its tray, long edges along x as in the rack), one on the module when the state says so."""
         try:
-            lp, sp = os.path.join(HERE, "layout.json"), os.path.join(HERE, "state_microscope.json")
+            lp, sp = os.path.join(HERE, "run", "layout.json"), os.path.join(HERE, "state_microscope.json")
             seen = (os.path.getmtime(lp), os.path.getmtime(sp) if os.path.exists(sp) else 0.0)
             if seen == self._state_seen:
                 return
@@ -566,7 +566,7 @@ class App:
             self.panels.append((img, state, item))
         mf = tk.Frame(r, bg=BG)
         mf.grid(row=0, column=1, sticky="n", padx=8, pady=(16, 0))
-        self.model = Model(mf, layout or json.load(open(os.path.join(HERE, "layout.json"), encoding="utf-8")), MODEL_W, CAM[1])
+        self.model = Model(mf, layout or json.load(open(os.path.join(HERE, "run", "layout.json"), encoding="utf-8")), MODEL_W, CAM[1])
         self.model.canvas.pack()
         mrow = tk.Frame(mf, bg=BG)
         mrow.pack(fill="x", pady=(8, 0))
@@ -898,7 +898,7 @@ class App:
 
 
 def main():
-    lay = json.load(open(os.path.join(HERE, "layout.json"), encoding="utf-8"))
+    lay = json.load(open(os.path.join(HERE, "run", "layout.json"), encoding="utf-8"))
     v = lay["vision"]
     feeds = [Feed(v["host"], v["port"], v["down_camera"], v.get("led", 0)),
              Feed(v["host"], v["port"], v["front_camera"], int(v.get("front_led", v.get("led", 0))))]

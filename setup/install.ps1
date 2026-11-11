@@ -2,9 +2,9 @@
   From a fresh Windows PC to a checked install, in one step: a virtual environment (.venv), the pinned packages, the vendor
   arm SDK wheel if you have it, and the doctor (a read-only check of this PC and the cell).
 
-    .\install.ps1                                    the real cell
-    .\install.ps1 -SdkWheel C:\path\to\the-vendor-sdk.whl
-    .\install.ps1 -Sim                               a PC with no cell: the simulator only (no pythonnet, no SDK)
+    .\setup\install.ps1                                    the real cell
+    .\setup\install.ps1 -SdkWheel C:\path\to\the-vendor-sdk.whl
+    .\setup\install.ps1 -Sim                               a PC with no cell: the simulator only (no pythonnet, no SDK)
 
   Then:   .\.venv\Scripts\Activate.ps1   and   python cli.py setup
 #>
@@ -15,7 +15,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-Set-Location -Path $PSScriptRoot
+$Root = Split-Path -Parent $PSScriptRoot
+Set-Location -Path $Root
 
 function Step($text) { Write-Host "`n== $text" }
 function Fail($text) { Write-Host "`nFAILED: $text" -ForegroundColor Red; exit 1 }
@@ -34,14 +35,14 @@ if (-not (Test-Path ".venv\Scripts\python.exe")) {
     & $Python -m venv .venv
     if ($LASTEXITCODE -ne 0) { Fail "could not create .venv" }
 }
-$venvPython = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+$venvPython = Join-Path $Root ".venv\Scripts\python.exe"
 
 Step "Packages (pinned in requirements.txt)"
 & $venvPython -m pip install --upgrade pip --quiet
-$requirements = "requirements.txt"
+$requirements = "setup\requirements.txt"
 if ($Sim) {
     $requirements = Join-Path $env:TEMP "requirements-sim.txt"
-    Get-Content "requirements.txt" | Where-Object { $_ -notmatch "^\s*pythonnet" } | Set-Content -Path $requirements -Encoding ASCII
+    Get-Content "setup\requirements.txt" | Where-Object { $_ -notmatch "^\s*pythonnet" } | Set-Content -Path $requirements -Encoding ASCII
 }
 & $venvPython -m pip install -r $requirements
 if ($LASTEXITCODE -ne 0) { Fail "pip could not install the packages. Check the network, then run install.ps1 again." }

@@ -11,7 +11,7 @@ from run.planner import plan as P  # noqa: E402
 from run.planner.volumes import Volumes  # noqa: E402
 from run.planner import fk  # noqa: E402
 
-L = json.load(open("layout.json", encoding="utf-8"))
+L = json.load(open("run/layout.json", encoding="utf-8"))
 polar = L["fixtures"]["polar"]
 start = offset(list(polar["pose_at_90"]["pose"]), [0, 0, polar["hover_mm"]])
 J = {1: fk.ik(start, elbow=1), -1: fk.ik(start, elbow=-1)}       # the module hover on both elbow sides; column C is only reachable on -1

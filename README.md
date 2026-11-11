@@ -10,7 +10,7 @@ Guides in `docs/`: [workflow](docs/workflow.md): setup, teaching and route plann
 - BioyondWorks, installed on the PC.
 - The Bioyond Python package (a .whl file). Contact us or Bioyond to get it.
 - Python 3.10 or newer.
-- Run `.\install.ps1 -SdkWheel <path to the .whl file>`.
+- Run `.\setup\install.ps1 -SdkWheel <path to the .whl file>`.
 - Close BioyondWorks.
 
 ## Hardware

@@ -11,7 +11,7 @@ def rot(x, y, z):
     return xr, z * ce - yr * se, yr * ce + z * se
 GREY = set()                                                     # the slots: drawn grey
 def boxes():
-    L = json.load(open(os.path.join(HERE, "layout.json"), encoding="utf-8"))
+    L = json.load(open(os.path.join(HERE, "run", "layout.json"), encoding="utf-8"))
     from utils.hotel_model_html import scene_boxes
     out = [((-95, 554), (-200, 200), (-47, 48)),            # platform
            ((-80, 60), (-74, 74), (33, 703))]               # arm column
@@ -24,7 +24,7 @@ def boxes():
             if b["k"] == "tray":
                 GREY.add(id(box))
     P0 = L["fixtures"]["polar"]["pose_at_0"]["pose"]
-    h = json.load(open(os.path.join(HERE, "hardware.json"), encoding="utf-8"))["cad"]["rotation_module"]
+    h = json.load(open(os.path.join(HERE, "run", "hardware.json"), encoding="utf-8"))["cad"]["rotation_module"]
     out.append((tuple(h["plate_seat_x_r"]), tuple(h["plate_seat_y_r"]), (48.0, P0[2] - 12.0)))   # module pad, from the platform top
     if "--microscope" in sys.argv:                                   # the instrument's box, as the GUI draws it
         m = L["volumes"]["obstacles"]["microscope"]
@@ -37,7 +37,7 @@ def prism(a, b, w, h, z):
     return {(i, j, k): ((ax, bx)[i] + (-nx, nx)[j], (ay, by)[i] + (-ny, ny)[j], (z, z + h)[k]) for i in (0, 1) for j in (0, 1) for k in (0, 1)}
 def arm(L):
     """Carriage on the column, shoulder, two 200 mm links to a wrist above the rotation module, the claw ahead of it."""
-    h = json.load(open(os.path.join(HERE, "hardware.json"), encoding="utf-8"))["cad"]["rotation_module"]
+    h = json.load(open(os.path.join(HERE, "run", "hardware.json"), encoding="utf-8"))["cad"]["rotation_module"]
     S = (126.0, 0.0); W = (h["axis_r"][0], h["axis_r"][1]); zc = 520.0
     d = math.hypot(W[0] - S[0], W[1] - S[1]); a = math.atan2(W[1] - S[1], W[0] - S[0]); b = math.acos(min(1.0, d / 400.0))
     E = (S[0] + 200.0 * math.cos(a - b), S[1] + 200.0 * math.sin(a - b))

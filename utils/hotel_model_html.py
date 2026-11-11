@@ -30,7 +30,7 @@ def scene_boxes(lay):
 
 
 if __name__ == "__main__":
-    lay = json.load(open(os.path.join(HERE, "layout.json"), encoding="utf-8"))
+    lay = json.load(open(os.path.join(HERE, "run", "layout.json"), encoding="utf-8"))
     boxes = scene_boxes(lay)
     v = lay["volumes"]
     seats = {s: lay["fixtures"]["hotel"]["taught"][s][:3] for s in lay["fixtures"]["hotel"]["taught"] if s[1:].isdigit()}

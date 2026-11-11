@@ -112,7 +112,7 @@ class FakeVision:
 
 def layout() -> dict:
     """layout.json with the taught values replaced by ones the simulator can reach."""
-    with open(os.path.join(os.path.dirname(os.path.dirname(HERE)), "layout.json"), "r", encoding="utf-8") as f:
+    with open(os.path.join(os.path.dirname(os.path.dirname(HERE)), "run", "layout.json"), "r", encoding="utf-8") as f:
         L = json.load(f)
     L["fixtures"]["microscope"]["pose"] = [120.0, 40.0, 110.0, 0, 0, 0.5]
     L["fixtures"]["microscope"]["hover_mm"] = 25

@@ -95,7 +95,7 @@ def check_packages(out: List[Result], env: Env) -> None:
             m = env.import_module(module)
         except Exception as e:                                        # a missing or broken install, whatever the error
             out.append(Result("FAIL" if needed else "WARN", module, f"not importable ({type(e).__name__})",
-                              f"pip install -r requirements.txt   (or: pip install {pip})"
+                              f"pip install -r setup/requirements.txt   (or: pip install {pip})"
                               + ("" if needed else "; only the camera-file upload needs it")))
             continue
         detail = str(getattr(m, "__version__", "ok"))
@@ -116,7 +116,7 @@ def check_sdk(out: List[Result], env: Env, sim: bool) -> None:
         getattr(sdk, "RobotSDKFactory")
     except Exception as e:
         out.append(Result("FAIL", "arm SDK", f"cannot load the vendor SDK ({type(e).__name__})",
-                          "pip install pythonnet; install the .NET 8 runtime; .\\install.ps1 -SdkWheel <the vendor .whl>"))
+                          "pip install pythonnet; install the .NET 8 runtime; .\\setup\\install.ps1 -SdkWheel <the vendor .whl>"))
         return
     out.append(Result("PASS", "arm SDK", "vendor SDK loads (nothing connected)"))
 
@@ -228,7 +228,7 @@ def check_runs(out: List[Result], layout: Optional[dict], runs_dir: str, env: En
 
 def check(layout_path: Optional[str] = None, hardware_path: Optional[str] = None, runs_dir: Optional[str] = None,
           sim: bool = False, probe_sdk_port: bool = False, env: Optional[Env] = None) -> List[Result]:
-    layout_path = layout_path or os.path.join(HERE, "layout.json")
+    layout_path = layout_path or os.path.join(HERE, "run", "layout.json")
     hardware_path = hardware_path or os.path.join(os.path.dirname(layout_path), "hardware.json")
     runs_dir = runs_dir or os.path.join(os.path.dirname(layout_path), "runs")
     env = env or Env()

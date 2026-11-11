@@ -9,8 +9,8 @@ Polar is the arm with its hotel and rotation module. The workflow is three parts
 instrument, run jobs. The top level is what a user touches; everything else is nested.
 
 ```
-demo.py  polar.py  cli.py  layout.json  hardware.json
-setup/   teach/    run/    vision/      utils/   docs/
+demo.py  polar.py  cli.py
+setup/   teach/   run/   vision/   utils/   docs/
 ```
 
 Imports go one way: utils.devices < run.planner, vision < run < setup, teach, polar.py < cli.py and the scripts in utils/.
@@ -19,7 +19,7 @@ Nothing imports `cli`, and no `__init__.py` holds code.
 - `polar.py`: the driver language. `Polar().move(source, destination)`, `pick`, `place`, `where`. Places are slots ("A1"), "module",
   or a taught instrument. `demo.py` is the example.
 - `cli.py`: `python cli.py setup | teach NAME | doctor | status | positions`.
-- `layout.json`: the positions file, every number. Data, not code. `hardware.json`: the CAD numbers.
+- `run/layout.json`: the positions file, every number. Data, not code. `run/hardware.json`: the CAD numbers.
 - `setup/` (`python cli.py setup`, ends with READY): `sections.py` is the three sections in order: connect, preset (the arm's program
   written, parsed, uploaded, read back), cameras (`cameras.py`). `runner.py` prints the steps, `cell.py` is the two devices and the
   positions file, `doctor.py` the read-only check of the PC, `sim.py` the fakes for `--sim`.

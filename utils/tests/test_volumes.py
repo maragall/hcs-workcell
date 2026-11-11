@@ -16,7 +16,7 @@ from run.planner import plan as planner  # noqa: E402
 from run.planner.volumes import Volumes  # noqa: E402
 from run.planner import fk  # noqa: E402
 
-LAYOUT = json.load(open(os.path.join(os.path.dirname(os.path.dirname(HERE)), "layout.json"), encoding="utf-8"))
+LAYOUT = json.load(open(os.path.join(os.path.dirname(os.path.dirname(HERE)), "run", "layout.json"), encoding="utf-8"))
 
 
 def make():
