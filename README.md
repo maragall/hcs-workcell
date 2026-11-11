@@ -103,6 +103,8 @@ python cli.py teach
 
 ## Demo
 
+Put a plate in slot A1. Take the plate out of the microscope's holder.
+
 ```powershell
 python demo.py
 ```
