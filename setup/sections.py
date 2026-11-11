@@ -517,6 +517,7 @@ class Bringup:
                 cyc.store.done(plate_at="gripper", grip="long_edges", home_slot=slot)
                 cyc._hotel_leave_approach(slot, step)
                 cyc._place("polar", F["pose_at_90"]["pose"], F, "polar", None, gate="polar@90", check=False)
+                cyc._elbow_to_taught(step)                       # column C leaves the arm on the mirrored elbow side: the camera views need the taught one
             self.guard(go)
             return {"carried": f"{slot} to the rotation module"}
 

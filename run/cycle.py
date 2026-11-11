@@ -173,6 +173,35 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.tele.log("move", step, "the arm is on the mirrored elbow branch: to the nest first, with the empty claw")
         self.go_nest()
 
+    def _elbow_to_taught(self, step: str) -> None:
+        """The arm back on the taught elbow side, with an empty claw. Column C leaves it on the mirrored one, where no route exists from
+        the module to a hotel mouth with a plate in hand (02:46, 2026-11-04) and the camera views over the module run out of joint 2's
+        range (2026-11-11). The switch is made over the module's long-edge seat, at the top of the workspace, through the stored postures
+        (run/preset/elbow_switch.json); every leg is checked against layout.json's boxes on both elbow sides before any is driven."""
+        import json
+        from run import positions
+        from run.planner import fk
+        from run.planner.volumes import Volumes
+        if fk.elbow_sign(list(self.robot.joints())[:4]) == 1:
+            return
+        if self.store.s.grip != "none":
+            raise StopSafe(f"{step}: the arm is on the mirrored elbow side with a plate in the claw; the switch is made with an empty claw")
+        with open(os.path.join(positions.ROOT, "run", "preset", "elbow_switch.json"), encoding="utf-8") as fh:
+            S = json.load(fh)
+        polar, prof = self.L["fixtures"]["polar"], self.safety.profile
+        self.tele.log("move", step, "the arm is on the mirrored elbow side: switching over the module")
+        self._arrive(offset(polar["pose_at_90"]["pose"], [0, 0, polar["hover_mm"]]), f"{step} module hover", prof.approach)
+        here = self.robot.pose()
+        top = list(here[:2]) + [float(S["z"])] + list(here[3:])
+        self._move("L", top, f"{step} up", prof.approach)
+        start = list(self.robot.joints())[:4]
+        seq = [start] + [[start[0]] + list(q) for q in S["via_mirror_to_taught"]] + [fk.ik(top, elbow=1)]
+        vol = Volumes(self.L, Safety(self.L, "supervised"), None)
+        for a, b in zip(seq, seq[1:]):
+            vol.check_joint_leg(fk.fk(a), fk.fk(b), f"{step} elbow switch", joints_a=a, joints_b=b)
+        for i, q in enumerate(seq[1:], 1):
+            self._move_joints_to(fk.fk(q), f"{step} elbow switch {i}/{len(seq) - 1}", prof.approach, joints=q)
+
     def _check_seat_from_view(self, fixture_name: str, pose: List[float], fixture: dict, hover: List[float], step: str) -> bool:
         """Before a plate is lowered onto the module or a microscope: is the seat already occupied? With the plate in hand the arm goes to the
         station's viewing pose first (fixtures.<station>.view, taught with utils/view_pose.py; the carried plate is outside the down camera's

@@ -1,58 +1,33 @@
 {
- "made": "2026-11-10 01:01:52",
+ "made": "2026-11-11 00:03:31",
  "holding": "empty",
  "z": 435.0,
- "wrist": [
-  309.934,
-  305.304,
-  435.0,
-  0.0,
-  0.0,
-  -90.75
- ],
- "joints_plus_to_minus": [
+ "via_mirror_to_taught": [
   [
-   396.40503184555314,
-   31.942188607838375,
-   -126.02009509713014,
-   3.327906489291763
+   85.0,
+   125.0,
+   0.0
   ],
   [
-   396.4,
-   10.0,
-   -5.0,
-   5.0
+   85.0,
+   60.0,
+   0.0
   ],
   [
-   396.4,
+   15.0,
+   15.0,
+   0.0
+  ],
+  [
    10.0,
    5.0,
    0.0
   ],
   [
-   396.4,
-   15.0,
-   15.0,
-   0.0
-  ],
-  [
-   396.4,
-   85.0,
-   75.0,
-   0.0
-  ],
-  [
-   396.4,
-   85.0,
-   125.0,
-   30.0
-  ],
-  [
-   396.40503184555314,
-   85.92697791558544,
-   126.01160088423762,
-   57.31142120017694
+   10.0,
+   -5.0,
+   5.0
   ]
  ],
- "note": "elbow side switch at the module with an empty claw: lift to z 435, these joint postures in order (reversed for the way back), lower. Checked offline at 1 degree steps against the pillar, hotel and microscope (scratch search.py)"
+ "note": "elbow side switch over the module's long-edge seat with an empty claw, from the mirrored side (where column C leaves the arm) to the taught one: lift to z, joints 2..4 through these postures in order by joint moves, then the taught side's posture over the seat. Found offline on 2026-11-11 with every leg 10 mm clear of the hotel, pillar and microscope; run/cycle.py checks the legs again against layout.json before it drives them."
 }
