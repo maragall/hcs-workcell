@@ -22,7 +22,7 @@ if st.drag:
     robot.drag(False)
 robot.enable()
 store = StateStore(os.path.join(runs, "state.json"))
-cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", runs, positions.REFS)
+cyc = Cycle(layout, robot, tele, store, "supervised", runs)
 cyc.safety.profile = SpeedProfile(**layout["speeds"]["supervised"])
 cyc.corr.ask = lambda q, t=0: "y"
 s = store.s

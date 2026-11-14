@@ -69,9 +69,9 @@ def test_null_box_is_inactive_and_preflight_lists_it():
     s.check_segment(A, B, "sweep")
     s.check_joint_move(A, B, "swing")
     assert s.region_of(A) != "stage_sweep"
-    assert "regions.stage_sweep keep-out box not set" in preflight(L, "/nonexistent")
+    assert "regions.stage_sweep keep-out box not set" in preflight(L)
     L["regions"]["stage_sweep"]["box"] = around((0.0, 0.0))
-    assert not any("keep-out" in p for p in preflight(L, "/nonexistent"))
+    assert not any("keep-out" in p for p in preflight(L))
 
 
 def test_cycle_stays_out_of_the_microscope_zone_while_the_stage_is_not_parked():

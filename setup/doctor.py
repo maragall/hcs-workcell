@@ -1,7 +1,7 @@
 """
 Environment and cell check: is this PC ready to run `python cli.py setup`? One line per check, PASS, WARN or FAIL, and the
 fix under each FAIL or WARN. Read-only: it moves nothing, writes nothing but one temporary file in runs/, never prints the
-credentials in layout.json, and never connects an SDK client (the controller takes one at a time): the arm is looked for
+contents of layout.json beyond what a check names, and never connects an SDK client (the controller takes one at a time): the arm is looked for
 on its BRCAPI port only, and the SDK port is probed only when asked (--probe-sdk-port, with nothing else connected).
 
     python setup/doctor.py [--sim] [--probe-sdk-port]     (also: python cli.py doctor)
@@ -15,6 +15,8 @@ import importlib
 import json
 import os
 import shutil
+import struct
+import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -22,11 +24,11 @@ from typing import Callable, Dict, List, Optional, Sequence
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MIN_PYTHON = (3, 10)
-CAMERAS_NEEDED = 2                                   # the down camera and the front camera
+DOTNET_MAJOR = 8                                     # the vendor package loads on the .NET Desktop Runtime 8 or newer
+DOTNET_URL = "https://dotnet.microsoft.com/download/dotnet/8.0"
 
 LAYOUT_KEYS = [
     ("robot", "ip"), ("robot", "port"),
-    ("vision", "host"), ("vision", "port"), ("vision", "down_camera"), ("vision", "front_camera"), ("vision", "marker_mm"),
     ("workspace_box", "x"), ("workspace_box", "y"), ("workspace_box", "z"),
     ("regions", "microscope", "box"), ("regions", "hotel", "box"),
     ("fixtures", "hotel", "taught"), ("fixtures", "hotel", "columns"), ("fixtures", "polar", "pose_at_0", "pose"),
@@ -34,7 +36,7 @@ LAYOUT_KEYS = [
     ("volumes", "obstacles", "hotel"), ("volumes", "claw", "fingers"), ("limits", "min_disk_free_gb"),
 ]
 HARDWARE_KEYS = [("cad", "platform"), ("cad", "hotel"), ("cad", "rotation_module"),
-                 ("claw", "camera_ahead_of_wrist_mm"), ("claw", "module_wrist_to_plate_mm")]
+                 ("claw", "module_wrist_to_plate_mm")]
 
 
 @dataclass
@@ -50,18 +52,20 @@ class Env:
     """What the doctor looks at the world with; tests replace these."""
     import_module: Callable[[str], object] = importlib.import_module
     arm: Optional[Callable[[dict, bool], Dict[str, str]]] = None
-    vision_box: Optional[Callable[[dict], Dict[str, str]]] = None
-    squid: Optional[Callable[[dict], Dict[str, str]]] = None
+    squid: Optional[Callable[[dict], Dict[str, dict]]] = None
+    dotnet_runtimes: Optional[Callable[[], Optional[List[str]]]] = None      # the lines of `dotnet --list-runtimes`, None: no dotnet command
+    lua_dll: Optional[Callable[[Optional[dict]], Optional[str]]] = None
+    windows: bool = field(default_factory=lambda: sys.platform == "win32")
+    bits: int = field(default_factory=lambda: struct.calcsize("P") * 8)
     port_open: Optional[Callable[..., bool]] = None
     disk_free_gb: Callable[[str], float] = field(default=lambda p: shutil.disk_usage(p).free / 1e9)
 
     def discover(self):
         """The network helpers of the setup itself (setup/discover.py), imported only when needed."""
-        if self.arm is None or self.vision_box is None or self.squid is None or self.port_open is None:
+        if self.arm is None or self.squid is None or self.port_open is None:
             sys.path.insert(0, HERE)
             from setup import discover
             self.arm = self.arm or discover.arm
-            self.vision_box = self.vision_box or discover.vision_box
             self.squid = self.squid or discover.squid
             self.port_open = self.port_open or discover.port_open
         return self
@@ -85,39 +89,103 @@ def check_python(out: List[Result]) -> None:
     v = sys.version_info
     ok = (v.major, v.minor) >= MIN_PYTHON
     out.append(Result("PASS" if ok else "FAIL", "python", f"{v.major}.{v.minor}.{v.micro}",
-                      "" if ok else f"install Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} or newer (python.org), then run install.ps1 again"))
+                      "" if ok else f"install Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} or newer (python.org), then run setup\\install.bat again"))
+
+
+def check_platform(out: List[Result], env: Env, sim: bool) -> None:
+    """The real arm is driven through the vendor's .NET package: Windows, 64 bit. The simulator runs anywhere."""
+    if sim:
+        return
+    if not env.windows:
+        out.append(Result("FAIL", "windows", f"this is {sys.platform}", "the arm's vendor package runs on 64-bit Windows only; elsewhere use --sim"))
+    elif env.bits != 64:
+        out.append(Result("FAIL", "windows", f"Python is {env.bits} bit", "install the 64-bit Python from python.org (Windows installer (64-bit)), then run setup\\install.bat again"))
+    else:
+        out.append(Result("PASS", "windows", "64-bit Windows, 64-bit Python"))
 
 
 def check_packages(out: List[Result], env: Env) -> None:
-    for module, pip, needed in (("numpy", "numpy", True), ("scipy", "scipy", True), ("cv2", "opencv-contrib-python-headless", True),
-                                ("PIL", "pillow", True), ("paramiko", "paramiko", False)):
+    for module, pip in (("numpy", "numpy"),):
         try:
             m = env.import_module(module)
         except Exception as e:                                        # a missing or broken install, whatever the error
-            out.append(Result("FAIL" if needed else "WARN", module, f"not importable ({type(e).__name__})",
-                              f"pip install -r setup/requirements.txt   (or: pip install {pip})"
-                              + ("" if needed else "; only the camera-file upload needs it")))
+            out.append(Result("FAIL", module, f"not importable ({type(e).__name__})",
+                              f"run setup\\install.bat again   (or: pip install -r setup/requirements.txt, or: pip install {pip})"))
             continue
-        detail = str(getattr(m, "__version__", "ok"))
-        if module == "cv2" and not hasattr(m, "aruco"):
-            out.append(Result("FAIL", "cv2", f"{detail} has no aruco module", "pip uninstall opencv-python opencv-python-headless; "
-                              "pip install opencv-contrib-python-headless"))
-            continue
-        out.append(Result("PASS", module, detail))
+        out.append(Result("PASS", module, str(getattr(m, "__version__", "ok"))))
+
+
+def _dotnet_runtimes() -> Optional[List[str]]:
+    try:
+        r = subprocess.run(["dotnet", "--list-runtimes"], capture_output=True, text=True, errors="replace", timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout.splitlines()
+
+
+def check_dotnet(out: List[Result], env: Env, sim: bool) -> None:
+    """The .NET Desktop Runtime the vendor package needs (Microsoft.WindowsDesktop.App, version 8 or newer)."""
+    if sim:
+        return
+    lines = (env.dotnet_runtimes or _dotnet_runtimes)()
+    fix = f"install the .NET Desktop Runtime {DOTNET_MAJOR} (x64) from {DOTNET_URL}, then open a new terminal"
+    if lines is None:
+        out.append(Result("WARN", ".NET runtime", "the `dotnet` command is not found, so the runtime cannot be listed",
+                          f"if the arm SDK check below fails: {fix}"))
+        return
+    have = []
+    for line in lines:
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] == "Microsoft.WindowsDesktop.App" and parts[1].split(".")[0].isdigit():
+            have.append(parts[1])
+    good = [v for v in have if int(v.split(".")[0]) >= DOTNET_MAJOR]
+    if good:
+        out.append(Result("PASS", ".NET runtime", f"Desktop Runtime {max(good, key=lambda v: [int(x) if x.isdigit() else 0 for x in v.split('.')])}"))
+    else:
+        out.append(Result("FAIL", ".NET runtime", "no Desktop Runtime " + (f"{DOTNET_MAJOR} or newer (found {', '.join(have)})" if have else "installed"), fix))
 
 
 def check_sdk(out: List[Result], env: Env, sim: bool) -> None:
+    """The vendor package as utils/devices/arm.py loads it, each missing part with its own fix. Nothing connects."""
     if sim:
         out.append(Result("PASS", "arm SDK", "not needed for the simulator"))
         return
     try:
-        sdk = env.import_module("BioyondSDK")                 # as utils/devices/arm.py loads it
-        getattr(sdk, "RobotSDKFactory")
+        env.import_module("pythonnet")
     except Exception as e:
-        out.append(Result("FAIL", "arm SDK", f"cannot load the vendor SDK ({type(e).__name__})",
-                          "pip install pythonnet; install the .NET 8 runtime; .\\setup\\install.ps1 -SdkWheel <the vendor .whl>"))
+        out.append(Result("FAIL", "arm SDK", f"pythonnet is not installed ({type(e).__name__})", "run setup\\install.bat again   (or: pip install -r setup/requirements.txt)"))
         return
-    out.append(Result("PASS", "arm SDK", "vendor SDK loads (nothing connected)"))
+    try:
+        sdk = env.import_module("BioyondSDK")
+        getattr(sdk, "RobotSDKFactory")
+    except ModuleNotFoundError as e:
+        if getattr(e, "name", "") in ("BioyondSDK", None, ""):
+            out.append(Result("FAIL", "arm SDK", "the vendor package (BioyondSDK) is not installed",
+                              "setup\\install.bat <path to bioyondsdk-0.1.1-py3-none-any.whl>   (or put the .whl into setup\\vendor and run setup\\install.bat)"))
+        else:
+            out.append(Result("FAIL", "arm SDK", f"the vendor package needs {e.name}, which is missing", "run setup\\install.bat again"))
+        return
+    except Exception as e:
+        out.append(Result("FAIL", "arm SDK", f"the vendor package is installed but does not load ({type(e).__name__}: {str(e)[:120]})",
+                          f"install the .NET Desktop Runtime {DOTNET_MAJOR} (x64) from {DOTNET_URL}; use a 64-bit Python; then open a new terminal"))
+        return
+    out.append(Result("PASS", "arm SDK", "vendor package loads (nothing connected)"))
+
+
+def check_lua(out: List[Result], layout: Optional[dict], env: Env, sim: bool) -> None:
+    """BioyondWorks' own Lua: the setup parses the arm's program with it before the upload, and refuses to upload unparsed."""
+    if sim:
+        return
+    if env.lua_dll is None:
+        sys.path.insert(0, HERE)
+        from run import lua
+        env.lua_dll = lua.find_dll
+    path = env.lua_dll(layout)
+    if path:
+        out.append(Result("PASS", "BioyondWorks Lua", path))
+    else:
+        out.append(Result("FAIL", "BioyondWorks Lua", "lua54.dll of BioyondWorks is not found on this PC",
+                          'install BioyondWorks (then close it), or put the full path of its lua54.dll into layout.json as "lua": {"dll": "..."}'))
 
 
 def check_files(out: List[Result], layout_path: str, hardware_path: str):
@@ -148,22 +216,6 @@ def check_files(out: List[Result], layout_path: str, hardware_path: str):
     return layout, hardware
 
 
-def check_credentials(out: List[Result], layout: Optional[dict]) -> None:
-    ssh = (layout or {}).get("vision", {}).get("ssh") or {}
-    local = {}
-    try:
-        with open(os.path.join(HERE, "nova_ssh.local.json"), encoding="utf-8") as f:      # where vision/calibration/upload.py reads it
-            local = json.load(f)
-    except (OSError, ValueError):
-        pass
-    if (ssh.get("user") or local.get("user")) and (ssh.get("password") or local.get("password") or ssh.get("key_path") or local.get("key_path")):
-        out.append(Result("PASS", "box upload login", "set (not shown)"))
-    else:
-        out.append(Result("WARN", "box upload login", "no login for the camera box: the camera files cannot be uploaded to it",
-                          'write {"user": "...", "password": "..."} into nova_ssh.local.json in the top folder (git ignores it); '
-                          "only the camera calibration upload needs it"))
-
-
 def check_cell(out: List[Result], layout: Optional[dict], env: Env, probe_sdk_port: bool) -> None:
     if layout is None:
         return
@@ -177,32 +229,23 @@ def check_cell(out: List[Result], layout: Optional[dict], env: Env, probe_sdk_po
         out.append(Result("PASS", "arm", f"controller at {arm['ip']} ({what})"))
     else:
         out.append(Result("FAIL", "arm", arm.get("error", "no controller answers"),
-                          "power the arm and check the network cable; close RobStudio and anything else connected (one client at a time)"))
+                          (arm.get("fix") or "power the arm and check the network cable")
+                          + "; close BioyondWorks, RobStudio and anything else connected (one client at a time)"))
     try:
-        box = env.vision_box(layout)
+        scopes = env.squid(layout)
     except Exception as e:
-        box = {"error": f"{type(e).__name__}: {e}"}
-    if "cameras" in box:
-        n = int(box["cameras"])
-        if n >= CAMERAS_NEEDED:
-            out.append(Result("PASS", "vision box", f"{box['host']}:{box['port']}, {n} cameras"))
+        scopes = {"squid": {"at": "?", "error": f"{type(e).__name__}: {e}"}}
+    if not scopes:
+        out.append(Result("WARN", "squid", "no microscope is listed in layout.json (squid)",
+                          "nothing to do for an arm without a microscope; with one, layout.json squid.<name> names it"))
+    for name, got in scopes.items():
+        if "error" in got:
+            out.append(Result("WARN", f"squid {name}", got["error"],
+                              "start Squid on this PC, then in the Squid window: Settings > Enable MCP Control Server. The setup's connect "
+                              "section asks it again; teach and the plate moves cannot run without it"))
         else:
-            out.append(Result("FAIL", "vision box", f"{box['host']}:{box['port']} reports {n} camera(s), {CAMERAS_NEEDED} are needed",
-                              "check both camera cables, then restart the box"))
-    else:
-        out.append(Result("FAIL", "vision box", box.get("error", "no vision box answers"),
-                          "power the box and check the network cable; wait two minutes after a restart"))
-    try:
-        sq = env.squid(layout)
-    except Exception as e:
-        sq = {"error": f"{type(e).__name__}: {e}"}
-    if "module" in sq:
-        out.append(Result("PASS", "squid software", f"found at {sq.get('folder', 'installed')}"))
-    else:
-        out.append(Result("WARN", "squid software", sq.get("error", "not found"),
-                          "set squid_software.folder in layout.json to the Squid software folder; until then the setup uses the "
-                          "practice Squid (no motors, nothing is imaged)"))
-
+            out.append(Result("PASS", f"squid {name}", f"answers at {got['at']}" + ("" if got.get("python_exec") is not False else
+                              "; Python Exec is off (Squid asks for it when teach or a plate move needs it: click Yes there)")))
 
 def check_runs(out: List[Result], layout: Optional[dict], runs_dir: str, env: Env) -> None:
     try:
@@ -239,10 +282,12 @@ def check(layout_path: Optional[str] = None, hardware_path: Optional[str] = None
     env = env or Env()
     out: List[Result] = []
     check_python(out)
+    check_platform(out, env, sim)
     check_packages(out, env)
+    check_dotnet(out, env, sim)
     check_sdk(out, env, sim)
     layout, _ = check_files(out, layout_path, hardware_path)
-    check_credentials(out, layout)
+    check_lua(out, layout, env, sim)
     check_runs(out, layout, runs_dir, env)
     if not sim:
         check_cell(out, layout, env, probe_sdk_port)

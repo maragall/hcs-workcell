@@ -1,5 +1,5 @@
 """
-The cell the setup program works on: the two devices, the positions file, the live readout of the arm, and the notes
+The cell the setup program works on: the arm, the positions file, the live readout of the arm, and the notes
 of what the program did or refused.
 
 Nothing is cached from the positions file: every read is positions.load, every change positions.save, so the
@@ -17,28 +17,23 @@ from run import positions
 from run.telemetry import Telemetry
 
 from setup import discover
-from setup.frames import FrameSource
 
 READOUT_S = 0.5
+CONNECT_TRIES, CONNECT_PAUSE_S = 3, 3.0      # the controller refuses the SDK for some seconds after it was switched on or another program let go of it
 
 
 class Cell:
-    def __init__(self, layout_path: str, ref_dir: str, state_dir: str, runs_dir: str, robot, vision, sim: bool):
-        self.layout_path, self.ref_dir, self.state_dir, self.runs_dir = layout_path, ref_dir, state_dir, runs_dir
-        self.robot, self.vision, self.sim = robot, vision, sim
+    def __init__(self, layout_path: str, state_dir: str, runs_dir: str, robot, sim: bool):
+        self.layout_path, self.state_dir, self.runs_dir = layout_path, state_dir, runs_dir
+        self.robot, self.sim = robot, sim
         self.tele = Telemetry(os.path.join(runs_dir, time.strftime("setup_%Y%m%d_%H%M%S")))
         self.log = self.tele.log
         self.stop_event = threading.Event()
         self.notes = collections.deque(maxlen=30)     # (t, text): what the program last did or refused
         self.arm: dict = {"ok": False, "error": "not connected"}
         self.arm_error: Optional[str] = None
-        self.vision_error: Optional[str] = None
-        self.devices: list = []                       # what discover() found: arm, vision box, rotation module, microscope
-        L = self.layout()
-        v = L["vision"]
-        self.frames = FrameSource(vision, {"down": v["down_camera"], "front": v["front_camera"]},
-                                  {v["down_camera"]: v["led"], v["front_camera"]: int(v.get("front_led", v["led"]))},
-                                  log=self.log)
+        self.devices: list = []                       # what discover() found: arm, rotation module, each Squid
+        self._reading = False
 
     # ------------------------------------------------------------ positions file
     def layout(self) -> dict:
@@ -55,35 +50,12 @@ class Cell:
 
     # ------------------------------------------------------------------ devices
     def connect(self) -> None:
-        try:
-            self.robot.connect()
-            self.arm_error = None
-        except Exception as e:
-            self.arm_error = str(e)
-            self.log("setup", "arm", f"not connected: {e}")
-        for attempt in range(3):                      # the box can be slow to accept; discover() then looks wider
-            try:
-                self.vision.status()
-                self.vision_error = None
-                break
-            except Exception as e:
-                self.vision_error = str(e)
-                self.log("setup", "vision", f"not reachable (try {attempt + 1} of 3): {e}")
-        self._set_led()
-        self.frames.start()
+        """Connect the arm (a few tries) and start the live readout. Never raises: `arm_error` says why it is not connected."""
+        self.connect_arm_again()
         self._read_arm()                              # a section that moves the arm may be the first thing the run does
-        threading.Thread(target=self._readout, daemon=True, name="readout").start()
-
-    def _set_led(self) -> None:
-        """The down camera's light at layout.json vision.led_percent (0..100; the box's turn_on_led, the `led` argument of get_frame
-        does nothing). Too bright makes the satin black of the plate tag glare: 2026-10-28 half power. Unset leaves the light alone."""
-        v = self.layout()["vision"]
-        pct = v.get("led_percent")
-        if self.vision_error is None and pct is not None and hasattr(self.vision, "led"):
-            try:
-                self.vision.led(v["down_camera"], int(pct))
-            except Exception as e:
-                self.log("setup", "vision", f"led not set: {e}")
+        if not self._reading:
+            self._reading = True
+            threading.Thread(target=self._readout, daemon=True, name="readout").start()
 
     between_plates_only = False      # the rotation sets this: runs/STOP then ends the run between two plates (sections.py stopped()), not mid-carry
 
@@ -121,49 +93,64 @@ class Cell:
             time.sleep(READOUT_S)
 
     def discover(self) -> None:
-        """Find the devices; found addresses go into the positions file."""
+        """Find the devices; a found arm address goes into the positions file. Fills `devices`: one row per device with
+        name, found, ok, state and, when not ok, fix."""
         L = self.layout()
         if self.sim:
-            st = self.vision.status()
             self.devices = [
                 {"name": "Arm", "found": "simulator", "state": "enabled, holding still", "ok": True},
-                {"name": "Vision box", "found": "simulator", "state": f"{st.cameras} cameras, video above", "ok": True},
                 {"name": "Rotation module", "found": "through the arm", "state": self._stage_words(L), "ok": True},
                 {"name": "Microscope", "found": "simulator", "state": "pretends to image", "ok": True}]
             return
-        arm, box, squid = discover.arm(L, connected=self.arm_error is None), discover.vision_box(L), discover.squid(L)
+        arm = discover.arm(L, connected=self.arm_error is None)
         if "ip" in arm and (arm["ip"] != L["robot"]["ip"] or arm["port"] != L["robot"]["port"]):
             self.edit(lambda L: L["robot"].update(ip=arm["ip"], port=arm["port"]))
-        if "cameras" in box and (box["host"], box["port"]) != (L["vision"]["host"], L["vision"]["port"]):   # only one that answered as a vision box
-            self.edit(lambda L: L["vision"].update(host=box["host"], port=box["port"]))
         if "ip" in arm and self.arm_error:
             self.robot.ip, self.robot.port = arm["ip"], arm["port"]
             self.connect_arm_again()
-        if "host" in box and self.vision_error:
-            self.vision.host, self.vision.port = box["host"], box["port"]
-            try:
-                self.vision.status()
-                self.vision_error = None
-            except Exception as e:
-                self.vision_error = str(e)
+            self._read_arm()
         a = self.arm
+        ok = "ip" in arm and a.get("ok", False)
         self.devices = [
-            {"name": "Arm", "found": arm.get("ip", "not found"), "ok": "ip" in arm and a.get("ok", False),
-             "state": arm.get("error") or (self.arm_error or self._arm_words(a))},
-            {"name": "Vision box", "found": f"{box['host']}:{box['port']}" if "host" in box else "not found", "ok": "cameras" in box,
-             "state": box.get("error") or f"{box['cameras']} cameras, video above"},
+            {"name": "Arm", "found": arm.get("ip", "not found"), "ok": ok,
+             "state": arm.get("error") or (self.arm_error or self._arm_words(a)), "fix": "" if ok else self.arm_fix(arm)},
             {"name": "Rotation module", "found": "through the arm", "ok": a.get("ok", False),
-             "state": self._stage_words(L) if a.get("ok") else "needs the arm"},
-            {"name": "Microscope", "found": squid.get("folder", "not found"), "ok": "module" in squid, "browse": bool(squid.get("browse")),
-             "state": squid.get("error", "software present") if "error" in squid else
-             "software present; the arm pretends to image until Squid is wired in"}]
+             "state": self._stage_words(L) if a.get("ok") else "needs the arm"}]
+        for name, got in discover.squid(L).items():
+            exec_words = {True: "Python Exec on", False: "Python Exec off (teach and the plate moves switch it on: Squid asks, click Yes)", None: ""}[got.get("python_exec")]
+            self.devices.append({"name": f"Squid {name}", "found": got["at"], "ok": "error" not in got, "squid": name,
+                                 "state": got.get("error") or ", ".join(w for w in ("answers", "acquiring" if got.get("acquiring") else "idle", exec_words) if w),
+                                 "fix": "" if "error" not in got else "start Squid on this PC, then in the Squid window: Settings > Enable MCP Control Server"})
+
+    def arm_fix(self, found: dict) -> str:
+        """What to do about an arm that is not connected, from where it failed: the SDK does not load on this PC, no controller
+        answers on the network, or the controller answers and refuses this program."""
+        why = self.arm_error or ""
+        if "not importable" in why:
+            return ("the vendor's arm package does not load on this PC: run setup\\install.bat with the vendor .whl file, then "
+                    "`python cli.py doctor` names what is missing (the .whl, pythonnet, or the .NET Desktop Runtime 8)")
+        if "ip" not in found:
+            return found.get("fix", "power the arm and check the network cable")
+        return ("the controller answers but does not let this program in: it takes one program at a time. Close BioyondWorks, RobStudio "
+                "and any other window of this program, wait ten seconds, and try again")
 
     def connect_arm_again(self) -> None:
-        try:
-            self.robot.connect()
-            self.arm_error = None
-        except Exception as e:
-            self.arm_error = str(e)
+        """Up to CONNECT_TRIES tries. A package that does not load is not tried again: waiting does not install it."""
+        for attempt in range(CONNECT_TRIES):
+            try:
+                self.robot.connect()
+                self.arm_error = None
+                return
+            except Exception as e:
+                self.arm_error = str(e)
+                self.log("setup", "arm", f"not connected (try {attempt + 1} of {CONNECT_TRIES}): {e}")
+                if "not importable" in self.arm_error or attempt == CONNECT_TRIES - 1:
+                    return
+                try:
+                    self.robot.disconnect()
+                except Exception:
+                    pass
+                time.sleep(CONNECT_PAUSE_S)
 
     @staticmethod
     def _arm_words(a: dict) -> str:

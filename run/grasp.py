@@ -5,7 +5,7 @@ from typing import Optional
 
 from utils.devices.arm import MotionRefused
 from run import positions
-from vision.corrector import StopSafe
+from run.corrector import StopSafe
 
 
 class Grasp:

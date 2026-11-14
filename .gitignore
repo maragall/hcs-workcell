@@ -5,13 +5,13 @@ state.json
 state_sim.json
 layout.json.tmp
 state_sim/
-hub_outbox/
-hub_models/
-reference_images_synthetic*/
 .venv/
 
-nova_ssh.local.json
 state_*.json
 station_graph.json
 .claude/*
 !.claude/CLAUDE.md
+# the vendor's arm package and an offline package folder: put there by hand, not ours to publish
+setup/vendor/
+# leftovers of the camera version on a developer PC
+reference_images_synthetic*/

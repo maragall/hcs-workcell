@@ -16,7 +16,7 @@ from run.recovery import is_motion_fault, mark, recover_to_nest  # noqa: E402
 COLLISION = [{"errCode": 3873, "errMsg": "Motion error: axis 4 collision detected"}]
 
 
-def test_a_stop_from_the_controller_is_a_motion_fault_and_a_vision_stop_is_not():
+def test_a_stop_from_the_controller_is_a_motion_fault_and_a_plate_state_stop_is_not():
     assert is_motion_fault("polar_to_hotel[5/5]: controller error [3873] (possible collision); move stopped")
     assert is_motion_fault("controller lost enable")
     assert not is_motion_fault("lower blocked at microscope")

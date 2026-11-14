@@ -1,5 +1,5 @@
 """
-Safety layer: speed profiles, z-floors per region, sanity box, keep-out regions, and the vision sanity guard.
+Safety layer: speed profiles, z-floors per region, sanity box, keep-out regions.
 All numbers come from layout.json; nothing here is hard-coded to this cell.
 """
 from __future__ import annotations
@@ -37,7 +37,6 @@ class Safety:
         box = layout["workspace_box"]
         self.box = {k: tuple(v) for k, v in box.items()}
         self.regions = layout["regions"]         # name -> {box:{x:[],y:[]}, z_floor: float} or {box, keep_out: true}
-        self.vision_jump_mm = layout["vision"]["max_correction_mm"]
         self.joints = joints                     # the arm's joints now; picks the elbow branch for the keep-out check
 
     # ---- region & floor -------------------------------------------------------

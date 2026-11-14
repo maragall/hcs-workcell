@@ -13,7 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(HERE)))
 sys.path.insert(0, HERE)
 
-from rig import FakeVision, layout  # noqa: E402
+from rig import layout  # noqa: E402
 
 from utils.devices.fake_arm import SimFaults, SimRobot  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
@@ -63,8 +63,7 @@ def test_move_to_on_the_simulator_ends_at_the_hover():
     L["fixtures"]["free_spot"] = {"pose": FREE_B, "hover_mm": 20}
     tele = Telemetry(os.path.join(tmp, "run"))
     robot = SimRobot(FREE_A, SimFaults(), tele.log, jaw=10.0)
-    cyc = Cycle(L, robot, FakeVision(), tele, StateStore(os.path.join(tmp, "state.json")), "unsupervised",
-                os.path.join(tmp, "run"), os.path.join(tmp, "refs"))
+    cyc = Cycle(L, robot, tele, StateStore(os.path.join(tmp, "state.json")), "unsupervised", os.path.join(tmp, "run"))
     try:
         assert cyc.clock is cyc.polar.clock is cyc.corr.clock is time     # nothing injected: the waits are real seconds
         cyc.move_to("free_spot")

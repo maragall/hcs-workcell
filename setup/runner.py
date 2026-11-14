@@ -5,9 +5,9 @@ import threading
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
-from vision.colour import BAD, paint
+from utils.colour import BAD, paint
 
-ACTORS = ("user", "computer", "polar", "nova", "squid")
+ACTORS = ("user", "computer", "polar", "squid")
 
 
 class Refused(Exception):
@@ -32,7 +32,7 @@ class Step:
 
 @dataclass
 class Section:
-    name: str                                              # the file the section fills: cameras.toml ...
+    name: str                                              # connect, places, preset
     steps: List[Step] = field(default_factory=list)
 
 

@@ -7,8 +7,7 @@
 - BioyondWorks, installed on the PC.
 - The Bioyond Python package (a .whl file). Contact us or Bioyond to get it.
 - Python 3.10 or newer.
-- Run `.\setup\install.ps1 -SdkWheel <path to the .whl file>`, then `.\.venv\Scripts\Activate.ps1`.
-- The camera box login, in a file `nova_ssh.local.json` in the top folder: `{"user": "...", "password": "..."}`.
+- Run `setup\install.bat <path to the .whl file>`.
 - Close BioyondWorks.
 
 ## Hardware
@@ -19,7 +18,6 @@
 
 ![hotel](img/hotel_matrix.png)
 
-5. Place the ArUco plate on the rotation module.
 
 ## Setup
 
@@ -33,9 +31,6 @@ Run `python cli.py setup`. The script ends with `READY`.
     - long-edge grip, short-edge grip, and grip torque probe procedure
     - hotel slot exit/entry procedure
     - routes from each slot ↔ rotation module
-- Calibrate cameras:
-    - Run aruco intrinsic and extrinsic calibration
-    - Upload values to BioyondWorks
 
 # Teaching
 

@@ -5,13 +5,13 @@ import math
 
 from typing import List, Optional
 
-from vision.corrector import StopSafe
+from run.corrector import StopSafe
 from run.motion import offset
 from run.planner.safety import SafetyViolation
 
 
 class SlotOccupied(Exception):
-    """A place found its slot occupied (ledger or camera) and backed out with the plate still held."""
+    """A place found its slot occupied (the ledger says so) and backed out with the plate still held."""
 
     def __init__(self, slot: str, why: str):
         super().__init__(f"{slot}: {why}")
@@ -253,7 +253,7 @@ class Hotel:
         self._health()
         self._hotel_go_to_approach(slot, step)
         self._square_up(approach, step)
-        # the ledger says the slot is free (checked above); no camera looks at it (the slot occupancy check was removed 2026-11-01)
+        # the ledger says the slot is free (checked above); nothing looks at it
         self._carry_check(step, "long_edges")
         self._square_grip(step)
         self._slide(carry, f"{step} slide in")

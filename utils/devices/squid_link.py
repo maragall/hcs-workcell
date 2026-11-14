@@ -119,6 +119,16 @@ class SquidLink:
                     raise SquidError(f"{self.name}: the stage did not reach its {want} position in {timeout_s:.0f} s")
                 time.sleep(0.5)
 
+    def ping(self) -> dict:
+        """Does Squid answer? {"acquiring": bool, "python_exec": True, False or None when Squid does not say}. Raises SquidError with
+        what to do when it does not answer. Moves nothing and asks nothing of the person at the PC."""
+        status = self._call("get_acquisition_status", timeout=10.0) or {}
+        try:
+            exec_on = bool((self._call("get_python_exec_status", timeout=10.0) or {}).get("enabled"))
+        except SquidError:
+            exec_on = None
+        return {"acquiring": bool(status.get("in_progress")), "python_exec": exec_on}
+
     def position(self) -> tuple:
         p = self._call("get_position")
         return (float(p["x_mm"]), float(p["y_mm"]), float(p["z_mm"]))

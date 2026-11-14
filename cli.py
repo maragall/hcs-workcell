@@ -1,17 +1,13 @@
 """
-hcs-workcell command line (teaching, tests, one-microscope runs). The asyncio main loop is run/loop.py (python -m run).
+hcs-workcell command line (setup, teaching, checks). The asyncio main loop is run/loop.py (python -m run).
 
-  python cli.py status                              robot + vision state, read-only
-  python cli.py record-pose NAME                    store the current robot pose under fixtures.<NAME> in layout.json
-  python cli.py teach [NAME]                        arm loose, hand it onto the plate in the microscope, Enter: seat + routes to the module stored
-  python cli.py trace NAME                          record a hand-guided route (stop: create runs/trace.stop)
-  python cli.py normalise NAME                      average all traces of NAME into a waypoint list in layout.json
-  python cli.py record-ref FIXTURE STATE            save the down-camera view as a "safe to lower" reference
-  python cli.py check-lower FIXTURE STATE           score the current view against the references
-  python cli.py run --mode supervised|unsupervised --slot A1 [--cycles N] [--sim]
-  python cli.py calibrate CAMERA read|capture|upload|check      camera calibration (package calibration/)
-  python cli.py recover                             clear controller errors after a hard stop, leave the arm loose
+  python cli.py doctor [--sim]                      is this PC and the cell ready? read-only
   python cli.py setup [--sim] [--from SECTION]      the one-click setup: printed steps, Enter after each of yours
+  python cli.py teach [NAME]                        arm loose, hand it onto the plate in the microscope, Enter: seat + routes to the module stored
+  python cli.py status                              the arm and every Squid, read-only
+  python cli.py positions                           every position, taught or not
+  python cli.py goto NAME                           move to a position's hover
+  python cli.py recover                             clear controller errors after a hard stop, leave the arm loose
 """
 from __future__ import annotations
 
@@ -29,16 +25,15 @@ sys.path.insert(0, HERE)
 from utils.devices import nova  # noqa: E402
 from utils.devices.arm import MotionRefused, RobotFault  # noqa: E402
 from utils.devices.controller import BrcapiError  # noqa: E402
-from utils.devices.vision_box import VisionError  # noqa: E402
 from run import positions  # noqa: E402
-from vision.corrector import StopSafe  # noqa: E402
+from run.corrector import StopSafe  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
 from run.preflight import preflight  # noqa: E402
 from run.planner.safety import SafetyViolation  # noqa: E402
 from run.state import StateStore  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 
-LAYOUT, RUNS, REFS = positions.PATH, positions.RUNS, positions.REFS
+LAYOUT, RUNS = positions.PATH, positions.RUNS
 load_layout, save_layout = positions.load, positions.save
 
 
@@ -50,44 +45,18 @@ def make_robot(layout: dict, args, log):
 
 
 def cmd_status(args):
+    """The arm and every Squid of the positions file, read-only."""
+    from setup import discover
     layout = load_layout()
     tele = Telemetry(os.path.join(RUNS, "status"))
-    v = nova.vision_box(layout, tele.log)
-    print("vision :", v.version())
-    print("status :", v.status())
-    print("cameras:", v.cameras())
-    print("leds   :", v.led_status())
+    for name, got in discover.squid(layout).items():
+        print(f"squid {name}:", got.get("error") or f"answers at {got['at']}, {'acquiring' if got['acquiring'] else 'idle'}")
     robot, st = connect_robot_readonly(layout, tele.log)
     print("robot  :", st)
     print("pose   :", [round(x, 3) for x in robot.pose()])
     print("joints :", [round(x, 2) for x in robot.joints()])
     print("jaw    :", round(robot.jaw(), 3))
     robot.disconnect()
-
-
-# vendor workspace names: the vision box is the system of record for taught positions.
-# pick_method follows the vendor vocabulary: "wide" = fingers on the long edges, "long" = fingers on the short edges.
-VENDOR_TEACH = {
-    "microscope": ("microscope-short", "long"),
-    "polar.pose_at_0": ("polar0-short", "long"),
-    "polar.pose_at_90": ("polar90-wide", "wide"),
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def _settle(robot, target, label, max_dev, timeout=120):
@@ -146,7 +115,7 @@ def cmd_goto(args):
     if not st.enabled and not robot.enable():
         sys.exit("robot could not be enabled")
     store = StateStore(os.path.join(RUNS, "teach", "state_goto.json"))
-    cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", os.path.join(RUNS, "teach"), REFS)
+    cyc = Cycle(layout, robot, tele, store, "supervised", os.path.join(RUNS, "teach"))
     try:
         cyc.move_to(args.name)
     except (StopSafe, SafetyViolation) as e:
@@ -190,7 +159,7 @@ def cmd_positions(args):
 
 
 
-from vision.colour import plain as _plain
+from utils.colour import plain as _plain
 
 
 def _tee_console(name: str) -> str:
@@ -230,12 +199,11 @@ def cmd_setup(args):
             for i, st in enumerate(sec.steps):
                 print(f"   step {i}: {st.actor} : {st.text[:95]}")
         print(chr(10) + 'start in a section:  python cli.py setup --from "<section>"   at a step:  --step N   stop early:  --stop-after N')
-        cell.frames.stop()
         return 0
     log_path = _tee_console("setup")
     print(f"this run is logged to {log_path} (and runs/setup_*/events.jsonl)")
 
-    from vision import prompt as prompt_mod
+    from utils import prompt as prompt_mod
     from setup.runner import Runner
     from setup.sections import Bringup
     from utils.devices.fake_squid import FakeSquid
@@ -245,20 +213,15 @@ def cmd_setup(args):
         cell = Cell(*sim.build(), sim=True)
     else:
         layout = load_layout()
-        cell = Cell(LAYOUT, REFS, HERE, RUNS, make_robot(layout, args, lambda *a: None), nova.vision_box(layout), sim=False)
+        cell = Cell(LAYOUT, HERE, RUNS, make_robot(layout, args, lambda *a: None), sim=False)
     squid = FakeSquid("microscope", args.acquisition_s)       # the practice Squid until the real one is wired in (utils/devices/squid.py)
-    cell.connect()
-    cell.discover()
-    if not args.sim and cell.arm_error:
-        sys.exit(f"the arm is not reachable: {cell.arm_error}. Close the GUI and RobStudio (one client at a time) and run again")
-    answers = {"slot in front of the camera": "yes" if args.hotel_size == 30 else "no" if args.hotel_size == 15 else ""}   # what a driver knows; the hands-clear Enter is the user's go
-    runner = Runner(ask=(lambda prompt: next((v for k, v in answers.items() if k in prompt), "")) if args.yes or args.auto else prompt_mod.ask,
+    cell.connect()                                            # never raises: the connect section says what is missing, and asks again in place
+    runner = Runner(ask=(lambda prompt: "") if args.yes or args.auto else prompt_mod.ask,
                     stop=cell.stop_event, on_section_done=save_known_good)
-    bring = Bringup(cell, squid, runner.ask, confirm_stage=args.confirm_stage, speed=getattr(args, "speed", "stress"))
+    bring = Bringup(cell, squid, runner.ask, speed=getattr(args, "speed", "stress"), check_squid=not args.no_squid)
     todo = bring.sections()
     stopped = runner.run(todo, args.start, args.step, pause_at_user=args.auto, skip=args.skip.split(",") if args.skip else None,
                          stop_after=args.stop_after)
-    cell.frames.stop()
     if runner.waiting:
         name, nxt = runner.waiting
         print(f"\nwaiting for the user. After they have done it: python cli.py setup --auto --from \"{name}\" --step {nxt}")
@@ -329,8 +292,7 @@ def cmd_recover(args):
     from setup.runner import Refused
     from setup.sections import Bringup
     from utils.devices.fake_squid import FakeSquid
-    cell = Cell(*sim.build(), sim=True) if args.sim else Cell(LAYOUT, REFS, HERE, RUNS, make_robot(layout, args, lambda *a: None),
-                                                             nova.vision_box(layout), sim=False)
+    cell = Cell(*sim.build(), sim=True) if args.sim else Cell(LAYOUT, HERE, RUNS, make_robot(layout, args, lambda *a: None), sim=False)
     cell.connect()
     try:
         todo = Bringup(cell, FakeSquid("microscope", 0.0), lambda prompt: "")
@@ -341,8 +303,6 @@ def cmd_recover(args):
     except Refused as e:
         print(f"could not reach the nest: {e}")
         return 2
-    finally:
-        cell.frames.stop()
 
 
 def main():
@@ -358,10 +318,9 @@ def main():
     p.add_argument("--acquisition-s", type=float, default=0.0, help="how long the practice Squid pretends to image")
     p.add_argument("--auto", action="store_true", help="a driver is watching: answer 'hands clear' with Enter, stop before each user step (exit 3)")
     p.add_argument("--stop-after", type=int, help="with --from: stop after this step (index) of that section")
-    p.add_argument("--confirm-stage", action="store_true", help="the operator confirms, for this run, that lowering at the stage is safe (its lower-check has no pictures yet)")
-    p.add_argument("--skip", help="sections to leave out, comma separated, e.g. cameras.toml")
+    p.add_argument("--no-squid", action="store_true", help="do not ask Squid whether it answers (an arm set up before its microscope is there)")
+    p.add_argument("--skip", help="sections to leave out, comma separated, e.g. places")
     p.add_argument("--step", type=int, default=0, help="with --from: the first step of that section to run")
-    p.add_argument("--hotel-size", type=int, choices=(15, 30), help="with --auto/--yes: the hotel you have, answers 'is there a slot here' for every row")
     p.add_argument("--speed", default="stress", choices=("supervised", "fast", "stress"), help="speed profile (layout.json speeds) of the test section; the setup steps stay at supervised")
     p.set_defaults(fn=cmd_setup, moves=0)
     p = sub.add_parser("teach", help="arm loose; move it by hand onto the plate in the instrument's holder, Enter: seat and routes to the module stored")
@@ -375,7 +334,7 @@ def main():
     args = ap.parse_args()
     try:
         return args.fn(args)
-    except (RobotFault, VisionError, BrcapiError, MotionRefused, StopSafe, SafetyViolation, OSError) as e:
+    except (RobotFault, BrcapiError, MotionRefused, StopSafe, SafetyViolation, OSError) as e:
         if os.environ.get("HCS_TRACEBACK"):
             raise
         sys.exit(f"{type(e).__name__}: {e}")

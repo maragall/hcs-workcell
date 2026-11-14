@@ -1,32 +1,33 @@
 # Polar workcell
 
-Setup script for the Bioyond Polar arm with a plate hotel and a rotation module.
+Setup script for the Bioyond Polar arm with a plate hotel and a rotation module. This is the version for the arm without cameras.
 
 ## Prerequisites
 
-- BioyondWorks, installed on the PC.
-- The Bioyond Python package (a .whl file). Contact us or Bioyond to get it.
-- Python 3.10 or newer.
-- The camera box login, in a file `nova_ssh.local.json` in the top folder: `{"user": "...", "password": "..."}`.
-- Close BioyondWorks.
+- A 64-bit Windows PC.
+- BioyondWorks, installed on the PC. Close it before you start: the arm takes one program at a time.
+- Python 3.10 or newer, 64 bit, from python.org. Tick "Add python.exe to PATH" in its installer.
+- The .NET Desktop Runtime 8 (x64), from https://dotnet.microsoft.com/download/dotnet/8.0.
+- The Bioyond Python package, `bioyondsdk-0.1.1-py3-none-any.whl`. Contact us or Bioyond to get it. It is how the arm is driven, so every cell needs it.
+- Squid, if a microscope is part of the cell. Start it and tick Settings > Enable MCP Control Server.
 
-Open PowerShell and `cd` into this folder, the one that holds `cli.py`. Every command below is run from there.
+Open a Command Prompt or PowerShell and `cd` into this folder, the one that holds `cli.py`. Every command below is run from there. In PowerShell, write `.\cli` where this page says `cli`.
 
-Install, once. Put the path to the .whl file in the second line:
+Install, once. Put the path to the .whl file in the line:
 
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\setup\install.ps1 -SdkWheel "C:\path\to\bioyondsdk.whl"
+```bat
+setup\install.bat "C:\path\to\bioyondsdk-0.1.1-py3-none-any.whl"
 ```
 
-In every new PowerShell window, before any other command:
+It creates the environment, installs the packages and ends with a check of the PC and the cell. Every line that says `FAIL` has the fix under it. Run the check again at any time:
 
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\.venv\Scripts\Activate.ps1
+```bat
+cli doctor
 ```
 
-Windows blocks scripts by default; the first line allows them in that window only.
+These are plain batch files: Windows runs them without any script permission, and nothing has to be activated.
+
+A PC with no internet: copy the packages of `setup\requirements.txt` (as .whl files) into `setup\vendor\wheels\` and run the same line.
 
 ## Hardware
 ![workcell with microscope](docs/img/cell_model_microscope.png)
@@ -34,7 +35,7 @@ Windows blocks scripts by default; the first line allows them in that window onl
 1. Connect the power cable and the emergency stop to the arm. Turn on the main switch at the back. Wait until the status light is steady.
 2. Connect the PC to port 1 of the controller with a network cable.
 3. Screw the hotel onto the platform. The slots face the arm. Leave it empty.
-4. Keep the ArUco plate at hand.
+4. Keep one plate at hand.
 
 Then load the plates into the hotel. Start at A1.
 
@@ -42,13 +43,15 @@ Then load the plates into the hotel. Start at A1.
 
 ## Setup
 
-```powershell
-python cli.py setup
+```bat
+cli setup
 ```
 
 The script ends with `READY`.
 
-The script asks you to show the arm eight places with the ArUco plate: slots A1, A9, B1, B9, C1 and C9, then the rotation module twice (short edges, then long edges). The arm ends above the rotation module.
+It starts by connecting: it finds the arm on the network, enables it, and asks Squid whether it answers. If one of them does not answer, the script says what to do and waits: do it, press Enter, and it tries again. For an arm that has no microscope yet: `cli setup --no-squid`.
+
+Then the script asks you to show the arm eight places with the plate: slots A1, A9, B1, B9, C1 and C9, then the rotation module twice (short edges, then long edges). The arm ends above the rotation module.
 
 Each time:
 
@@ -58,7 +61,8 @@ Each time:
 
 ## Setup script in a nutshell
 
-- User shows the arm eight places with the ArUco plate:
+- Connect: the arm found, connected and enabled; Squid answering
+- User shows the arm eight places with a plate:
     - six hotel slots; the hotel is fitted through them
     - rotation module seats, short edges and long edges; the arm then finds each seat's angle by force
 - Planner: routes from each slot ↔ rotation module
@@ -68,9 +72,6 @@ Each time:
     - long-edge grip, short-edge grip, and grip torque probe procedure
     - hotel slot exit/entry procedure
     - routes from each slot ↔ rotation module
-- Calibrate cameras:
-    - Run aruco intrinsic and extrinsic calibration
-    - Upload to the camera box
 
 # Teaching
 
@@ -82,8 +83,8 @@ Each time:
 
 ## Teaching
 
-```powershell
-python cli.py teach
+```bat
+cli teach
 ```
 
 1. Squid asks for permission in its own window: click Yes. The stage goes to Squid's loading position, then the arm goes loose.
@@ -105,11 +106,11 @@ python cli.py teach
 
 Put a plate in slot A1. Take the plate out of the microscope's holder.
 
-```powershell
-python demo.py
+```bat
+.venv\Scripts\python demo.py
 ```
 
-The arm takes the plate from A1 to the microscope and back.
+The arm takes the plate from A1 to the microscope and back. Nothing looks at the seats: the script trusts that A1 holds a plate and that the microscope's holder and the rotation module are empty.
 
 ## Your own script
 

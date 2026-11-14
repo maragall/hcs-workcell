@@ -29,6 +29,8 @@ class Handler(socketserver.StreamRequestHandler):
         elif cmd == "get_acquisition_status":
             S.busy = max(0, S.busy - 1)
             out = {"in_progress": S.busy > 0}
+        elif cmd == "get_python_exec_status":
+            out = {"enabled": S.exec_on}
         elif cmd == "python_exec" and not S.exec_on:
             out = {"error": "python_exec is disabled. Enable it in the GUI first for security.", "enabled": False}
         elif cmd == "python_exec" and "slide_position" in p["code"]:
@@ -96,3 +98,19 @@ def test_python_exec_switched_off_says_which_tick(link, monkeypatch):
 def test_a_squid_that_is_not_running_says_how_to_start_the_server():
     with pytest.raises(SquidError, match="Enable MCP Control Server"):
         SquidLink("microscope", {"port": 1}).position()
+
+
+def test_ping_says_squid_answers_and_whether_python_exec_is_on_without_moving_anything(link):
+    assert link.ping() == {"acquiring": False, "python_exec": True}
+    Stage.exec_on, Stage.busy = False, 3
+    assert link.ping() == {"acquiring": True, "python_exec": False}
+    assert "button" not in Stage.log and "move_to" not in Stage.log
+
+
+def test_ping_of_a_squid_that_is_not_running_says_how_to_start_its_server():
+    import socket
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        dead = s.getsockname()[1]
+    with pytest.raises(SquidError, match="Enable MCP Control Server"):
+        SquidLink("microscope", {"port": dead}).ping()

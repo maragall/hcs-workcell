@@ -16,6 +16,6 @@ def test_preflight_refuses_a_hotel_lift_at_or_above_the_headroom():
     L = layout()
     L["fixtures"]["hotel"]["headroom_mm"] = 17
     L["fixtures"]["hotel"]["lift_mm"] = 25.0
-    assert any("headroom" in p for p in preflight(L, "/nonexistent"))
+    assert any("headroom" in p for p in preflight(L))
     L["fixtures"]["hotel"]["lift_mm"] = 8.0
-    assert not any("headroom" in p for p in preflight(L, "/nonexistent"))
+    assert not any("headroom" in p for p in preflight(L))

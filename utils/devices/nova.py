@@ -1,8 +1,7 @@
 """
-The Bioyond Nova: the Polar arm with its gripper, and the vision box. One import for both.
+The Bioyond Polar arm with its gripper, and its controller. One import for both.
 
     arm            the .NET SDK path (utils.devices.arm.VendorRobot): move_linear, move_joint, jaw_to, pose, state, enable
-    vision_box     the TCP text protocol (utils.devices.vision_box.VisionClient): frame, led, scan, pose_offset
     controller     the JSON port that starts Lua jobs on the controller (utils.devices.controller.Brcapi)
 
 `arm(layout, log, sim=True)` returns the fake instead, so the loop runs without hardware.
@@ -18,7 +17,6 @@ from utils.devices.arm import (  # noqa: F401
 )
 from utils.devices.controller import Brcapi, BrcapiError  # noqa: F401
 from utils.devices.fake_arm import SimFaults, SimRobot  # noqa: F401
-from utils.devices.vision_box import VisionClient, VisionError  # noqa: F401
 
 
 def arm(layout: dict, log=None, sim: bool = False, faults: SimFaults | None = None) -> Robot:
@@ -28,11 +26,6 @@ def arm(layout: dict, log=None, sim: bool = False, faults: SimFaults | None = No
         return SimRobot(start, faults or SimFaults(), log, jaw=layout["gripper"]["open"]["short_edges"])
     r = layout["robot"]
     return VendorRobot(r["ip"], r["port"], r["grip_axis"], log)
-
-
-def vision_box(layout: dict, log=None) -> VisionClient:
-    v = layout["vision"]
-    return VisionClient(v["host"], v["port"], log=log)
 
 
 def controller(layout: dict, log=None) -> Brcapi:

@@ -20,7 +20,7 @@ from run import positions  # noqa: E402
 from utils.devices import nova  # noqa: E402
 from run import motion as M  # noqa: E402
 from run.planner.plan import Route  # noqa: E402
-from vision.corrector import StopSafe  # noqa: E402
+from run.corrector import StopSafe  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
 from run.planner.safety import SpeedProfile  # noqa: E402
 from run.state import StateStore  # noqa: E402
@@ -80,7 +80,7 @@ def main(argv=None) -> int:
     if not robot.enable():
         sys.exit("robot could not be enabled")
     store = StateStore(os.path.join(runs, "state.json"))
-    cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", runs, positions.REFS)
+    cyc = Cycle(layout, robot, tele, store, "supervised", runs)
     cyc.safety.profile = SpeedProfile(**layout["speeds"]["fast" if a.slow_first else a.speed])
     cyc.corr.ask = lambda q, t=0: (say(f"   doubt, carrying on: {q.strip()}"), "y")[1]
     M.plan = guarded(M.plan)

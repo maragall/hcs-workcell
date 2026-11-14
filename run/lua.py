@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ctypes
 import filecmp
+import glob
 import os
 import shutil
 import time
@@ -31,7 +32,25 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCE = os.path.join(HERE, "run", "controller")
 STATIC = ["mod_Polar.lua", "mod_Socket.lua", "mod_TorqueProbe.lua"]
 GRIPS = {"short_edges": 1, "long_edges": 2}
-LUA_DLL = r"C:\Bioyond\RobStudio\lua54.dll"
+LUA_NAME = "lua54.dll"
+LUA_PLACES = (r"C:\Bioyond\RobStudio", r"C:\Bioyond\*", r"C:\Program Files\Bioyond*\**", r"C:\Program Files (x86)\Bioyond*\**",
+              r"C:\Program Files\RobStudio*\**", r"D:\Bioyond\**")
+
+
+def find_dll(layout: dict | None = None) -> str | None:
+    """The Lua that BioyondWorks ships (lua54.dll): the path in layout.json `lua.dll` when it is set, else where BioyondWorks
+    installs it. None when this PC has none."""
+    named = ((layout or {}).get("lua") or {}).get("dll")
+    if named:
+        return named if os.path.isfile(named) else None
+    for place in LUA_PLACES:
+        for path in sorted(glob.glob(os.path.join(place, LUA_NAME), recursive=True)):
+            if os.path.isfile(path):
+                return path
+    return None
+
+
+LUA_DLL = find_dll() or os.path.join(LUA_PLACES[0], LUA_NAME)
 JOBS = {"pick": 31, "place": 32, "turn": 33, "speed": 34}
 DETAILS = {11: "unknown place or value", 12: "unknown grip", 13: "no stored route to that place", 16: "the arm is not at the module's hover",
            21: "nothing clamped in two closes", 22: "the held width left its band", 23: "the plate sits crooked in the jaw",
@@ -185,11 +204,13 @@ def build(layout: dict, routes: dict, folder: str) -> dict:
             "without_routes": [n for i, n in names.items() if n not in have]}
 
 
-def check(folder: str, dll: str = LUA_DLL) -> int:
+def check(folder: str, dll: str | None = None, layout: dict | None = None) -> int:
     """Every .lua file of the folder parsed by the Lua that BioyondWorks ships. Returns the number of files; raises on the first error.
     Without the DLL (BioyondWorks not installed) raises LuaError: the files are then unchecked."""
+    dll = dll or find_dll(layout) or LUA_DLL
     if not os.path.exists(dll):
-        raise LuaError(f"{dll} not found: BioyondWorks is a prerequisite, its Lua checks the program before the upload")
+        raise LuaError(f"{LUA_NAME} not found (looked for {dll}): BioyondWorks is a prerequisite, its Lua checks the program before the upload. "
+                       f'Install BioyondWorks, or put the full path of its {LUA_NAME} into layout.json as "lua": {{"dll": "..."}}')
     lua = ctypes.CDLL(dll)
     lua.luaL_newstate.restype = ctypes.c_void_p
     lua.luaL_loadstring.argtypes = [ctypes.c_void_p, ctypes.c_char_p]

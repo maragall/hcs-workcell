@@ -13,7 +13,7 @@ import time
 from typing import Callable
 
 from utils.devices.arm import MotionRefused
-from vision.corrector import StopSafe
+from run.corrector import StopSafe
 from run.planner.safety import SafetyViolation
 
 WORDS = ("controller error", "collision", "possible collision", "servo", "controller lost enable", "not enabled")
@@ -21,7 +21,7 @@ MARKER = "COLLISION"                      # runs/COLLISION: written with the rea
 
 
 def is_motion_fault(reason: str) -> bool:
-    """The text of a safe stop that came from the controller, not from a vision check or a plate state."""
+    """The text of a safe stop that came from the controller, not from a plate state."""
     text = str(reason).lower()
     return any(w in text for w in WORDS)
 

@@ -14,12 +14,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(HERE)))
 sys.path.insert(0, HERE)
 
-from rig import FakeClock, FakeVision, layout  # noqa: E402
+from rig import FakeClock, layout  # noqa: E402
 
 from run import loop as run  # noqa: E402
 from utils.devices.fake_arm import SimFaults, SimRobot  # noqa: E402
 from utils.devices.fake_squid import FakeSquid  # noqa: E402
-from vision.corrector import StopSafe  # noqa: E402
+from run.corrector import StopSafe  # noqa: E402
 from run.telemetry import Telemetry  # noqa: E402
 
 A, B = "microscope", "microscope_2"
@@ -30,7 +30,6 @@ def make_cell(acquisition_s=0.2):
     tmp = tempfile.mkdtemp()
     L = layout()
     run.borrow_fixture(L, B)
-    ref_dir = os.path.join(tmp, "refs")
     tele = Telemetry(os.path.join(tmp, "run"))
     start = list(L["fixtures"][A]["pose"])
     start[2] += L["fixtures"][A]["hover_mm"]
@@ -41,7 +40,7 @@ def make_cell(acquisition_s=0.2):
         for j, pose in zip(wp["joints"], wp["poses"]):
             robot.joint_pose_map[tuple(round(v, 3) for v in j[:4])] = pose
     scopes = {n: FakeSquid(n, acquisition_s, tele.log) for n in (A, B)}
-    cell = run.Workcell(L, robot, FakeVision(), scopes, tele, "unsupervised", os.path.join(tmp, "run"), ref_dir, tmp,
+    cell = run.Workcell(L, robot, scopes, tele, "unsupervised", os.path.join(tmp, "run"), tmp,
                         poll_s=0.01, clock=FakeClock())
     return cell, tmp
 
@@ -61,8 +60,7 @@ def reopen(cell, tmp):
     """A second Workcell on the same robot, ledgers and run folder: what `python -m run --resume` builds."""
     a = cell.cycles[A]
     cell.close()
-    return run.Workcell(a.L, a.robot, a.vision, cell.scopes, cell.tele, "unsupervised", os.path.join(tmp, "run"),
-                        os.path.join(tmp, "refs"), tmp, poll_s=0.01)
+    return run.Workcell(a.L, a.robot, cell.scopes, cell.tele, "unsupervised", os.path.join(tmp, "run"), tmp, poll_s=0.01)
 
 
 def test_a_fault_in_one_task_stops_the_other_before_it_moves():

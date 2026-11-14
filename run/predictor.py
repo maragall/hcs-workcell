@@ -1,0 +1,136 @@
+"""
+Error prediction (level 1 baseline, feeds level 2).
+
+Two mechanisms:
+  1. Pre-step checks: deterministic conditions that must hold before a step may start.
+  2. Drift statistics: rolling per-step baselines of duration, jaw closing value and the module's
+     angle error.  A measurement far from its own history raises a warning before it becomes a
+     failure (e.g. the grasp value creeping up = plate slipping / jaw wearing).
+
+The thresholds are intentionally simple (robust z-scores on medians).  Level 2 replaces this file
+with trained models on the same features; the feature names are the contract.
+"""
+from __future__ import annotations
+
+import json
+import os
+import statistics
+from collections import defaultdict, deque
+from dataclasses import dataclass
+from typing import Deque, Dict, List, Optional
+
+
+@dataclass
+class Warning_:
+    feature: str
+    value: float
+    median: float
+    mad: float
+    z: float
+    severity: str      # "warn" | "stop"
+
+
+class DriftMonitor:
+    def __init__(self, path: str, window: int = 60, warn_z: float = 3.5, stop_z: float = 6.0, min_n: int = 8,
+                 min_rel_scale: float = 0.02, min_abs_scale: float = 1e-3):
+        self.path, self.window, self.warn_z, self.stop_z, self.min_n = path, window, warn_z, stop_z, min_n
+        self.min_rel_scale, self.min_abs_scale = min_rel_scale, min_abs_scale
+        self.hist: Dict[str, Deque[float]] = defaultdict(lambda: deque(maxlen=window))
+        self._load()
+
+    def _load(self):
+        if os.path.exists(self.path):
+            try:
+                with open(self.path, "r", encoding="utf-8") as f:
+                    d = json.load(f)
+                for k, v in d.items():
+                    self.hist[k].extend(v[-self.window:])
+            except (OSError, ValueError):
+                pass
+
+    def save(self):
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump({k: list(v) for k, v in self.hist.items()}, f)
+
+    def observe(self, feature: str, value: float) -> Optional[Warning_]:
+        h = self.hist[feature]
+        verdict = None
+        if len(h) >= self.min_n:
+            med = statistics.median(h)
+            mad = statistics.median(abs(x - med) for x in h)
+            scale = max(1.4826 * mad, self.min_rel_scale * abs(med), self.min_abs_scale)
+            z = abs(value - med) / scale
+            if z >= self.stop_z:
+                verdict = Warning_(feature, value, med, mad, z, "stop")
+            elif z >= self.warn_z:
+                verdict = Warning_(feature, value, med, mad, z, "warn")
+        h.append(value)
+        return verdict
+
+
+class PreChecks:
+    """Deterministic conditions evaluated before a step. Each returns a list of problems."""
+
+    def __init__(self, layout: dict, jaw_open: Optional[dict] = None, jaw_closed: Optional[dict] = None):
+        """jaw_open / jaw_closed: the plate type's widths per grip; default the cell's gripper.open/closed."""
+        self.layout = layout
+        self.closed = jaw_closed or layout["gripper"]["closed"]
+        self.width = layout["gripper"].setdefault("plate_width", {})      # where the pads meet the plate; `closed` is the command, below it
+        self.jaw_tol = layout["gripper"]["tolerance"]
+        self.release_tol = layout["gripper"].get("release_tolerance", 0.3)
+        self.jaw_open = jaw_open or layout["gripper"]["open"]
+
+    def width_of(self, grip: str) -> float:
+        """The width the pads read on the plate: what a grasp is judged against. The commanded closed width is under it (the servo
+        presses), so an empty close reads the command, far outside. Without an entry the command is the width (the old behaviour)."""
+        return self.width.get(grip, self.closed[grip])
+
+    def clamp_holds(self, r: dict, command: float, limit: float, grip: str, floor: float = 0.9):
+        """None when the reading is a plate between the fingers, else the reason. The force is the signal: the torque is at the limit (a plate pushes
+        back) and the jaw stopped above the command (the fingers did not reach it). The width only has to be near what this grip reads on the plate."""
+        w, t = r["width"], abs(r["torque"])
+        if t < floor * limit:                      # at the clamp 0.9 of the limit; during a carry 0.5 (the holding torque relaxes: 0.50 -> 0.40 over a
+            return f"torque {t:.2f} is under {floor * limit:.2f}: nothing presses back"      # 34 s carry with the plate held, 2026-11-03; half the clamp force is the vendor's own drop threshold)
+        if w < command + 0.3:
+            return f"the jaw closed to {w:.2f}, the command {command}: nothing between the fingers"
+        want = self.width.get(grip)                 # known once the first holding clamp of this grip has been seen (Grasp._clamp learns it)
+        if want is not None and abs(w - want) > 1.0:
+            return f"the pads stopped at {w:.2f}, this grip reads {want} on the plate: not the plate, or off its edge"
+        return None
+
+    def before_grasp(self, jaw: float, robot_state) -> List[str]:
+        p = []
+        if jaw < min(v for v in self.jaw_open.values() if v) - 1.0:
+            p.append(f"jaw not open before grasp ({jaw:.2f})")
+        if robot_state.drag:
+            p.append("drag mode on")
+        if not robot_state.enabled:
+            p.append("robot not enabled")
+        return p
+
+    def grasp_ok(self, jaw: float, grip: str, expected: Optional[float] = None) -> Optional[str]:
+        """`expected` overrides the nominal width: a fixture may present the plate a few tenths wider than the
+        hand-measured grip (a clamped holder), learned by the centering search and stored per fixture."""
+        want = self.width_of(grip) if expected is None else expected
+        jaw = round(jaw, 2)                 # the readout is quoted to 0.01; 22.58 vs 22.50 +- 0.08 must pass
+        if abs(jaw - want) <= self.jaw_tol + 1e-6:
+            return None
+        if expected is not None and self.width_of(grip) - self.jaw_tol - 1e-6 <= jaw <= want + self.jaw_tol + 1e-6:
+            return None                     # tighter than the fixture's signature but not below the plate's own width:
+                                            # the pads are in the groove (microscope 22.42 vs signature 22.50, 10-20 17:24)
+        band = self.layout["gripper"].get("accept_band", {}).get(grip)
+        if expected is None and band and band[0] <= jaw <= band[1]:
+            return None                     # plate between the pads; which part of its wall the jaw width cannot tell
+        if jaw < want - self.jaw_tol:
+            return f"jaw closed to {jaw:.2f}: nothing or too little between the fingers (plate missed / wrong edge)"
+        return f"jaw stopped at {jaw:.2f}: obstruction or plate not seated"
+
+    def before_release(self, jaw: float, grip: str) -> List[str]:
+        """Looser than the grasp check: a plate carried for minutes may sit a few tenths of a unit wider."""
+        want = self.width_of(grip)
+        band = self.layout["gripper"].get("accept_band", {}).get(grip)
+        if abs(jaw - want) <= self.release_tol:
+            return []
+        if band and band[0] - self.release_tol <= jaw <= band[1] + self.release_tol:
+            return []
+        return [f"not holding a plate on {grip} ({jaw:.2f})"]

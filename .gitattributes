@@ -1,1 +1,2 @@
 vendor_data/** -text
+*.bat text eol=crlf

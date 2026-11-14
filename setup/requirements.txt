@@ -1,10 +1,6 @@
 # Runtime: what the setup program and the loop import. Pinned to the versions that run on the cell (October 2026).
-# Install: .\install.ps1   (a venv, these pins, the doctor). Tests and lint tools are in requirements-dev.txt.
-numpy==2.5.4
-scipy==1.18.1                              # calibration solve, servo
-pillow==12.3.0
-opencv-contrib-python-headless==5.0.0.93   # reading the plate tag; calibration
-paramiko==5.0.0                            # uploading the camera files to the vision box (optional: only calibration uses it)
-pythonnet==3.2.1                           # real arm only: loads the vendor .NET SDK (needs the .NET 8 runtime)
-# The vendor wheel (BioyondSDK 0.1.1) is not on PyPI: install.ps1 -SdkWheel <path to the .whl> installs it. The simulator
-# (python cli.py setup --sim) needs neither pythonnet nor the wheel.
+# Install: setup\install.bat   (a venv, these pins, the vendor package, the doctor). Tests and lint tools are in utils/requirements-dev.txt.
+numpy==2.5.4                               # the hotel fitted through the six taught slots
+pythonnet==3.2.1                           # real arm only: loads the vendor .NET package (needs the .NET Desktop Runtime 8, x64)
+# The vendor wheel (bioyondsdk 0.1.1) is not on PyPI: setup\install.bat takes it from setup\vendor\ or as its argument.
+# It is needed on every real cell: it is how the arm is driven. The simulator (cli setup --sim) needs neither pythonnet nor the wheel.

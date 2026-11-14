@@ -71,18 +71,21 @@ class Microscope:
     def parked(self) -> bool:
         return self._do(self._link.parked)
 
+    def ping(self) -> dict:
+        """Squid answers (nothing moves), or PolarError with what to do."""
+        return self._do(self._link.ping)
+
 
 class Polar:
-    def __init__(self, check_occupancy: bool = False, speed: str = "stress", plate_at: Optional[str] = None, microscope: Optional[Microscope] = None):
-        """check_occupancy: look at a seat with the camera before placing on it (optional, off).
-        speed: a profile of layout.json speeds.
+    def __init__(self, speed: str = "stress", plate_at: Optional[str] = None, microscope: Optional[Microscope] = None):
+        """speed: a profile of layout.json speeds.
         plate_at: where the plate is now, when this is the first run or it was moved by hand: a place name, or "none".
         microscope: a Microscope made by the caller, used instead of Polar's own for that instrument."""
         self._scopes = {microscope.name: microscope} if microscope is not None else {}
         from run import positions
         from utils.devices import nova
         from run import motion
-        from vision.corrector import StopSafe
+        from run.corrector import StopSafe
         from run.cycle import Cycle
         from run.planner.safety import SpeedProfile
         from run.state import StateStore
@@ -91,7 +94,6 @@ class Polar:
 
         self._StopSafe = StopSafe
         self.layout = positions.load()
-        self.layout["vision"]["check_before_lower"] = bool(check_occupancy)
         runs = os.path.join(positions.RUNS, "polar")
         self._tele = Telemetry(runs)
         try:
@@ -103,7 +105,7 @@ class Polar:
         if not self._robot.enable():
             raise PolarError("the arm could not be enabled")
         self._store = StateStore(os.path.join(runs, "state.json"))
-        self._cyc = Cycle(self.layout, self._robot, nova.vision_box(self.layout, self._tele.log), self._tele, self._store, "supervised", runs, positions.REFS)
+        self._cyc = Cycle(self.layout, self._robot, self._tele, self._store, "supervised", runs)
         self._cyc.safety.profile = SpeedProfile(**self.layout["speeds"][speed])
         self._cyc.corr.ask = lambda q, t=0: "y"
         self._cyc._carry_check = self._carry_by_width
@@ -116,8 +118,12 @@ class Polar:
 
     # ------------------------------------------------------------------ the three verbs
     def move(self, source: str, destination: str) -> None:
-        """Pick the plate at the source and place it at the destination."""
+        """Pick the plate at the source and place it at the destination. A Squid at either end is asked first whether it answers:
+        a microscope that is not there is refused before the plate is in the claw, not after."""
         self._kind(destination)
+        for place in (source, destination):
+            if place in (self.layout.get("squid") or {}):
+                self._scopes.setdefault(place, Microscope(place)).ping()
         self.pick(source)
         self.place(destination)
 
@@ -235,7 +241,7 @@ class Polar:
 
     def _place_module(self) -> None:
         pose, gate, _ = self._seat(self._store.s.grip)
-        self._do(lambda: self._cyc._place("polar", pose, self.layout["fixtures"]["polar"], "polar", None, gate=gate, check=self.layout["vision"]["check_before_lower"]))
+        self._do(lambda: self._cyc._place("polar", pose, self.layout["fixtures"]["polar"], "polar", None, gate=gate))
 
     def _regrip(self, grip: str) -> None:
         if self._store.s.grip == grip:

@@ -1,7 +1,7 @@
 """The places each workcell is shown by hand during the setup: the two seats of the rotation module and six hotel slots.
 
 The module's seats and the hotel's place differ from one workcell to the next; the hotel's shape (column pitch, row pitch) does not.
-So eight hand placements with the ArUco practice plate, the jaw set a hair wider than the plate so the pads slide into its grooves:
+So eight hand placements with a plate, the jaw set a hair wider than the plate so the pads slide into its grooves:
 
     record(robot, layout)            where the arm is now, as the taught records are kept
     refine_yaw(cell, grip, read)     the module seat's angle by force: where clamping the seated plate does not twist the module

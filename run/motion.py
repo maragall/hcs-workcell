@@ -6,7 +6,7 @@ import time
 from typing import List, Optional
 
 from utils.devices.arm import MotionRefused
-from vision.corrector import StopSafe
+from run.corrector import StopSafe
 from run.planner.safety import SafetyViolation
 from run.planner.plan import plan
 from run.planner import fk
@@ -118,8 +118,8 @@ class Motion:
 
     def _observe_time(self, label: str, dt: float) -> None:
         """A move's duration goes to the drift monitor only when the move is the same every time. A leg of a route planned from where
-        the arm stands ("move_to ... [1/1]") starts somewhere else each time: on 2026-11-11 0.70 s against a median of 0.81 s for the
-        camera's centring moves stopped the setup as "drift"."""
+        the arm stands ("move_to ... [1/1]") starts somewhere else each time: on 2026-11-11 0.70 s against a median of 0.81 s for such
+        moves stopped the setup as "drift"."""
         if not label.startswith("move_to "):
             self._observe(f"dt:{label}", dt)
 
@@ -220,7 +220,7 @@ class Motion:
                           axes=[round(t - s, 2) for s, t in zip(start, j[:4])])
 
     def _seat(self, pose: List[float], corr: List[float]) -> List[float]:
-        """The pose the jaw acts at: taught seat + vision correction + the plate type's grab height
+        """The pose the jaw acts at: taught seat + a correction (none today) + the plate type's grab height
         (the vendor template adds VAR7 to the seat Z the same way)."""
         return offset(offset(pose, corr), [0.0, 0.0, self.plate.grab_height_mm])
 
@@ -294,7 +294,7 @@ class Motion:
             self.go_to(hover, f"{fixture_name} hover")
 
     def go_nest(self) -> None:
-        """The nest: routes.nest.pose, a pose in the clear in front of the hotel (the front camera sees it) that the planner can
+        """The nest: routes.nest.pose, a pose in the clear in front of the hotel that the planner can
         reach from anywhere, including from a pose where the arm stopped against something (it backs out along the claw first).
         For an empty claw: a plate in it would reach into the hotel from there."""
         nest = self.L.get("routes", {}).get("nest")
@@ -352,7 +352,7 @@ class Motion:
         route = plan(self.L, self.safety, self.robot.pose(), target, self._position_here(), name,
                      holding=grip if grip and grip != "none" else None, heading=getattr(self, "last_heading", None))
         self.tele.log("move", f"move_to {name}", route.name, taught=route.taught, waypoints=len(route.poses))
-        from vision import prompt
+        from utils import prompt
         prompt.emit("ROUTE", {"to": name, "name": route.name, "taught": route.taught, "planned_s": round(time.time() - t_plan, 1),
                               "poses": [[round(v, 1) for v in p[:6]] for p in route.poses], "joint_legs": sorted(route.joint_targets)})
         if route.taught:

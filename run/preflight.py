@@ -1,7 +1,6 @@
-"""What must be taught, measured and photographed before the arm moves on its own."""
+"""What must be taught and measured before the arm moves on its own."""
 from __future__ import annotations
 
-import os
 from typing import Iterable, List
 
 
@@ -13,8 +12,8 @@ def _walk(node, path=""):
         yield path, node
 
 
-def preflight(layout: dict, ref_dir: str, scopes: Iterable[str] = ("microscope",), squid: Iterable[str] = ()) -> List[str]:
-    """Problems that stop a run: untaught poses, unmeasured widths, missing reference images, open _todo keys,
+def preflight(layout: dict, scopes: Iterable[str] = ("microscope",), squid: Iterable[str] = ()) -> List[str]:
+    """Problems that stop a run: untaught poses, unmeasured widths, open _todo keys,
     unmeasured keep-outs. `squid`: the microscopes driven through utils.devices.squid; their park numbers must be measured."""
     problems = [p for p, v in _walk(layout) if p.endswith("_todo")]
     problems += [f"regions.{n} keep-out box not set" for n, r in layout["regions"].items() if r.get("keep_out") and not r.get("box")]

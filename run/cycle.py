@@ -4,7 +4,7 @@ The plate cycle.
     microscope (short-edge grip) -> polar stage at 0 deg -> rotate 90 -> long-edge grip
     -> hotel slot -> back to polar at 90 -> rotate 0 -> short-edge grip -> microscope
 
-Every fixture visit follows the same pattern: travel, hover, vision gate, lower, jaw action, jaw
+Every fixture visit follows the same pattern: travel, hover, lower, jaw action, jaw
 verification, lift, held-plate check.  The state file is updated before and after each step.
 Motion is never retried; every motion is observed to completion and compared with its target.
 """
@@ -18,12 +18,10 @@ from typing import Callable, List, Optional
 
 from utils.devices.arm import Robot
 from utils.devices.stage import PolarError, PolarStage
-from utils.devices.vision_box import VisionClient
-from vision import hub
-from vision.predictor import DriftMonitor, PreChecks
+from run.predictor import DriftMonitor, PreChecks
 from run import plates
-from vision.corrector import Corrector, StopSafe
-from vision.gates import Gates
+from run.corrector import Corrector, StopSafe
+from run.health import Health
 from run.grasp import Grasp
 from run.hotel import Hotel
 from run.motion import Motion, offset
@@ -32,28 +30,25 @@ from run.state import StateStore
 from run.telemetry import Telemetry
 
 
-class Cycle(Motion, Grasp, Gates, Hotel):
+class Cycle(Motion, Grasp, Health, Hotel):
     """One plate cycle on one microscope. The four parents only split the methods over files by topic
-    (moves, jaw, checks, hotel); every attribute they use is set here.
+    (moves, jaw, health check, hotel); every attribute they use is set here.
 
     scope:       this cycle's microscope, a fixture name in the positions file
     layout_path: where learned poses and grasp widths are written back; None keeps them in memory
     stop_event:  set by another task (run/loop.py) when the cell must stop at the next step
     clock:       time() and sleep() for every fixed wait (jaw settle, stage settle, retry pauses); the
                  time module, or a fake the tests inject so the simulator does not wait in real seconds
-    frame_source: where the checks take their camera frames; anything with vision_box's frame() signature.
-                  Default: the box itself. The GUI passes its always-on frame buffer.
     parked:      the microscope's stage-parked report; the arm enters a `needs_parked` region only while it is True.
                  None: no microscope device to ask (cli runs, exercise), the region is entered as before
     """
 
-    def __init__(self, layout: dict, robot: Robot, vision: VisionClient, tele: Telemetry, store: StateStore,
-                 mode: str, run_dir: str, ref_dir: str, scope: str = "microscope",
+    def __init__(self, layout: dict, robot: Robot, tele: Telemetry, store: StateStore,
+                 mode: str, run_dir: str, scope: str = "microscope",
                  layout_path: Optional[str] = None, stop_event: Optional[threading.Event] = None, clock=time,
-                 parked: Optional[Callable[[], bool]] = None, frame_source=None):
-        self.L, self.robot, self.vision, self.tele, self.store = layout, robot, vision, tele, store
+                 parked: Optional[Callable[[], bool]] = None):
+        self.L, self.robot, self.tele, self.store = layout, robot, tele, store
         self.scope, self.run_dir, self.layout_path, self.clock = scope, run_dir, layout_path, clock
-        self.frames = frame_source or vision
         self.stop_event = stop_event or threading.Event()
         self.ask_before_lower = None             # callable(label) -> bool; set by a supervisor that wants a word before every lowering
         self.parked = parked or (lambda: True)
@@ -65,35 +60,15 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.plate = plates.default(layout)      # jaw widths and seat Z offset of the plate being handled
         self.checks = PreChecks(layout, self.plate.jaw_open, self.plate.jaw_closed)
         self.drift = DriftMonitor(os.path.join(run_dir, f"drift_{scope}.json"))
-        self.corr = Corrector(layout, vision, robot, self.safety, tele, self.supervised, clock)
+        self.corr = Corrector(layout, robot, self.safety, tele, self.supervised, clock)
         self.polar = PolarStage(layout["polar"], robot, tele.log, self.supervised, store.s.polar_angle, clock)
         self.lim = layout["limits"]
-        self.down_cam = layout["vision"]["down_camera"]
-        self.front_cam = layout["vision"]["front_camera"]
-        self.led = layout["vision"]["led"]
-        self.front_led = int(layout["vision"].get("front_led", self.led))
         self._last_health = 0.0
-        self.commission = {"no_gates": False, "no_vision_correction": False}
         self.resuming = False
         self._search_widths: List[float] = []        # jaw widths seen during a centering search
-        self.hub_cfg = layout["vision"].get("hub", {})   # record: every gate verdict and outcome go to the outbox
-        if self.hub_cfg.get("record"):
-            store.on_done = lambda step: self._hub(hub.outcome, step, True)
-
-    # --------------------------------------------------------------- recording
-    def _hub(self, write, *args):
-        """Opt-in (vision.hub.record) rows for cephla-hub. Training data never stops the arm: a failed write is logged."""
-        if not self.hub_cfg.get("record"):
-            return
-        try:
-            write(*args, self.hub_cfg.get("outbox", hub.OUTBOX))
-        except OSError as e:
-            self.tele.log("hub", write.__name__, f"not recorded: {e}")
-
     def _fault(self, step: str, kind: str, detail: str):
         self.store.fault(step, kind, detail)
         self.tele.log("fault", step, kind, detail=detail)
-        self._hub(hub.outcome, step, False)
 
     def _observe(self, feature: str, value: float):
         w = self.drift.observe(feature, value)
@@ -132,7 +107,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         self.store.done(plate_at="gripper", grip=grip)
 
     def _place(self, fixture_name: str, pose: List[float], fixture: dict, at: str, trajectory_in: Optional[str],
-               reverse: bool = False, gate: Optional[str] = None, check: bool = True):
+               reverse: bool = False, gate: Optional[str] = None):
         prof = self.safety.profile
         step = f"place:{fixture_name}"
         self.store.begin(step)
@@ -140,8 +115,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         hover = offset(pose, [0, 0, fixture["hover_mm"]])
         if trajectory_in:
             self._enter(trajectory_in, reverse, hover, fixture_name)
-        if not (check and self._check_seat_from_view(fixture_name, pose, fixture, hover, step)):      # check=False: the seat proof, the plate was just lifted off it
-            self._arrive(hover, f"{step} hover", prof.approach)
+        self._arrive(hover, f"{step} hover", prof.approach)
         self._polar_ensure(fixture_name, gate, pose, hover)
         target = self._seat(pose, [0.0] * 6)
         hover = offset(target, [0, 0, fixture["hover_mm"]])
@@ -151,12 +125,9 @@ class Cycle(Motion, Grasp, Gates, Hotel):
         if lift:
             target = [target[0], target[1], target[2] + lift] + list(target[3:])
         self._carry_check(step, self.store.s.grip)
-        # No camera on the claw can see a plate already in the seat while another is carried over it: the seated plate's edges project below the
-        # carried plate's and are hidden by it (front camera at the hover, 2026-11-04 01:50). The seat is checked with the empty claw instead.
+        # Nothing sees whether the seat is already occupied: the ledger (run/state.py) is what says it is free.
         self._descend(target, f"{step} lower", allow_floor=(fixture_name,))
-        self._collect("seat", fixture_name, "held", "front")           # the pair the tilt check will use: level in the fingers, then as it lands
         self._jaw_open(self.store.s.grip, fixture)
-        self._collect("seat", fixture_name, "flat", "front")
         self._move("L", hover, f"{step} lift", prof.approach)
         self.store.done(plate_at=at, grip="none")
 
@@ -176,8 +147,7 @@ class Cycle(Motion, Grasp, Gates, Hotel):
 
     def _elbow_to_taught(self, step: str) -> None:
         """The arm back on the taught elbow side, with an empty claw. Column C leaves it on the mirrored one, where no route exists from
-        the module to a hotel mouth with a plate in hand (02:46, 2026-11-04) and the camera views over the module run out of joint 2's
-        range (2026-11-11). The switch is made over the module's long-edge seat, at the top of the workspace, through the stored postures
+        the module to a hotel mouth with a plate in hand (02:46, 2026-11-04). The switch is made over the module's long-edge seat, at the top of the workspace, through the stored postures
         (run/preset/elbow_switch.json); every leg is checked against layout.json's boxes on both elbow sides before any is driven."""
         import json
         from run import positions
@@ -204,46 +174,6 @@ class Cycle(Motion, Grasp, Gates, Hotel):
             vol.check_joint_leg(fk.fk(a), fk.fk(b), f"{step} elbow switch", joints_a=a, joints_b=b)
         for i, q in enumerate(seq[1:], 1):
             self._move_joints_to(fk.fk(q), f"{step} elbow switch {i}/{len(seq) - 1}", prof.travel, joints=q)      # open air at the top, empty claw
-
-    def _check_seat_from_view(self, fixture_name: str, pose: List[float], fixture: dict, hover: List[float], step: str) -> bool:
-        """Before a plate is lowered onto the module or a microscope: is the seat already occupied? With the plate in hand the arm goes to the
-        station's viewing pose first (fixtures.<station>.view, taught with utils/view_pose.py; the carried plate is outside the down camera's
-        field there, 2026-11-04 01:50), the down camera is judged against the seat's empty pictures, then the arm comes over the seat at
-        that height and down to the hover. Returns True when it ended at the hover. vision.check_before_lower switches it; vision.gate_before_lower
-        makes a confident "full" a stop (off until the false-positive rate is known); otherwise the verdict is logged and shown."""
-        v = self.L["vision"]
-        view = (fixture.get("view") or {}).get("tool_offset")
-        if not v.get("check_before_lower", True) or not view or fixture_name == "hotel":
-            return False
-        from vision.view import from_tool_frame
-        target = from_tool_frame(pose, *view)
-        zmax = float(self.L["workspace_box"]["z"][1]) - 3.0
-        if target[2] > zmax:
-            target = [target[0], target[1], zmax] + list(target[3:])
-        prof = self.safety.profile
-        self._arrive(hover, f"{step} hover", prof.approach)                 # the stored leg to the hover; from there straight up and sideways: nothing new to plan
-        self._move("L", [hover[0], hover[1], target[2]] + list(hover[3:]), f"{step} up to the occupancy view", prof.approach)
-        self._move("L", target, f"{step} occupancy view", prof.approach)
-        if fixture_name == "polar" and self.polar.driver == "ext_axis":
-            real = self.polar.read_angle()
-            real = real - 360.0 * round(real / 360.0)
-            if abs(real) > 0.3:                                              # the module's occupancy picture is taken at 0 deg, along x (operator, 02:45); the place's own
-                self.tele.log("polar", "angle", f"module at {real:.1f}: to 0 for the occupancy picture")   # angle check turns it to the seat's angle before lowering
-                self.polar.rotate_to(0)
-                self.store.s.polar_angle = self.polar.angle = 0
-                self.store.save()
-        # judged against this seat's own pictures from this very situation, a plate in hand at the view (reference_images/occupancy_drop); the
-        # empty-claw pictures differ (closed fingers, the plate's edge) and read 0.44 on an empty module (02:20). Every drop-in picture whose
-        # seat the ledger calls empty becomes a reference after the verdict; the first one has none.
-        got = self._collect("occupancy_drop", fixture_name, "empty", "down", judge=True, save=(self.store.s.contents.get("module" if fixture_name == "polar" else fixture_name) != "full"))
-        word = got[1] if got else "no verdict (no reference yet)"
-        self.tele.log("seat", fixture_name, f"before lowering: the camera says {word}")
-        print(f"   {fixture_name}: occupancy before lowering: {word}", flush=True)
-        if got and got[0] == "full" and v.get("gate_before_lower", False):
-            raise StopSafe(f"{step}: the camera says the seat is occupied ({word}); not lowering")
-        self._move("L", [hover[0], hover[1], target[2]] + list(hover[3:]), f"{step} over the seat", prof.approach)
-        self._move("L", hover, f"{step} hover", prof.approach)
-        return True
 
     # ------------------------------------------------------------------ polar
     def _polar_ensure(self, fixture_name: str, gate: Optional[str], pose: List[float], hover: List[float]) -> None:

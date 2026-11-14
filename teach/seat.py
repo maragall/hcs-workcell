@@ -6,8 +6,7 @@
   3. Enter. The seat goes into layout.json fixtures.<NAME>, the routes seat <-> module into run/preset/routes.json. READY.
 
 Nothing here is new motion code: the arm is never commanded to move. The pieces are the tested ones: the loose arm with the jaw left
-as it is (setup/hand.py loosen, the setup's "microscope seat" step), the record (record below, without the camera
-frames), the seat's hover and planner box (setup/sections.py stage_hover, microscope_box), the planning (utils/plan_preset_routes.py).
+as it is (setup/hand.py loosen, the setup's "microscope seat" step), the record (record below), the seat's hover and planner box (setup/sections.py stage_hover, microscope_box), the planning (utils/plan_preset_routes.py).
 """
 from __future__ import annotations
 
@@ -181,7 +180,7 @@ def run(name: str, make_robot: Callable[[dict], object], ask: Callable[[str], st
     layout = positions.load()
     try:
         lua.build(layout, json.load(open(ROUTES, encoding="utf-8")), folder)
-        lua.check(folder)
+        lua.check(folder, layout=layout)
         robot = make_robot(layout)
         robot.connect()
         try:

@@ -1,5 +1,5 @@
 """
-Offline tests of the cycle against the simulator and a fake vision box. No arm, no Pi.
+Offline tests of the cycle against the simulator. No arm.
 Each test maps to a row of DESIGN.md section 6.
 """
 from __future__ import annotations
@@ -13,11 +13,10 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(HERE)))
 
-from rig import BAD, GATES, FakeClock, FakeVision, layout  # noqa: E402
+from rig import FakeClock, layout  # noqa: E402
 
 from utils.devices.fake_arm import SimFaults, SimRobot  # noqa: E402
-from utils.devices.vision_box import VisionError  # noqa: E402
-from vision.corrector import StopSafe  # noqa: E402
+from run.corrector import StopSafe  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
 from run.planner.safety import SafetyViolation  # noqa: E402
 from run.state import StateStore  # noqa: E402
@@ -25,10 +24,9 @@ from run.telemetry import Telemetry  # noqa: E402
 
 
 class Rig:
-    def __init__(self, faults=None, refs=GATES, mode="unsupervised"):
+    def __init__(self, faults=None, mode="unsupervised"):
         self.tmp = tempfile.mkdtemp()
         self.L = layout()
-        ref_dir = os.path.join(self.tmp, "refs")
         self.tele = Telemetry(os.path.join(self.tmp, "run"))
         self.store = StateStore(os.path.join(self.tmp, "state.json"))
         self.store.s.plate_at = "microscope"                   # the rig starts with a plate on the microscope
@@ -39,10 +37,8 @@ class Rig:
         for wp in self.L["trajectories"].values():
             for j, pose in zip(wp["joints"], wp["poses"]):
                 self.robot.joint_pose_map[tuple(round(v, 3) for v in j[:4])] = pose
-        self.vis = FakeVision()
         self.clock = FakeClock()
-        self.cyc = Cycle(self.L, self.robot, self.vis, self.tele, self.store, mode, os.path.join(self.tmp, "run"), ref_dir,
-                         clock=self.clock)
+        self.cyc = Cycle(self.L, self.robot, self.tele, self.store, mode, os.path.join(self.tmp, "run"), clock=self.clock)
 
     def run(self, slot="A1", cycles=1):
         return self.cyc.run(slot, cycles)
@@ -70,7 +66,7 @@ def test_full_cycle():
     s = r.store.s
     assert s.plate_at == "microscope" and s.step_done and s.polar_angle == 0
     kinds = {e["kind"] for e in r.events()}
-    assert {"vision", "jaw", "cycle", "move", "health"} <= kinds
+    assert {"jaw", "cycle", "move", "health"} <= kinds
     for kind, j in r.robot.trace:
         if kind == "AJ":
             assert j[4:] == r.robot.joints()[4:], "waypoint replay drove an external axis"
@@ -107,29 +103,6 @@ def test_obstructed_grasp_twice_stops():
     r.close()
 
 
-def test_plate_not_held_stops():
-    r = Rig()
-    r.L["vision"]["held_plate_auto_refs"] = 0        # the first lifts normally only collect references
-    r.vis.scene["scan_camera"] = BAD
-    r.expect_stop("plate in gripper")
-    assert any(f["kind"] == "not_held" for f in r.store.s.faults)
-    r.close()
-
-
-def test_fixture_moved_stops():
-    r = Rig()
-    r.vis.offset = [30.0, 0, 0, 0, 0, 0]
-    r.expect_stop("exceeds")
-    r.close()
-
-
-def test_aruco_missing_stops_unsupervised():
-    r = Rig()
-    r.vis.offset_error = VisionError("1002", "Operation Failed", "", "get_pose_offset")
-    r.expect_stop("get_pose_offset")
-    r.close()
-
-
 def test_stall_is_detected():
     r = Rig(SimFaults(stall_at=3))
     r.expect_stop("possible collision")
@@ -158,23 +131,6 @@ def test_polar_axis_is_commanded_from_zero_reference():
     r.close()
 
 
-def test_hotel_slot_occupied_stops():
-    r = Rig()
-    r.vis.slot_occupied = True
-    r.expect_stop("occupied")
-    r.close()
-
-
-def test_vision_box_down_stops():
-    r = Rig()
-    r.vis.status_error = OSError("unreachable")
-    r.expect_stop("vision box unreachable")
-    retries = [e for e in r.events() if e["step"] == "vision" and e["msg"].startswith("unreachable")]
-    assert len(retries) == r.L["limits"]["vision_retry_s"] // 10 + 1       # every 10 s for the whole retry window
-    assert r.clock.slept >= r.L["limits"]["vision_retry_s"]
-    r.close()
-
-
 def test_controller_error_stops_before_any_move():
     r = Rig(SimFaults(controller_errors=[{"errCode": 3873, "errMsg": "wrist collision"}]))
     r.expect_stop("controller error")
@@ -185,13 +141,14 @@ def test_controller_error_stops_before_any_move():
 
 def test_drag_on_mid_run_stops():
     r = Rig()
-    calls = {"n": 0}
+    calls, state = {"n": 0}, r.robot.state
 
     def flip():
         calls["n"] += 1
         if calls["n"] == 3:
             r.robot.faults.drag_on = True
-    r.vis.on_status = flip
+        return state()
+    r.robot.state = flip
     r.expect_stop("drag mode")
     r.close()
 
@@ -259,24 +216,6 @@ def test_ledger_naming_a_slot_the_hotel_does_not_have_is_refused():
     try:
         r.expect_stop("does not exist")
         assert r.robot._moves == 0
-    finally:
-        r.close()
-
-
-def test_hotel_place_stops_when_nothing_can_see_the_slot():
-    """At the approach point the vision box stops answering: no front frame, no vendor live detection. Placing blind
-    into a slot is what the occupancy check exists to prevent; 'nobody looked' must not pass as 'empty'."""
-    r = Rig()
-    orig = r.cyc._hotel_go_to_approach
-
-    def arrive(slot, step):
-        orig(slot, step)
-        r.vis.frame_error = r.vis.live_error = OSError("vision box gone")
-    r.cyc._hotel_go_to_approach = arrive
-    try:
-        r.expect_stop("no view")
-        assert r.store.s.plate_at == "gripper" and not r.store.s.step_done    # the plate was never released
-        assert r.robot._jaw < 3.0
     finally:
         r.close()
 

@@ -20,7 +20,7 @@ robot, st = nova.connect_readonly(layout, tele.log)
 if st.drag:
     robot.drag(False)
 robot.enable()
-cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, StateStore(os.path.join(runs, "state.json")), "supervised", runs, positions.REFS)
+cyc = Cycle(layout, robot, tele, StateStore(os.path.join(runs, "state.json")), "supervised", runs)
 cyc.safety.profile = SpeedProfile(**layout["speeds"]["supervised"])
 cyc.corr.ask = lambda q, t=0: "y"
 F = layout["fixtures"]["polar"]

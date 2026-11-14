@@ -1,6 +1,6 @@
 """The setup's real-cell path (no --sim) on fakes: discovery never writes the SDK port with the BRCAPI one,
-never probes the SDK port while it is connected, a host that is not a vision box is not saved; STOP file; one-line
-errors for a null layout value. Nothing touches the network or the hardware."""
+never probes the SDK port while it is connected; the arm is tried again and its failure says what to do; every Squid is asked;
+STOP file; one-line errors for a null layout value. Nothing touches the network or the hardware."""
 from __future__ import annotations
 
 import os
@@ -38,18 +38,93 @@ def test_arm_does_not_probe_the_sdk_port_while_connected(monkeypatch):
     assert seen == [56788] and got == {"ip": "192.168.1.220", "port": 52525}
 
 
-def test_a_host_that_is_not_a_vision_box_is_not_saved(monkeypatch):
+class Flaky:
+    """An arm whose connect fails `fails` times, then answers like the simulator's."""
+
+    def __init__(self, robot, fails, error="cannot connect to controller 192.168.1.220:52525 (one client only)"):
+        self._robot, self.fails, self.error, self.tries = robot, fails, error, 0
+        self.ip, self.port = "192.168.1.220", 52525
+
+    def connect(self):
+        self.tries += 1
+        if self.tries <= self.fails:
+            raise RuntimeError(self.error)
+
+    def __getattr__(self, name):
+        return getattr(self._robot, name)
+
+
+def test_the_arm_is_tried_again_when_the_controller_is_not_ready_yet(monkeypatch):
+    from setup import cell as cell_mod
+    monkeypatch.setattr(cell_mod, "CONNECT_PAUSE_S", 0.0)
     cell = real_cell(monkeypatch)
-    before = cell.layout()
-    monkeypatch.setattr(discover, "arm", lambda L, connected=False: {"error": "none"})
-    monkeypatch.setattr(discover, "vision_box", lambda L: {"host": "10.9.9.9", "port": 9000, "error": "10.9.9.9 answers but not as a vision box: x"})
-    monkeypatch.setattr(discover, "squid", lambda *a: {"error": "no"})
-    cell.vision_error = None
+    cell.robot = Flaky(cell.robot, fails=2)
+    cell.connect_arm_again()
+    assert cell.arm_error is None and cell.robot.tries == 3
+
+
+def test_a_vendor_package_that_does_not_load_is_not_tried_again_and_the_fix_names_the_installer(monkeypatch):
+    from setup import cell as cell_mod
+    monkeypatch.setattr(cell_mod, "CONNECT_PAUSE_S", 0.0)
+    cell = real_cell(monkeypatch)
+    cell.robot = Flaky(cell.robot, fails=99, error="vendor SDK not importable (pythonnet + bioyondsdk wheel + .NET 8): No module named 'BioyondSDK'")
+    cell.connect_arm_again()
+    assert cell.robot.tries == 1 and "install.bat" in cell.arm_fix({})
+
+
+def test_an_arm_that_answers_but_refuses_this_program_says_to_close_the_vendor_software(monkeypatch):
+    from setup import cell as cell_mod
+    monkeypatch.setattr(cell_mod, "CONNECT_PAUSE_S", 0.0)
+    cell = real_cell(monkeypatch)
+    cell.robot = Flaky(cell.robot, fails=99)
+    monkeypatch.setattr(discover, "arm", lambda L, connected=False: {"ip": "192.168.1.220", "port": 52525})
+    monkeypatch.setattr(discover, "squid", lambda L: {})
     cell.discover()
-    assert cell.layout()["vision"]["host"] == before["vision"]["host"]
-    monkeypatch.setattr(discover, "vision_box", lambda L: {"host": "10.9.9.9", "port": 9000, "version": "v", "cameras": 2})
+    arm = cell.devices[0]
+    assert not arm["ok"] and "BioyondWorks" in arm["fix"] and "one program at a time" in arm["fix"]
+
+
+def test_an_arm_found_at_another_address_is_saved_and_connected(monkeypatch):
+    from setup import cell as cell_mod
+    monkeypatch.setattr(cell_mod, "CONNECT_PAUSE_S", 0.0)
+    cell = real_cell(monkeypatch)
+    cell.robot = Flaky(cell.robot, fails=0)
+    cell.arm_error = "cannot connect"
+    monkeypatch.setattr(discover, "arm", lambda L, connected=False: {"ip": "10.1.2.3", "port": 52525})
+    monkeypatch.setattr(discover, "squid", lambda L: {})
     cell.discover()
-    assert cell.layout()["vision"]["host"] == "10.9.9.9"
+    assert cell.layout()["robot"]["ip"] == "10.1.2.3" and cell.robot.ip == "10.1.2.3"
+    assert cell.arm_error is None and cell.devices[0]["ok"]
+
+
+def test_no_arm_on_the_network_says_which_address_range_this_pc_needs(monkeypatch):
+    monkeypatch.setattr(discover, "scan", lambda port, first=None: None)
+    monkeypatch.setattr(discover, "local_subnets", lambda: [])
+    got = discover.arm({"robot": {"ip": "192.168.1.220", "port": 52525}})
+    assert "ip" not in got and "192.168.1.x" in got["fix"] and "port 1" in got["fix"]
+
+
+def test_every_squid_of_the_positions_file_is_asked_and_a_silent_one_says_what_to_do():
+    import socket
+    with socket.socket() as s:                              # a port nothing listens on
+        s.bind(("127.0.0.1", 0))
+        dead = s.getsockname()[1]
+    got = discover.squid({"squid": {"microscope": {"port": dead}}})
+    assert got["microscope"]["at"] == f"127.0.0.1:{dead}"
+    assert "Enable MCP Control Server" in got["microscope"]["error"]
+    assert discover.squid({}) == {} and discover.squid({"squid": {}}) == {}
+
+
+def test_a_squid_row_is_listed_for_each_microscope(monkeypatch):
+    cell = real_cell(monkeypatch)
+    monkeypatch.setattr(discover, "arm", lambda L, connected=False: {"ip": "192.168.1.220", "port": 52525})
+    monkeypatch.setattr(discover, "squid", lambda L: {"microscope": {"at": "127.0.0.1:5050", "acquiring": False, "python_exec": False},
+                                                     "microscope_2": {"at": "127.0.0.1:5051", "error": "does not answer"}})
+    cell.discover()
+    rows = {d["name"]: d for d in cell.devices}
+    assert rows["Squid microscope"]["ok"] and "Python Exec off" in rows["Squid microscope"]["state"]
+    assert not rows["Squid microscope_2"]["ok"] and "Enable MCP Control Server" in rows["Squid microscope_2"]["fix"]
+    assert not any("ision" in d["name"] for d in cell.devices)
 
 
 def test_ipconfig_output_in_any_code_page_is_read(monkeypatch):
@@ -70,7 +145,7 @@ def test_ipconfig_output_in_any_code_page_is_read(monkeypatch):
 def test_preflight_says_a_null_hotel_lift_in_words():
     L = positions.load()
     L["fixtures"]["hotel"]["lift_mm"] = None
-    assert "hotel lift not set: fixtures.hotel.lift_mm" in preflight(L, os.path.join(HERE, "no_refs"))
+    assert "hotel lift not set: fixtures.hotel.lift_mm" in preflight(L)
 
 
 def test_the_stop_file_stops_the_setup(monkeypatch):
@@ -108,58 +183,3 @@ def test_cli_turns_a_null_into_one_line(monkeypatch):
     with pytest.raises(SystemExit) as e:
         cli.main()
     assert "layout.json" in str(e.value) and "\n" not in str(e.value)
-
-
-def test_squid_is_found_in_the_saved_folder_then_the_fallback_and_else_asks_for_a_folder(tmp_path, monkeypatch):
-    from setup import discover
-    ctl = tmp_path / "software" / "control"
-    ctl.mkdir(parents=True)
-    (ctl / "microscope.py").write_text("")
-    monkeypatch.setattr(discover, "SQUID_FALLBACKS", ())
-    monkeypatch.setattr(discover.importlib.util, "find_spec", lambda name: None)
-    assert discover.squid({"squid_software": {"folder": str(tmp_path)}})["folder"] == str(tmp_path / "software")
-    out = discover.squid({})
-    assert out["error"] == "can't find the Squid software folder" and out["browse"]
-    monkeypatch.setattr(discover, "SQUID_FALLBACKS", (str(tmp_path),))
-    assert "module" in discover.squid({})
-
-
-def test_vision_box_found_on_another_port_by_its_get_version_reply(monkeypatch):
-    """The saved port is dead; 9001 is open but silent, 8888 answers get_version: that one is the box, and is reported with its port."""
-    from setup import discover
-    from utils.devices import nova
-
-    class Client:
-        def __init__(self, host, port, timeout=5, **kw):
-            self.host, self.port = host, port
-
-        def version(self):
-            if self.port != 8888:
-                raise TimeoutError("timed out")
-            return "service_name:VIBVision Service"
-
-        def status(self):
-            return type("S", (), {"cameras": 2})()
-
-    monkeypatch.setattr(nova, "VisionClient", Client)
-    monkeypatch.setattr(discover, "port_open", lambda host, port, timeout=0.4: host == "10.0.0.5" and port in (9001, 8888))
-    got = discover.vision_box({"vision": {"host": "10.0.0.5", "port": 9000}})
-    assert got["host"] == "10.0.0.5" and got["port"] == 8888 and got["cameras"] == 2
-
-
-def test_vision_box_nothing_answering_says_what_each_port_did(monkeypatch):
-    from setup import discover
-    from utils.devices import nova
-
-    class Client:
-        def __init__(self, *a, **kw):
-            pass
-
-        def version(self):
-            raise TimeoutError("timed out")
-
-    monkeypatch.setattr(nova, "VisionClient", Client)
-    monkeypatch.setattr(discover, "port_open", lambda host, port, timeout=0.4: host == "10.0.0.5" and port == 9001)
-    monkeypatch.setattr(discover, "local_subnets", lambda: [])
-    got = discover.vision_box({"vision": {"host": "10.0.0.5", "port": 9000}})
-    assert "error" in got and "10.0.0.5:9000 timed out" in got["error"] and "9001 open" in got["error"]

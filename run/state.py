@@ -33,7 +33,7 @@ class StateStore:
     def __init__(self, path: str):
         self.path = path
         self.s = self.load()
-        self.on_done = None                   # callable(step) run when a step completes (hub outcome rows)
+        self.on_done = None                   # callable(step) run when a step completes
 
     def load(self) -> CellState:
         if os.path.exists(self.path):

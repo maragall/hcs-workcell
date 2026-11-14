@@ -29,7 +29,7 @@ from utils.devices import nova  # noqa: E402
 from utils.devices.fake_squid import FakeSquid  # noqa: E402
 from utils.devices.squid import Squid  # noqa: E402
 from run import positions  # noqa: E402
-from vision.corrector import StopSafe  # noqa: E402
+from run.corrector import StopSafe  # noqa: E402
 from run.recovery import is_motion_fault, mark, recover_to_nest  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
 from run.hotel import plate_order  # noqa: E402
@@ -41,11 +41,11 @@ from run.telemetry import Telemetry  # noqa: E402
 
 class Workcell:
     """One run. `scopes` maps a microscope name (its fixture in the positions file) to its device.
-    layout, robot and vision are shared by every task and touched only while holding arm_lock."""
+    layout and robot are shared by every task and touched only while holding arm_lock."""
 
-    def __init__(self, layout: dict, robot, vision, scopes: Dict[str, object], tele: Telemetry, mode: str,
-                 run_dir: str, ref_dir: str, state_dir: str, layout_path: Optional[str] = None, poll_s: float = 1.0,
-                 clock=time, frame_source=None):
+    def __init__(self, layout: dict, robot, scopes: Dict[str, object], tele: Telemetry, mode: str,
+                 run_dir: str, state_dir: str, layout_path: Optional[str] = None, poll_s: float = 1.0,
+                 clock=time):
         missing = [s for s in scopes if s not in layout["fixtures"]]
         if missing:
             raise KeyError(f"no fixture entry in the positions file for {missing}")
@@ -61,9 +61,9 @@ class Workcell:
                 store.save()
                 tele.log("run", "ledger", f"{name}: new ledger; the holder is assumed empty, plates in the hotel")
             scope_dir = os.path.join(run_dir, name)
-            self.cycles[name] = Cycle(layout, robot, vision, Telemetry(scope_dir), store, mode, scope_dir, ref_dir,
+            self.cycles[name] = Cycle(layout, robot, Telemetry(scope_dir), store, mode, scope_dir,
                                       scope=name, layout_path=layout_path, stop_event=self.stop, clock=clock,
-                                      parked=scopes[name].parked, frame_source=frame_source)
+                                      parked=scopes[name].parked)
 
     def plates(self) -> Dict[str, str]:
         """Where every plate is, by microscope: the microscope name, 'hotel:<slot>' or 'gripper'."""
@@ -158,16 +158,15 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--order", choices=("interleave",), help="walk fixtures.hotel.loaded, columns interleaved, all microscopes sharing the list")
     ap.add_argument("--acquisition-s", type=float, default=5.0, help="how long a fake microscope pretends to image")
     ap.add_argument("--mode", choices=("supervised", "unsupervised"), default="supervised")
-    ap.add_argument("--sim", action="store_true", help="fake arm and fake microscopes; the vision box is still real")
+    ap.add_argument("--sim", action="store_true", help="fake arm and fake microscopes")
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--stop-file", default=None)
     ap.add_argument("--yes", action="store_true")
     return ap
 
 
-def build(args, layout: dict, vision=None, tag: str = "", ref_dir: str = positions.REFS, state_dir: Optional[str] = None):
-    """Everything a run needs from parsed args: (cell, robot, tele, slot_of). `vision` and `ref_dir` let a test
-    pass a fake box and its own reference photos."""
+def build(args, layout: dict, tag: str = "", state_dir: Optional[str] = None):
+    """Everything a run needs from parsed args: (cell, robot, tele, slot_of)."""
     names = [s for s in args.scopes.split(",") if s]              # one microscope is the product; more are a flag
     fakes = {s for s in args.fake_scopes.split(",") if s}
     active = layout["fixtures"]["hotel"].get("active_slots", ["A1"])
@@ -180,12 +179,11 @@ def build(args, layout: dict, vision=None, tag: str = "", ref_dir: str = positio
             if not layout["fixtures"].get(name, {}).get("pose"):      # missing or not taught yet
                 borrow_fixture(layout, name)
     else:
-        problems = preflight(layout, ref_dir, names, squid=[n for n in names if n not in fakes])
+        problems = preflight(layout, names, squid=[n for n in names if n not in fakes])
         if problems:
             sys.exit("preflight failed:\n  " + "\n  ".join(problems))
     run_dir = os.path.join(positions.RUNS, time.strftime("%Y%m%d_%H%M%S") + tag + ("_sim" if args.sim else ""))
     tele = Telemetry(run_dir)
-    vision = vision or nova.vision_box(layout, tele.log)
     robot = nova.arm(layout, tele.log, sim=args.sim)
     robot.connect()
     st = robot.state()
@@ -196,7 +194,7 @@ def build(args, layout: dict, vision=None, tag: str = "", ref_dir: str = positio
     scopes = _scopes(layout, names, fakes, args.acquisition_s, args.sim, tele.log)
     state_dir = state_dir or os.path.join(positions.ROOT, "state_sim" if args.sim else "")
     os.makedirs(state_dir, exist_ok=True)
-    cell = Workcell(layout, robot, vision, scopes, tele, args.mode, run_dir, ref_dir, state_dir,
+    cell = Workcell(layout, robot, scopes, tele, args.mode, run_dir, state_dir,
                     layout_path=None if args.sim else positions.PATH)
     tele.log("run", "start", mode=args.mode, scopes=names, slots=slot_of, cycles=args.cycles, sim=args.sim,
              plates=cell.plates())

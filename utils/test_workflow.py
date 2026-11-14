@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(HERE, "utils"))
 from run import positions  # noqa: E402
 from utils.devices import nova  # noqa: E402
 from run import motion as M  # noqa: E402
-from vision.corrector import StopSafe  # noqa: E402
+from run.corrector import StopSafe  # noqa: E402
 from run.cycle import Cycle  # noqa: E402
 from run.planner.safety import SpeedProfile  # noqa: E402
 from run.state import StateStore  # noqa: E402
@@ -72,7 +72,6 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     slots = a.slots or [c + str(r) for c in "AB" for r in (1, 3, 5, 7, 9)]
     layout = positions.load()
-    layout["vision"]["check_before_lower"] = False            # the seat occupancy look is optional: off here
     runs = os.path.join(positions.RUNS, "test_workflow")
     tele = Telemetry(runs)
     robot, st = nova.connect_readonly(layout, tele.log)
@@ -81,7 +80,7 @@ def main(argv=None) -> int:
     if not robot.enable():
         sys.exit("robot could not be enabled")
     store = StateStore(os.path.join(runs, "state.json"))
-    cyc = Cycle(layout, robot, nova.vision_box(layout, tele.log), tele, store, "supervised", runs, positions.REFS)
+    cyc = Cycle(layout, robot, tele, store, "supervised", runs)
     scope = cyc.scope
     cyc.safety.profile = SpeedProfile(**layout["speeds"][a.first])
     cyc.corr.ask = lambda q, t=0: (say(f"   doubt, carrying on: {q.strip()}"), "y")[1]

@@ -457,7 +457,7 @@ GEOMETRY_KEYS = ("pose", "pose_at_0", "pose_at_90", "hover_mm", "clear_mm", "lif
 
 def layout_sig(layout: dict) -> str:
     """A hash of the geometry a route depends on: the volumes, the regions, the routes block, and of every fixture only the keys that place
-    or size it. Flags (a plate on the module), widths, the occupancy, the setup notes and the vision settings are left out: the first
+    or size it. Flags (a plate on the module), widths, the occupancy and the setup notes are left out: the first
     version of this hash held them, changed every move, and no stored leg ever matched (2026-11-02)."""
     fixtures = {name: {k: v for k, v in fx.items() if k in GEOMETRY_KEYS} for name, fx in layout.get("fixtures", {}).items() if isinstance(fx, dict)}
     geometry = [layout.get("volumes"), layout.get("regions"), layout.get("routes"), fixtures]
